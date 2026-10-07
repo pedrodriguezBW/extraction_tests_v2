@@ -1,0 +1,17 @@
+[package]
+name = "climatic-report-generator"
+version = "0.4.0"
+description = "Desktop interface for the Climatic Report Generator"
+authors = ["Climatic Report Generator"]
+edition = "2021"
+
+[lib]
+name = "climatic_report_generator_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"

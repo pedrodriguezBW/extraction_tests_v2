@@ -1,0 +1,75 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Sistema operativo
+Thumbs.db
+.DS_Store
+
+# Archivos temporales
+*.tmp
+*.temp
+*.log
+~$*
+*.bak
+
+# PowerPoint generado
+*.pptx
+*.orig.pptx
+
+# Excel de ensayo
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb
+
+# Estructura de ensayo (TEST - NNN): datos reales, nunca en el repositorio
+01_Inputs/
+02_Evidences/
+03_Data/
+04_Report/
+_RenderedAssets/
+_Working/
+TEST - */
+[0-9][0-9][0-9][0-9][0-9] - */
+
+# JSON generados por el agente y descriptores de evidencias
+test_metadata.json
+evidence.json
+
+# Imágenes y adquisiciones
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tif
+*.tiff
+*.x03
+*.csv
+*.CSV
+*.gbd
+!frontend/src-tauri/icons/**
+
+# Opcional: datos locales de prueba
+Test_Data/
+test_data/
+local_tests/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/src-tauri/target/
