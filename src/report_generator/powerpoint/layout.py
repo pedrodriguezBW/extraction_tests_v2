@@ -52,7 +52,7 @@ def add_label_and_value(
     label_paragraph = label_frame.paragraphs[0]
     label_paragraph.text = label.upper()
     label_paragraph.font.name = FONT_FAMILY
-    label_paragraph.font.size = Pt(9)
+    label_paragraph.font.size = Pt(FONT_SIZE_LABEL_PT)
     label_paragraph.font.bold = True
     label_paragraph.font.color.rgb = COLOR_GRAY
 
@@ -75,7 +75,7 @@ def add_label_and_value(
     value_paragraph = value_frame.paragraphs[0]
     value_paragraph.text = value
     value_paragraph.font.name = FONT_FAMILY
-    value_paragraph.font.size = Pt(15)
+    value_paragraph.font.size = Pt(FONT_SIZE_VALUE_PT)
     value_paragraph.font.color.rgb = COLOR_NAVY
 
 def add_section_header(

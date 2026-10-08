@@ -15,16 +15,58 @@ from src.report_generator.powerpoint.charts import (
 from src.report_generator.powerpoint.images import (
     find_test_result_charts,
 )
+from src.report_generator.powerpoint.styles import (
+    FONT_SIZE_CHART_AXIS_PT,
+    FONT_SIZE_CHART_LEGEND_PT,
+    FONT_SIZE_CHART_TICK_PT,
+    FONT_SIZE_CHART_TITLE_PT,
+    FONT_SIZE_COMPACT_LABEL_PT,
+    FONT_SIZE_LABEL_PT,
+    FONT_SIZE_PROCEDURE_MIN_PT,
+    FONT_SIZE_SECTION_TITLE_PT,
+    FONT_SIZE_TABLE_BODY_PT,
+    FONT_SIZE_TABLE_HEADER_PT,
+    FONT_SIZE_TESTED_PARTS_PT,
+    FONT_SIZE_VALUE_PT,
+    MIN_GENERATED_FONT_SIZE_PT,
+)
 from src.report_generator.powerpoint.tables import (
     build_climatic_profile_rows,
 )
+from src.report_generator.evidences import Evidence, EvidenceDiscovery, discover_evidences
 from src.report_generator.generator import generate_climatic_report
 from src.report_generator.powerpoint.presentation import (
     build_report_filename,
 )
 from src.report_generator.sections.test_results import (
+    _reference_text,
+    _result_evidences,
     populate_test_results,
 )
+
+
+class GeneratedTypographyTests(unittest.TestCase):
+    def test_generated_font_tokens_respect_minimum(self):
+        generated_sizes = (
+            FONT_SIZE_SECTION_TITLE_PT,
+            FONT_SIZE_LABEL_PT,
+            FONT_SIZE_VALUE_PT,
+            FONT_SIZE_COMPACT_LABEL_PT,
+            FONT_SIZE_TABLE_HEADER_PT,
+            FONT_SIZE_TABLE_BODY_PT,
+            FONT_SIZE_TESTED_PARTS_PT,
+            FONT_SIZE_PROCEDURE_MIN_PT,
+            FONT_SIZE_CHART_TITLE_PT,
+            FONT_SIZE_CHART_AXIS_PT,
+            FONT_SIZE_CHART_TICK_PT,
+            FONT_SIZE_CHART_LEGEND_PT,
+        )
+        self.assertTrue(
+            all(
+                size >= MIN_GENERATED_FONT_SIZE_PT
+                for size in generated_sizes
+            )
+        )
 
 
 class ClimaticTableTests(unittest.TestCase):
@@ -99,6 +141,16 @@ class NativeChartTests(unittest.TestCase):
             sum(shape.has_chart for shape in self.slide.shapes),
             1,
         )
+
+
+class InitialEvidencePhotoTests(unittest.TestCase):
+    def test_initial_photos_are_selected_in_descriptor_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            test_root=build_test_folder(Path(directory)/"TEST - 001")
+            folder=test_root/"02_Evidences"/"00_Initial";folder.mkdir(parents=True)
+            first=folder/"initial_01.jpg";second=folder/"initial_02.jpg";first.write_bytes(b"photo");second.write_bytes(b"photo")
+            (folder/"evidence.json").write_text(json.dumps({"schemaVersion":1,"type":"initial","sequence":0,"photos":[{"savedName":first.name},{"savedName":second.name}]}),encoding="utf-8")
+            self.assertEqual(discover_evidences(test_root).found_photo_paths_for_type("initial"),[first,second])
 
 
 class TestResultsPopulationTests(unittest.TestCase):
@@ -219,8 +271,10 @@ class TestResultsPopulationTests(unittest.TestCase):
     @patch("src.report_generator.generator.prepare_working_directory")
     @patch("src.report_generator.generator.require_report_directory")
     @patch("src.report_generator.generator.load_test_metadata")
+    @patch("src.report_generator.generator.discover_evidences")
     def test_generator_includes_saved_charts_in_test_results(
         self,
+        discover_evidences_mock,
         load_metadata_mock,
         require_report_mock,
         prepare_directory_mock,
@@ -239,6 +293,8 @@ class TestResultsPopulationTests(unittest.TestCase):
         output_path = Path("test") / "04_Report" / "report.pptx"
         metadata = {"test": {"test_name": "Example"}}
         load_metadata_mock.return_value = metadata
+        initial_images=[test_root/"02_Evidences"/"00_Initial"/"initial_01.jpg"]
+        evidence_discovery=MagicMock();evidence_discovery.found_photo_paths_for_type.return_value=initial_images;discover_evidences_mock.return_value=evidence_discovery
         require_report_mock.return_value = Path("test") / "04_Report"
         prepare_directory_mock.return_value = Path("working")
         create_presentation_mock.return_value = working_path
@@ -250,14 +306,22 @@ class TestResultsPopulationTests(unittest.TestCase):
         )
 
         self.assertEqual(result, output_path)
-        populate_results_mock.assert_called_once_with(
-            working_path,
-            test_root,
-        )
+        populate_assembly_mock.assert_called_once_with(presentation_path=working_path,metadata=metadata,image_paths=initial_images)
+        populate_results_mock.assert_called_once_with(presentation_path=working_path,test_root=test_root,evidence_discovery=evidence_discovery)
         publish_report_mock.assert_called_once_with(
             working_path,
             Path("test") / "04_Report",
         )
+
+
+class EvidenceTimelineTests(unittest.TestCase):
+    def evidence(self,sequence,event_type,title):
+        return Evidence(directory=Path(str(sequence)),descriptor_path=Path(str(sequence))/"evidence.json",folder_name=f"{sequence:02d}_{title}",type=event_type,title=title,sequence=sequence)
+    def test_mixed_types_keep_sequence_order(self):
+        discovery=EvidenceDiscovery(directory=Path("02_Evidences"),found=True,evidences=[self.evidence(0,"initial","Initial"),self.evidence(1,"incident","Incident"),self.evidence(2,"planned_inspection","Inspection"),self.evidence(3,"restart","Restart")])
+        self.assertEqual([e.title for e in _result_evidences(discovery)],["Incident","Inspection","Restart"])
+    def test_reference_uses_descriptor_value_and_type(self):
+        evidence=self.evidence(1,"incident","Incident");object.__setattr__(evidence,"reference_type","cycles");object.__setattr__(evidence,"reference_value","450");self.assertEqual(_reference_text(evidence),"450 cycles")
 
 
 class GeneratorOutputTests(unittest.TestCase):

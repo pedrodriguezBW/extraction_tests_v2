@@ -123,6 +123,17 @@ class EvidenceDiscovery:
             for photo in evidence.missing_photos
         ]
 
+    def found_photo_paths_for_type(self, evidence_type: str) -> list[Path]:
+        """Return existing supported photos for one evidence type."""
+        normalized_type = evidence_type.strip().casefold()
+        return [
+            photo.path
+            for evidence in self.evidences
+            if (evidence.type or "").strip().casefold() == normalized_type
+            for photo in evidence.found_photos
+            if is_supported_image(photo.path)
+        ]
+
 
 def _is_integer(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)

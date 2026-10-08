@@ -7,7 +7,6 @@ from pptx import Presentation
 from pptx.enum.text import MSO_ANCHOR
 from pptx.util import Cm, Pt
 
-from ..metadata import resolve_setup_images
 from ..powerpoint.images import add_contained_image
 from ..powerpoint.layout import (
     add_assembly_data_row,
@@ -139,8 +138,8 @@ def populate_equipment_continuation_slide(
 
 def populate_test_assembly_images(
     presentation_path: Path,
-    test_root: Path,
     metadata: dict[str, Any],
+    image_paths: list[Path],
 ) -> None:
     presentation = Presentation(presentation_path)
 
@@ -153,17 +152,9 @@ def populate_test_assembly_images(
     clear_test_assembly_content(slide)
 
     # ==========================================================
-    # 1. FOTOGRAFÍAS DEL SETUP
+    # 1. INITIAL EVIDENCE PHOTOS
     # ==========================================================
-
-    # Las rutas se resuelven dentro de la carpeta del ensayo. Las
-    # referencias que no existen se omiten sin detener la generación.
-    resolved_images, _ = resolve_setup_images(
-        metadata,
-        Path(test_root),
-    )
-
-    first_slide_images = resolved_images[:2]
+    first_slide_images = image_paths[:2]
 
     image_top_cm = 3.70
     image_width_cm = TWO_COLUMN_IMAGE_WIDTH_CM

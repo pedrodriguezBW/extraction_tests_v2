@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  ApiClientError,
   checkHealth,
   deleteSimpatiChart,
   fetchSimpatiChart,
@@ -103,7 +102,7 @@ describe("API service", () => {
 
     await expect(
       generateReport("C:\\Tests\\Missing"),
-    ).rejects.toMatchObject<ApiClientError>({
+    ).rejects.toMatchObject({
       message: "The metadata file was not found.",
       status: 400,
     });

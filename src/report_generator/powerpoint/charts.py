@@ -8,7 +8,15 @@ from pptx.dml.color import RGBColor
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
 from pptx.util import Cm, Pt
 
-from .styles import COLOR_GRAY, COLOR_NAVY, FONT_FAMILY
+from .styles import (
+    COLOR_GRAY,
+    COLOR_NAVY,
+    FONT_FAMILY,
+    FONT_SIZE_CHART_AXIS_PT,
+    FONT_SIZE_CHART_LEGEND_PT,
+    FONT_SIZE_CHART_TICK_PT,
+    FONT_SIZE_CHART_TITLE_PT,
+)
 
 
 COLOR_ORANGE = RGBColor(237, 125, 49)
@@ -82,7 +90,7 @@ def _style_chart(
     chart.chart_title.text_frame.text = title
     _set_text_style(
         chart.chart_title.text_frame,
-        size_pt=14,
+        size_pt=FONT_SIZE_CHART_TITLE_PT,
         bold=True,
     )
 
@@ -91,27 +99,27 @@ def _style_chart(
         chart.legend.position = XL_LEGEND_POSITION.BOTTOM
         chart.legend.include_in_layout = False
         chart.legend.font.name = FONT_FAMILY
-        chart.legend.font.size = Pt(9)
+        chart.legend.font.size = Pt(FONT_SIZE_CHART_LEGEND_PT)
 
     chart.category_axis.has_title = True
     chart.category_axis.axis_title.text_frame.text = x_axis_title
     _set_text_style(
         chart.category_axis.axis_title.text_frame,
-        size_pt=10,
+        size_pt=FONT_SIZE_CHART_AXIS_PT,
         bold=True,
     )
     chart.category_axis.tick_labels.font.name = FONT_FAMILY
-    chart.category_axis.tick_labels.font.size = Pt(9)
+    chart.category_axis.tick_labels.font.size = Pt(FONT_SIZE_CHART_TICK_PT)
 
     chart.value_axis.has_title = True
     chart.value_axis.axis_title.text_frame.text = y_axis_title
     _set_text_style(
         chart.value_axis.axis_title.text_frame,
-        size_pt=10,
+        size_pt=FONT_SIZE_CHART_AXIS_PT,
         bold=True,
     )
     chart.value_axis.tick_labels.font.name = FONT_FAMILY
-    chart.value_axis.tick_labels.font.size = Pt(9)
+    chart.value_axis.tick_labels.font.size = Pt(FONT_SIZE_CHART_TICK_PT)
     chart.value_axis.has_major_gridlines = True
     chart.value_axis.major_gridlines.format.line.color.rgb = COLOR_GRAY
     chart.value_axis.major_gridlines.format.line.transparency = 65

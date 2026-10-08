@@ -102,11 +102,23 @@ class ProjectInspectionEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
 
     def test_project_routes_match_the_agent_metadata_workflow(self):
+        openapi_paths = app.openapi()["paths"]
+
         project_routes = {
-            (method, route.path)
-            for route in app.routes
-            if getattr(route, "path", "").startswith("/projects/")
-            for method in getattr(route, "methods", set())
+            (method.upper(), path)
+            for path, operations in openapi_paths.items()
+            if path.startswith("/projects/")
+            for method in operations
+            if method.lower()
+            in {
+                "get",
+                "post",
+                "put",
+                "patch",
+                "delete",
+                "options",
+                "head",
+            }
         }
 
         self.assertEqual(
