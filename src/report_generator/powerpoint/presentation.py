@@ -128,3 +128,103 @@ def inspect_slide_shapes(
             f"\n  Size: {width_cm:.2f} × {height_cm:.2f} cm"
             f"\n  Text: {text!r}"
         )
+
+
+def _slide_title_text(slide) -> str:
+    """Return normalized visible slide title text."""
+    title_shape = slide.shapes.title
+    if title_shape is not None and title_shape.has_text_frame:
+        return " ".join(title_shape.text.replace("\xa0", " ").split())
+
+    for shape in slide.shapes:
+        if not shape.has_text_frame:
+            continue
+        text = " ".join(shape.text.replace("\xa0", " ").split())
+        if text:
+            return text
+    return ""
+
+
+def _remove_slide_at(presentation: Presentation, slide_index: int) -> None:
+    """Remove one slide and its presentation relationship."""
+    slide_id = presentation.slides._sldIdLst[slide_index]
+    presentation.part.drop_rel(slide_id.rId)
+    del presentation.slides._sldIdLst[slide_index]
+
+
+def _find_title_index(
+    presentation: Presentation,
+    expected_title: str,
+    start_index: int = 0,
+) -> int:
+    normalized_expected = " ".join(expected_title.split()).casefold()
+    for slide_index in range(start_index, len(presentation.slides)):
+        current_title = " ".join(
+            _slide_title_text(presentation.slides[slide_index]).split()
+        ).casefold()
+        if current_title == normalized_expected:
+            return slide_index
+    raise ValueError(
+        f"The required slide {expected_title!r} was not found."
+    )
+
+
+def _renumber_visible_slide_footers(presentation: Presentation) -> None:
+    """Renumber existing numeric footer text boxes after pruning."""
+    for slide_number, slide in enumerate(presentation.slides, start=1):
+        for shape in slide.shapes:
+            if not shape.has_text_frame:
+                continue
+            text = shape.text.strip()
+            if not text.isdigit():
+                continue
+            # Corporate slide numbers live in the footer area. This avoids
+            # changing numeric content in tables or body text.
+            if shape.top < 15 * 360000:
+                continue
+            paragraph = shape.text_frame.paragraphs[0]
+            paragraph.text = str(slide_number)
+
+
+def prune_climatic_report_slides(presentation_path: Path) -> None:
+    """
+    Keep only the climatic-report scope and generated continuations.
+
+    The retained scope is:
+    - Cover slide.
+    - Tested Parts and its generated continuations.
+    - TEST A cover, contents, Test Description, Test Assembly, Test Inputs,
+      Test Results, Conclusions, and all continuations inserted between them.
+
+    Template summaries, TEST B, TEST C, teardown, version history, signatures,
+    and any trailing placeholder slides are removed.
+    """
+    presentation_path = Path(presentation_path)
+    presentation = Presentation(presentation_path)
+
+    tested_parts_index = _find_title_index(
+        presentation,
+        "2. Tested Parts",
+        start_index=1,
+    )
+    test_a_index = _find_title_index(
+        presentation,
+        "TEST A",
+        start_index=tested_parts_index + 1,
+    )
+    conclusions_index = _find_title_index(
+        presentation,
+        "5. Conclusions",
+        start_index=test_a_index + 1,
+    )
+
+    keep_indices = {0}
+    keep_indices.update(range(tested_parts_index, conclusions_index + 1))
+
+    for slide_index in range(len(presentation.slides) - 1, -1, -1):
+        if slide_index not in keep_indices:
+            _remove_slide_at(presentation, slide_index)
+
+    _renumber_visible_slide_footers(presentation)
+    presentation.save(presentation_path)
+

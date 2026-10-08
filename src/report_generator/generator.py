@@ -5,6 +5,7 @@ from .metadata import load_test_metadata
 from .powerpoint.presentation import (
     create_working_presentation,
     prepare_working_directory,
+    prune_climatic_report_slides,
     publish_report,
     require_report_directory,
     validate_template_path,
@@ -39,4 +40,5 @@ def generate_climatic_report(test_root, template_path):
         test_root=test_root,
         evidence_discovery=evidence_discovery,
     )
+    prune_climatic_report_slides(working_path)
     return publish_report(working_path, report_directory)

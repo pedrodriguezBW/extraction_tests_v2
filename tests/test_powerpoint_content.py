@@ -37,12 +37,129 @@ from src.report_generator.evidences import Evidence, EvidenceDiscovery, discover
 from src.report_generator.generator import generate_climatic_report
 from src.report_generator.powerpoint.presentation import (
     build_report_filename,
+    prune_climatic_report_slides,
 )
 from src.report_generator.sections.test_results import (
     _reference_text,
     _result_evidences,
     populate_test_results,
 )
+
+
+class PresentationPruningTests(unittest.TestCase):
+    @staticmethod
+    def _add_titled_slide(presentation, title, footer_number):
+        slide = presentation.slides.add_slide(presentation.slide_layouts[5])
+        if slide.shapes.title is None:
+            title_box = slide.shapes.add_textbox(0, 0, 5000000, 500000)
+            title_box.text = title
+        else:
+            slide.shapes.title.text = title
+        footer = slide.shapes.add_textbox(
+            100000,
+            15 * 360000,
+            500000,
+            300000,
+        )
+        footer.text = str(footer_number)
+        return slide
+
+    def test_pruning_keeps_climatic_scope_and_conclusions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            presentation_path = Path(directory) / "report.pptx"
+            presentation = Presentation()
+            self._add_titled_slide(presentation, "Cover", 1)
+            self._add_titled_slide(presentation, "LEG Summary", 2)
+            self._add_titled_slide(presentation, "One Page Summary", 3)
+            self._add_titled_slide(presentation, "2. Tested Parts", 4)
+            self._add_titled_slide(
+                presentation,
+                "2. Tested Parts (cont.)",
+                5,
+            )
+            self._add_titled_slide(presentation, "TEST A", 6)
+            self._add_titled_slide(presentation, "Contents", 7)
+            self._add_titled_slide(presentation, "1. Test Description", 8)
+            self._add_titled_slide(presentation, "2. Test Assembly", 9)
+            self._add_titled_slide(presentation, "3. Test Inputs", 10)
+            self._add_titled_slide(
+                presentation,
+                "3. Test Inputs (cont.)",
+                11,
+            )
+            self._add_titled_slide(presentation, "4. Test Results", 12)
+            self._add_titled_slide(
+                presentation,
+                "4. Test Results (cont.)",
+                13,
+            )
+            self._add_titled_slide(presentation, "5. Conclusions", 14)
+            self._add_titled_slide(presentation, "TEST B", 15)
+            self._add_titled_slide(presentation, "5. Conclusions", 16)
+            self._add_titled_slide(presentation, "TEST C", 17)
+            self._add_titled_slide(presentation, "Sample Analysis", 18)
+            self._add_titled_slide(
+                presentation,
+                "Additional Information",
+                19,
+            )
+            presentation.save(presentation_path)
+
+            prune_climatic_report_slides(presentation_path)
+            result = Presentation(presentation_path)
+            titles = [
+                slide.shapes.title.text
+                for slide in result.slides
+                if slide.shapes.title is not None
+            ]
+
+            self.assertEqual(
+                titles,
+                [
+                    "Cover",
+                    "2. Tested Parts",
+                    "2. Tested Parts (cont.)",
+                    "TEST A",
+                    "Contents",
+                    "1. Test Description",
+                    "2. Test Assembly",
+                    "3. Test Inputs",
+                    "3. Test Inputs (cont.)",
+                    "4. Test Results",
+                    "4. Test Results (cont.)",
+                    "5. Conclusions",
+                ],
+            )
+            self.assertNotIn("TEST B", titles)
+            self.assertNotIn("TEST C", titles)
+            self.assertNotIn("Additional Information", titles)
+
+            footer_numbers = []
+            for slide in result.slides:
+                numeric_footer = [
+                    shape.text.strip()
+                    for shape in slide.shapes
+                    if shape.has_text_frame
+                    and shape.text.strip().isdigit()
+                    and shape.top >= 15 * 360000
+                ]
+                footer_numbers.append(numeric_footer[0])
+            self.assertEqual(
+                footer_numbers,
+                [str(index) for index in range(1, len(result.slides) + 1)],
+            )
+
+    def test_pruning_requires_test_a_conclusions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            presentation_path = Path(directory) / "report.pptx"
+            presentation = Presentation()
+            self._add_titled_slide(presentation, "Cover", 1)
+            self._add_titled_slide(presentation, "2. Tested Parts", 2)
+            self._add_titled_slide(presentation, "TEST A", 3)
+            presentation.save(presentation_path)
+
+            with self.assertRaises(ValueError):
+                prune_climatic_report_slides(presentation_path)
 
 
 class GeneratedTypographyTests(unittest.TestCase):
@@ -261,6 +378,7 @@ class TestResultsPopulationTests(unittest.TestCase):
         presentation.save.assert_called_once_with(Path("report.pptx"))
 
     @patch("src.report_generator.generator.publish_report")
+    @patch("src.report_generator.generator.prune_climatic_report_slides")
     @patch("src.report_generator.generator.populate_test_results")
     @patch("src.report_generator.generator.populate_test_inputs")
     @patch("src.report_generator.generator.populate_test_assembly_images")
@@ -285,6 +403,7 @@ class TestResultsPopulationTests(unittest.TestCase):
         populate_assembly_mock,
         populate_inputs_mock,
         populate_results_mock,
+        prune_slides_mock,
         publish_report_mock,
     ):
         test_root = Path("test")
@@ -308,6 +427,7 @@ class TestResultsPopulationTests(unittest.TestCase):
         self.assertEqual(result, output_path)
         populate_assembly_mock.assert_called_once_with(presentation_path=working_path,metadata=metadata,image_paths=initial_images)
         populate_results_mock.assert_called_once_with(presentation_path=working_path,test_root=test_root,evidence_discovery=evidence_discovery)
+        prune_slides_mock.assert_called_once_with(working_path)
         publish_report_mock.assert_called_once_with(
             working_path,
             Path("test") / "04_Report",
@@ -328,6 +448,7 @@ class GeneratorOutputTests(unittest.TestCase):
     """Run the real generator flow with the slide sections mocked."""
 
     SECTION_PATCHES = (
+        "prune_climatic_report_slides",
         "populate_test_description",
         "populate_tested_parts",
         "populate_test_assembly_images",
