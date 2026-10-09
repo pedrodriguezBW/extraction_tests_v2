@@ -2,6 +2,43 @@
 
 All notable project changes are documented in this file.
 
+## [0.5.0] - 2026-10-08
+
+### Changed
+
+- `test_metadata.json` is now generated externally by the Copilot Studio agent from the climatic test input workbook.
+- The report application no longer opens the input Excel, extracts metadata, or regenerates `test_metadata.json`.
+- Report generation starts from the existing `04_Report/test_metadata.json`.
+- The metadata template no longer contains legacy `setup`, `source`, or `extraction` objects.
+- Setup and test-state photographs are now discovered independently from `02_Evidences/*/evidence.json`.
+
+### Added
+
+- Chronological PowerPoint slides generated from `02_Evidences/*/evidence.json`.
+- Evidence titles, references, notes, and photos in Test Results.
+- Automatic continuation slides for evidence states with multiple photos.
+- PowerPoint pruning tests and generated typography checks.
+
+### Changed
+
+- Test Assembly now uses photos from the `initial` evidence state.
+- Test Results preserves the real test sequence defined by each evidence descriptor.
+- Generated report typography uses a minimum font size of 12 pt.
+- Main generated values use 16 pt with increased spacing between fields.
+- The completed climatic PowerPoint keeps only the cover, Tested Parts, TEST A, its generated continuations, and the editable Conclusions slide.
+- Remaining slides are renumbered after report cleanup.
+
+
+
+### Removed
+
+- The legacy Excel metadata extraction workflow.
+- The extraction endpoint, services, models, scripts, and frontend extraction step.
+- Legacy setup-image references stored inside `test_metadata.json`.
+- Dependency on legacy `setup.images` paths during report generation.
+- Unused LEG summaries and explanatory template slides from generated reports.
+- TEST B, TEST C, Sample Analysis, Teardown, Additional Information, signatures, and trailing empty slides from climatic reports.
+
 ## [0.4.0] - 2026-10-07
 
 ### Added
