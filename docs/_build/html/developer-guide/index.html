@@ -3,7 +3,7 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Índice" href="../genindex.html"><link rel="search" title="Búsqueda" href="../search.html"><link rel="prev" title="Guía de usuario" href="../user-guide/index.html">
+<link rel="index" title="Índice" href="../genindex.html"><link rel="search" title="Búsqueda" href="../search.html"><link rel="next" title="Preparación del entorno de desarrollo" href="development-setup.html"><link rel="prev" title="Solución de problemas" href="../user-guide/troubleshooting.html">
 
     <!-- Generated with Sphinx 8.2.3 and Furo 2025.12.19 -->
         <title>Guía de desarrollo - Documentación del generador de informes climáticos</title>
@@ -192,8 +192,24 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">Documentación</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../user-guide/index.html">Guía de usuario</a></li>
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Guía de desarrollo</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../user-guide/index.html">Guía de usuario</a><input aria-label="Toggle navigation of Guía de usuario" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../user-guide/getting-started.html">Primeros pasos</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-guide/preparing-test-folder.html">Preparación de la carpeta del ensayo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-guide/application-workflow.html">Uso de la aplicación</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-guide/simpati-charts.html">Gráficas SIMPATI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-guide/generated-files.html">Archivos generados</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user-guide/troubleshooting.html">Solución de problemas</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current has-children current-page"><a class="current reference internal" href="#">Guía de desarrollo</a><input aria-label="Toggle navigation of Guía de desarrollo" checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="development-setup.html">Preparación del entorno de desarrollo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html">Arquitectura general</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html">Frontend React y Tauri</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html">Backend FastAPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-flow.html">Flujo de datos</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html">Pruebas y validación</a></li>
+</ul>
+</li>
 </ul>
 
 </div>
@@ -230,18 +246,33 @@
         <article role="main" id="furo-main-content">
           <section id="guia-de-desarrollo">
 <h1>Guía de desarrollo<a class="headerlink" href="#guia-de-desarrollo" title="Link to this heading">¶</a></h1>
-<p>Esta guía está dirigida a las personas responsables de mantener, probar o ampliar la aplicación.</p>
+<p>Esta guía explica cómo preparar el entorno, comprender la arquitectura, ejecutar la aplicación, modificar sus capas y validar los cambios.</p>
+<p>Está dirigida a las personas responsables de mantener o ampliar el proyecto.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="development-setup.html">Preparación del entorno de desarrollo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Arquitectura general</a></li>
+<li class="toctree-l1"><a class="reference internal" href="frontend.html">Frontend React y Tauri</a></li>
+<li class="toctree-l1"><a class="reference internal" href="backend.html">Backend FastAPI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data-flow.html">Flujo de datos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Pruebas y validación</a></li>
+</ul>
+</div>
 <section id="componentes-principales">
 <h2>Componentes principales<a class="headerlink" href="#componentes-principales" title="Link to this heading">¶</a></h2>
 <p>La aplicación está formada por:</p>
 <ul class="simple">
-<li><p>Un frontend desarrollado con React y TypeScript e integrado con Tauri.</p></li>
-<li><p>Un backend desarrollado con FastAPI.</p></li>
-<li><p>Un motor Python encargado de generar el PowerPoint editable.</p></li>
-<li><p>Los contratos de datos <code class="docutils literal notranslate"><span class="pre">test_metadata.json</span></code> y <code class="docutils literal notranslate"><span class="pre">evidence.json</span></code>.</p></li>
-<li><p>Una plantilla PowerPoint utilizada como base del informe.</p></li>
+<li><p>Un frontend desarrollado con React y TypeScript.</p></li>
+<li><p>Una capa de escritorio basada en Tauri.</p></li>
+<li><p>Un backend local desarrollado con FastAPI.</p></li>
+<li><p>Un motor Python encargado de inspeccionar el ensayo y generar el PowerPoint.</p></li>
+<li><p>Los contratos <code class="docutils literal notranslate"><span class="pre">test_metadata.json</span></code>, <code class="docutils literal notranslate"><span class="pre">evidence.json</span></code> y la estructura de carpetas del ensayo.</p></li>
+<li><p>Una plantilla PowerPoint utilizada como base del informe editable.</p></li>
 </ul>
-<p>En las siguientes fases se documentarán la instalación, la arquitectura, las pruebas, los contratos de datos y las guías de ampliación.</p>
+</section>
+<section id="principio-de-funcionamiento">
+<h2>Principio de funcionamiento<a class="headerlink" href="#principio-de-funcionamiento" title="Link to this heading">¶</a></h2>
+<p>La aplicación no genera <code class="docutils literal notranslate"><span class="pre">test_metadata.json</span></code>. Ese archivo se crea externamente y la aplicación lo utiliza como entrada para inspeccionar el ensayo y generar el informe.</p>
 </section>
 </section>
 
@@ -250,15 +281,23 @@
       <footer>
         
         <div class="related-pages">
-          
-          <a class="prev-page" href="../user-guide/index.html">
+          <a class="next-page" href="development-setup.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Preparación del entorno de desarrollo</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../user-guide/troubleshooting.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Guía de usuario</div>
+                <div class="title">Solución de problemas</div>
                 
               </div>
             </a>
@@ -293,6 +332,7 @@
             <ul>
 <li><a class="reference internal" href="#">Guía de desarrollo</a><ul>
 <li><a class="reference internal" href="#componentes-principales">Componentes principales</a></li>
+<li><a class="reference internal" href="#principio-de-funcionamiento">Principio de funcionamiento</a></li>
 </ul>
 </li>
 </ul>

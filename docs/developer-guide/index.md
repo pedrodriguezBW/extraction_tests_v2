@@ -1,15 +1,31 @@
 # Guía de desarrollo
 
-Esta guía está dirigida a las personas responsables de mantener, probar o ampliar la aplicación.
+Esta guía explica cómo preparar el entorno, comprender la arquitectura, ejecutar la aplicación, modificar sus capas y validar los cambios.
+
+Está dirigida a las personas responsables de mantener o ampliar el proyecto.
+
+```{toctree}
+:maxdepth: 1
+
+development-setup
+architecture
+frontend
+backend
+data-flow
+testing
+```
 
 ## Componentes principales
 
 La aplicación está formada por:
 
-- Un frontend desarrollado con React y TypeScript e integrado con Tauri.
-- Un backend desarrollado con FastAPI.
-- Un motor Python encargado de generar el PowerPoint editable.
-- Los contratos de datos `test_metadata.json` y `evidence.json`.
-- Una plantilla PowerPoint utilizada como base del informe.
+- Un frontend desarrollado con React y TypeScript.
+- Una capa de escritorio basada en Tauri.
+- Un backend local desarrollado con FastAPI.
+- Un motor Python encargado de inspeccionar el ensayo y generar el PowerPoint.
+- Los contratos `test_metadata.json`, `evidence.json` y la estructura de carpetas del ensayo.
+- Una plantilla PowerPoint utilizada como base del informe editable.
 
-En las siguientes fases se documentarán la instalación, la arquitectura, las pruebas, los contratos de datos y las guías de ampliación.
+## Principio de funcionamiento
+
+La aplicación no genera `test_metadata.json`. Ese archivo se crea externamente y la aplicación lo utiliza como entrada para inspeccionar el ensayo y generar el informe.
