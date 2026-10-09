@@ -4,13 +4,13 @@ Esta documentación describe el uso, el funcionamiento y el mantenimiento de la 
 
 ## Documentación disponible
 
-La documentación se divide en dos recorridos:
+La documentación se divide en dos recorridos principales:
 
 - **Guía de usuario:** explica cómo preparar un ensayo y generar el informe.
-- **Guía de desarrollo:** explica cómo instalar, comprender, probar y ampliar la aplicación.
+- **Guía de desarrollo:** explica cómo instalar, comprender, probar y ampliar la aplicación, e incluye las estructuras de datos y archivos utilizadas por el sistema.
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 3
 :caption: Documentación
 
 user-guide/index

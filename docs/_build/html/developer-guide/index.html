@@ -208,6 +208,12 @@
 <li class="toctree-l2"><a class="reference internal" href="backend.html">Backend FastAPI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data-flow.html">Flujo de datos</a></li>
 <li class="toctree-l2"><a class="reference internal" href="testing.html">Pruebas y validación</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="data-structures/index.html">Estructuras de datos y archivos</a><input aria-label="Toggle navigation of Estructuras de datos y archivos" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="data-structures/test-folder.html">Estructura de la carpeta del ensayo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-structures/test-metadata.html">Estructura de <code class="docutils literal notranslate"><span class="pre">test_metadata.json</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="data-structures/evidence-descriptor.html">Estructura de <code class="docutils literal notranslate"><span class="pre">evidence.json</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -250,12 +256,73 @@
 <p>Está dirigida a las personas responsables de mantener o ampliar el proyecto.</p>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="development-setup.html">Preparación del entorno de desarrollo</a></li>
-<li class="toctree-l1"><a class="reference internal" href="architecture.html">Arquitectura general</a></li>
-<li class="toctree-l1"><a class="reference internal" href="frontend.html">Frontend React y Tauri</a></li>
-<li class="toctree-l1"><a class="reference internal" href="backend.html">Backend FastAPI</a></li>
-<li class="toctree-l1"><a class="reference internal" href="data-flow.html">Flujo de datos</a></li>
-<li class="toctree-l1"><a class="reference internal" href="testing.html">Pruebas y validación</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development-setup.html">Preparación del entorno de desarrollo</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="development-setup.html#repositorio">Repositorio</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development-setup.html#entorno-python">Entorno Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development-setup.html#dependencias-del-frontend">Dependencias del frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development-setup.html#iniciar-el-backend">Iniciar el backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development-setup.html#iniciar-el-frontend-de-escritorio">Iniciar el frontend de escritorio</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development-setup.html#url-del-backend">URL del backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development-setup.html#generar-la-documentacion">Generar la documentación</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Arquitectura general</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#vista-de-alto-nivel">Vista de alto nivel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#responsabilidades-por-capa">Responsabilidades por capa</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#entradas-principales">Entradas principales</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#salidas-principales">Salidas principales</a></li>
+<li class="toctree-l2"><a class="reference internal" href="architecture.html#limite-importante">Límite importante</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="frontend.html">Frontend React y Tauri</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html#ubicacion">Ubicación</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html#punto-de-entrada">Punto de entrada</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html#componente-principal">Componente principal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html#servicios-http">Servicios HTTP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html#estado-derivado">Estado derivado</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html#tipos">Tipos</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html#componentes-simpati">Componentes SIMPATI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html#desarrollo-y-compilacion">Desarrollo y compilación</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frontend.html#regla-practica">Regla práctica</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="backend.html">Backend FastAPI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#punto-de-entrada">Punto de entrada</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#router-de-proyectos">Router de proyectos</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#organizacion-interna">Organización interna</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#flujo-de-una-operacion">Flujo de una operación</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#inspeccion">Inspección</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#generacion">Generación</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#simpati">SIMPATI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#documentacion-interactiva">Documentación interactiva</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data-flow.html">Flujo de datos</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data-flow.html#inicio">1. Inicio</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-flow.html#seleccion-de-carpeta">2. Selección de carpeta</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-flow.html#inspeccion">3. Inspección</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-flow.html#simpati">4. SIMPATI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-flow.html#generacion">5. Generación</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-flow.html#motor-powerpoint">6. Motor PowerPoint</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-flow.html#respuesta">7. Respuesta</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="testing.html">Pruebas y validación</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="testing.html#pruebas-python">Pruebas Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html#pruebas-del-frontend">Pruebas del frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html#compilacion-del-frontend">Compilación del frontend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html#compilacion-de-la-documentacion">Compilación de la documentación</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html#comprobacion-recomendada-antes-de-un-commit">Comprobación recomendada antes de un commit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="testing.html#alcance-de-las-pruebas">Alcance de las pruebas</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data-structures/index.html">Estructuras de datos y archivos</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="data-structures/test-folder.html">Estructura de la carpeta del ensayo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-structures/test-metadata.html">Estructura de <code class="docutils literal notranslate"><span class="pre">test_metadata.json</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-structures/evidence-descriptor.html">Estructura de <code class="docutils literal notranslate"><span class="pre">evidence.json</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="data-structures/index.html#elementos-documentados">Elementos documentados</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <section id="componentes-principales">
@@ -266,7 +333,7 @@
 <li><p>Una capa de escritorio basada en Tauri.</p></li>
 <li><p>Un backend local desarrollado con FastAPI.</p></li>
 <li><p>Un motor Python encargado de inspeccionar el ensayo y generar el PowerPoint.</p></li>
-<li><p>Los contratos <code class="docutils literal notranslate"><span class="pre">test_metadata.json</span></code>, <code class="docutils literal notranslate"><span class="pre">evidence.json</span></code> y la estructura de carpetas del ensayo.</p></li>
+<li><p>Las estructuras <code class="docutils literal notranslate"><span class="pre">test_metadata.json</span></code>, <code class="docutils literal notranslate"><span class="pre">evidence.json</span></code> y la organización de carpetas del ensayo.</p></li>
 <li><p>Una plantilla PowerPoint utilizada como base del informe editable.</p></li>
 </ul>
 </section>

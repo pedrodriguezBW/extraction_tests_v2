@@ -208,6 +208,12 @@
 <li class="toctree-l2"><a class="reference internal" href="developer-guide/backend.html">Backend FastAPI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-guide/data-flow.html">Flujo de datos</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-guide/testing.html">Pruebas y validación</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="developer-guide/data-structures/index.html">Estructuras de datos y archivos</a><input aria-label="Toggle navigation of Estructuras de datos y archivos" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-structures/test-folder.html">Estructura de la carpeta del ensayo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-structures/test-metadata.html">Estructura de <code class="docutils literal notranslate"><span class="pre">test_metadata.json</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-structures/evidence-descriptor.html">Estructura de <code class="docutils literal notranslate"><span class="pre">evidence.json</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -249,31 +255,131 @@
 <p>Esta documentación describe el uso, el funcionamiento y el mantenimiento de la aplicación de generación automática de informes PowerPoint para ensayos climáticos.</p>
 <section id="documentacion-disponible">
 <h2>Documentación disponible<a class="headerlink" href="#documentacion-disponible" title="Link to this heading">¶</a></h2>
-<p>La documentación se divide en dos recorridos:</p>
+<p>La documentación se divide en dos recorridos principales:</p>
 <ul class="simple">
 <li><p><strong>Guía de usuario:</strong> explica cómo preparar un ensayo y generar el informe.</p></li>
-<li><p><strong>Guía de desarrollo:</strong> explica cómo instalar, comprender, probar y ampliar la aplicación.</p></li>
+<li><p><strong>Guía de desarrollo:</strong> explica cómo instalar, comprender, probar y ampliar la aplicación, e incluye las estructuras de datos y archivos utilizadas por el sistema.</p></li>
 </ul>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Documentación</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="user-guide/index.html">Guía de usuario</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="user-guide/getting-started.html">Primeros pasos</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-guide/preparing-test-folder.html">Preparación de la carpeta del ensayo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-guide/application-workflow.html">Uso de la aplicación</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-guide/simpati-charts.html">Gráficas SIMPATI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-guide/generated-files.html">Archivos generados</a></li>
-<li class="toctree-l2"><a class="reference internal" href="user-guide/troubleshooting.html">Solución de problemas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-guide/getting-started.html">Primeros pasos</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/getting-started.html#que-hace-la-aplicacion">Qué hace la aplicación</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/getting-started.html#antes-de-empezar">Antes de empezar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/getting-started.html#estados-de-conexion">Estados de conexión</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user-guide/preparing-test-folder.html">Preparación de la carpeta del ensayo</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/preparing-test-folder.html#estructura-esperada">Estructura esperada</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/preparing-test-folder.html#elementos-obligatorios">Elementos obligatorios</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/preparing-test-folder.html#elementos-opcionales">Elementos opcionales</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/preparing-test-folder.html#evidencias">Evidencias</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/preparing-test-folder.html#recomendacion-antes-de-inspeccionar">Recomendación antes de inspeccionar</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user-guide/application-workflow.html">Uso de la aplicación</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/application-workflow.html#select-project">1. Select project</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/application-workflow.html#inspect-project">2. Inspect project</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/application-workflow.html#review-project-resources">3. Review project resources</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/application-workflow.html#generate-report">4. Generate report</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user-guide/simpati-charts.html">Gráficas SIMPATI</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/simpati-charts.html#analizar-la-adquisicion">Analizar la adquisición</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/simpati-charts.html#graficas-guardadas">Gráficas guardadas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/simpati-charts.html#inclusion-en-el-informe">Inclusión en el informe</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user-guide/generated-files.html">Archivos generados</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/generated-files.html#ubicacion-del-informe">Ubicación del informe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/generated-files.html#recursos-renderizados">Recursos renderizados</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/generated-files.html#revision-posterior">Revisión posterior</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/generated-files.html#regeneracion">Regeneración</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="user-guide/troubleshooting.html">Solución de problemas</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/troubleshooting.html#el-backend-aparece-como-no-disponible">El backend aparece como no disponible</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/troubleshooting.html#no-puedo-pulsar-inspect-project">No puedo pulsar Inspect project</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/troubleshooting.html#el-proyecto-aparece-como-invalido">El proyecto aparece como inválido</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/troubleshooting.html#aparecen-advertencias-sobre-carpetas-opcionales">Aparecen advertencias sobre carpetas opcionales</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/troubleshooting.html#faltan-fotografias-de-una-evidencia">Faltan fotografías de una evidencia</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/troubleshooting.html#no-se-encuentra-una-adquisicion-simpati">No se encuentra una adquisición SIMPATI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/troubleshooting.html#generate-powerpoint-sigue-deshabilitado">Generate PowerPoint sigue deshabilitado</a></li>
+<li class="toctree-l3"><a class="reference internal" href="user-guide/troubleshooting.html#el-informe-se-genera-sin-graficas-simpati">El informe se genera sin gráficas SIMPATI</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="user-guide/index.html#flujo-general">Flujo general</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="developer-guide/index.html">Guía de desarrollo</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="developer-guide/development-setup.html">Preparación del entorno de desarrollo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-guide/architecture.html">Arquitectura general</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-guide/frontend.html">Frontend React y Tauri</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-guide/backend.html">Backend FastAPI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-guide/data-flow.html">Flujo de datos</a></li>
-<li class="toctree-l2"><a class="reference internal" href="developer-guide/testing.html">Pruebas y validación</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developer-guide/development-setup.html">Preparación del entorno de desarrollo</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/development-setup.html#repositorio">Repositorio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/development-setup.html#entorno-python">Entorno Python</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/development-setup.html#dependencias-del-frontend">Dependencias del frontend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/development-setup.html#iniciar-el-backend">Iniciar el backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/development-setup.html#iniciar-el-frontend-de-escritorio">Iniciar el frontend de escritorio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/development-setup.html#url-del-backend">URL del backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/development-setup.html#generar-la-documentacion">Generar la documentación</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="developer-guide/architecture.html">Arquitectura general</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/architecture.html#vista-de-alto-nivel">Vista de alto nivel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/architecture.html#responsabilidades-por-capa">Responsabilidades por capa</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/architecture.html#entradas-principales">Entradas principales</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/architecture.html#salidas-principales">Salidas principales</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/architecture.html#limite-importante">Límite importante</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="developer-guide/frontend.html">Frontend React y Tauri</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/frontend.html#ubicacion">Ubicación</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/frontend.html#punto-de-entrada">Punto de entrada</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/frontend.html#componente-principal">Componente principal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/frontend.html#servicios-http">Servicios HTTP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/frontend.html#estado-derivado">Estado derivado</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/frontend.html#tipos">Tipos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/frontend.html#componentes-simpati">Componentes SIMPATI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/frontend.html#desarrollo-y-compilacion">Desarrollo y compilación</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/frontend.html#regla-practica">Regla práctica</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="developer-guide/backend.html">Backend FastAPI</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/backend.html#punto-de-entrada">Punto de entrada</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/backend.html#router-de-proyectos">Router de proyectos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/backend.html#organizacion-interna">Organización interna</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/backend.html#flujo-de-una-operacion">Flujo de una operación</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/backend.html#inspeccion">Inspección</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/backend.html#generacion">Generación</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/backend.html#simpati">SIMPATI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/backend.html#documentacion-interactiva">Documentación interactiva</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="developer-guide/data-flow.html">Flujo de datos</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-flow.html#inicio">1. Inicio</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-flow.html#seleccion-de-carpeta">2. Selección de carpeta</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-flow.html#inspeccion">3. Inspección</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-flow.html#simpati">4. SIMPATI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-flow.html#generacion">5. Generación</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-flow.html#motor-powerpoint">6. Motor PowerPoint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-flow.html#respuesta">7. Respuesta</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="developer-guide/testing.html">Pruebas y validación</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/testing.html#pruebas-python">Pruebas Python</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/testing.html#pruebas-del-frontend">Pruebas del frontend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/testing.html#compilacion-del-frontend">Compilación del frontend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/testing.html#compilacion-de-la-documentacion">Compilación de la documentación</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/testing.html#comprobacion-recomendada-antes-de-un-commit">Comprobación recomendada antes de un commit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/testing.html#alcance-de-las-pruebas">Alcance de las pruebas</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="developer-guide/data-structures/index.html">Estructuras de datos y archivos</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-structures/test-folder.html">Estructura de la carpeta del ensayo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-structures/test-metadata.html">Estructura de <code class="docutils literal notranslate"><span class="pre">test_metadata.json</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-structures/evidence-descriptor.html">Estructura de <code class="docutils literal notranslate"><span class="pre">evidence.json</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="developer-guide/data-structures/index.html#elementos-documentados">Elementos documentados</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="developer-guide/index.html#componentes-principales">Componentes principales</a></li>
 <li class="toctree-l2"><a class="reference internal" href="developer-guide/index.html#principio-de-funcionamiento">Principio de funcionamiento</a></li>
 </ul>
