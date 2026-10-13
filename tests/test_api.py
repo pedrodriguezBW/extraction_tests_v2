@@ -9,6 +9,8 @@ from project_fixtures import add_evidence, build_test_folder
 
 from backend.app.main import app
 
+from src.report_generator.version import __version__
+
 
 class HealthEndpointTests(unittest.TestCase):
     def setUp(self):
@@ -23,7 +25,7 @@ class HealthEndpointTests(unittest.TestCase):
             {
                 "status": "ok",
                 "application": "climatic-report-generator",
-                "version": "0.4.0",
+                "version": __version__,
             },
         )
 

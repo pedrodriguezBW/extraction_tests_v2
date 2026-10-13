@@ -6,6 +6,7 @@ Desde la raíz del repositorio:
 
 ```powershell
 python -m unittest discover -s tests
+
 ```
 
 Estas pruebas validan el motor, los contratos de carpetas, la inspección, el backend y la generación del informe según los casos cubiertos en `tests/`.
@@ -34,7 +35,7 @@ Este comando ejecuta la comprobación de TypeScript y la compilación de Vite.
 Desde la raíz:
 
 ```powershell
-python -m sphinx -W --keep-going -b html docs docs\_build\html
+python -m sphinx -W --keep-going -b html docs docs/_build/htmll
 ```
 
 Las advertencias de Sphinx se consideran fallos para evitar referencias rotas o páginas mal incluidas.

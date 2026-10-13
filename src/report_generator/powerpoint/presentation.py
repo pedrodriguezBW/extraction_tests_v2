@@ -187,17 +187,25 @@ def _renumber_visible_slide_footers(presentation: Presentation) -> None:
 
 
 def prune_climatic_report_slides(presentation_path: Path) -> None:
-    """
-    Keep only the climatic-report scope and generated continuations.
+    """Keep only the climatic-report scope and generated continuations.
 
-    The retained scope is:
-    - Cover slide.
+    The retained scope includes:
+
+    - The cover slide.
     - Tested Parts and its generated continuations.
-    - TEST A cover, contents, Test Description, Test Assembly, Test Inputs,
-      Test Results, Conclusions, and all continuations inserted between them.
+    - The TEST A cover and contents.
+    - Test Description.
+    - Test Assembly.
+    - Test Inputs.
+    - Test Results.
+    - Conclusions.
+    - All generated continuation slides between retained sections.
 
-    Template summaries, TEST B, TEST C, teardown, version history, signatures,
-    and any trailing placeholder slides are removed.
+    Template summaries, TEST B, TEST C, teardown, version history,
+    signatures, and trailing placeholder slides are removed.
+
+    Args:
+        presentation_path: Path to the PowerPoint presentation to prune.
     """
     presentation_path = Path(presentation_path)
     presentation = Presentation(presentation_path)

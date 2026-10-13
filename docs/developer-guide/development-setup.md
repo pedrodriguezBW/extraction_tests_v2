@@ -22,9 +22,9 @@ python -m pip install -r requirements.txt
 
 El archivo `requirements.txt` reúne las dependencias del motor PowerPoint, tratamiento de imágenes y datos, FastAPI y Uvicorn.
 
-:::{warning}
-La instalación debe verificarse en un entorno limpio. Si `pip` informa de una dependencia no encontrada, revisa `requirements.txt` antes de modificar versiones o sustituir paquetes.
-:::
+> **Advertencia:** La instalación debe verificarse en un entorno limpio. Si
+> `pip` informa de una dependencia no encontrada, revisa `requirements.txt`
+> antes de modificar versiones o sustituir paquetes.
 
 ## Dependencias del frontend
 
@@ -71,6 +71,6 @@ http://127.0.0.1:8000
 Desde la raíz del repositorio:
 
 ```powershell
-python -m pip install -r docsequirements.txt
-python -m sphinx -W --keep-going -b html docs docs\_build\html
+python -m pip install -r docs/requirements.txt
+python -m sphinx -W --keep-going -b html docs docs/_build/html
 ```
