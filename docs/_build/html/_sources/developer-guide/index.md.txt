@@ -14,6 +14,7 @@ backend
 data-flow
 testing
 data-structures/index
+powerpoint/index
 ```
 
 ## Componentes principales
