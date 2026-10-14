@@ -1,8 +1,10 @@
 # Guía de usuario
 
-Esta guía explica cómo preparar un ensayo climático, revisar sus recursos y generar un informe PowerPoint editable con la aplicación.
+Esta guía explica cómo preparar un ensayo climático, revisar sus recursos y
+generar un informe PowerPoint editable con la aplicación.
 
-La guía está dirigida a las personas que utilizan la aplicación. No requiere conocimientos de Python, React ni de la arquitectura interna del proyecto.
+La guía está dirigida a las personas que utilizan la aplicación. No requiere
+conocimientos de Python, React ni de la arquitectura interna del proyecto.
 
 ```{toctree}
 :maxdepth: 1

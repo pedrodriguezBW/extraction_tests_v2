@@ -1,0 +1,12 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "entryPoints": [ "src/services", "src/types", "src/components", "src/App.tsx" ],
+    "entryPointStrategy": "expand",
+    "tsconfig": "tsconfig.json",
+    "out": "../docs/_build/html/typescript-reference",
+    "exclude": [ "**/*.test.ts", "**/*.test.tsx" ],
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "readme": "none",
+    "name": "Referencia TypeScript del frontend"
+}

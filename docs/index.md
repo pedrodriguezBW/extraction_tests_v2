@@ -1,41 +1,21 @@
-# Climatic Report Generator
+# Generador de informes climáticos
 
-Documentation for the Climatic Report Generator desktop application.
+Esta documentación describe el uso, el funcionamiento y el mantenimiento de
+la aplicación de generación automática de informes PowerPoint para ensayos
+climáticos.
 
-The application inspects an individual climatic test folder, reviews its
-metadata, evidences and acquisition resources, and generates an editable
-PowerPoint report in `04_Report`.
+## Documentación disponible
 
-::::{grid} 1 2 2 2
-:gutter: 3
+La documentación se divide en dos recorridos principales:
 
-:::{grid-item-card} Use the application
-:link: user-guide/index
-:link-type: doc
-
-Prepare a test folder, inspect its resources, manage SIMPATI charts and
-generate an editable PowerPoint report.
-:::
-
-:::{grid-item-card} Develop and maintain the application
-:link: developer-guide/index
-:link-type: doc
-
-Set up the development environment, understand the architecture, run the
-tests and extend the application.
-:::
-
-::::
+- **Guía de usuario:** explica cómo preparar un ensayo y generar el informe.
+- **Guía de desarrollo:** explica cómo instalar, comprender, probar y ampliar
+  la aplicación.
 
 ```{toctree}
-:hidden:
-:maxdepth: 2
+:maxdepth: 3
+:caption: Documentación
 
 user-guide/index
 developer-guide/index
-contracts/index
-powerpoint/index
-extending/index
-reference/index
-decisions/index
 ```

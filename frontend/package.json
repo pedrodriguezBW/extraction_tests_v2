@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "docs:typescript": "typedoc --options typedoc.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
@@ -21,6 +22,7 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
+    "typedoc": "^0.28.20",
     "typescript": "~5.7.3",
     "vite": "^5.4.14",
     "vitest": "^2.1.8"

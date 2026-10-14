@@ -1,8 +1,14 @@
 import sys
+import os
 from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+FRONTEND_ROOT = REPOSITORY_ROOT / "frontend"
+os.environ["SPHINX_JS_NODE_MODULES"] = str(
+    FRONTEND_ROOT / "node_modules"
+)
+
 sys.path.insert(0, str(REPOSITORY_ROOT))
 
 
@@ -69,3 +75,6 @@ napoleon_numpy_docstring = False
 napoleon_include_init_with_doc = True
 napoleon_include_private_with_doc = False
 napoleon_include_special_with_doc = False
+
+# Configuración de Sphinx-JS y TypeDoc
+FRONTEND_ROOT = REPOSITORY_ROOT / "frontend"

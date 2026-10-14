@@ -1,0 +1,16 @@
+# Configuración de Sphinx-JS y TypeDoc
+FRONTEND_ROOT = REPOSITORY_ROOT / "frontend"
+os.environ.setdefault(
+    "SPHINX_JS_NODE_MODULES",
+    str(FRONTEND_ROOT / "node_modules"),
+)
+
+js_language = "typescript"
+js_source_path = [
+    "../frontend/src",
+    "../frontend/src/services",
+    "../frontend/src/types",
+    "../frontend/src/components",
+]
+root_for_relative_js_paths = "../frontend/src"
+jsdoc_tsconfig_path = "../frontend/tsconfig.json"
