@@ -72,6 +72,22 @@ function StatusMark({ status }: { status: ResultStatus }) {
   );
 }
 
+/**
+ * Coordina el flujo completo de la aplicación de escritorio para generar
+ * informes climáticos.
+ *
+ * El componente comprueba la conexión con el backend, abre el selector nativo
+ * de carpetas, solicita la inspección del ensayo, presenta los recursos
+ * detectados, gestiona el flujo opcional de SIMPATI e inicia la generación
+ * del informe PowerPoint.
+ *
+ * Las operaciones de dominio se delegan en el servicio de API y las reglas
+ * reutilizables de inspección y disponibilidad se obtienen del servicio de
+ * estado del proyecto.
+ *
+ * @returns La interfaz principal de la aplicación.
+ */
+
 function App() {
   const [backendStatus, setBackendStatus] =
     useState<BackendStatus>("checking");

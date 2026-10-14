@@ -7,6 +7,7 @@
     "exclude": [ "**/*.test.ts", "**/*.test.tsx" ],
     "excludePrivate": true,
     "excludeProtected": true,
+    "disableSources": true,
     "readme": "none",
     "name": "Referencia TypeScript del frontend"
 }

@@ -13,6 +13,12 @@ import type {
   SimpatiInspectionResponse,
 } from "../types/simpati";
 
+/**
+ * URL base utilizada para comunicarse con el backend FastAPI.
+ *
+ * Se obtiene de `VITE_API_BASE_URL` y utiliza la dirección local por defecto
+ * cuando la variable de entorno no está definida.
+ */
 export const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"
 ).replace(/\/+$/, "");
@@ -22,6 +28,13 @@ interface FastApiErrorBody {
   errors?: unknown;
 }
 
+/**
+ * Representa un error devuelto por el backend o producido durante una
+ * petición HTTP.
+ *
+ * Conserva el código de estado HTTP cuando existe para que la interfaz pueda
+ * distinguir errores de validación, acceso y servidor.
+ */
 export class ApiClientError extends Error {
   readonly status: number | null;
 
@@ -126,10 +139,24 @@ async function requestJson<T>(
   return body as T;
 }
 
+/**
+ * Comprueba si el backend local está disponible.
+ *
+ * @returns El estado, el identificador y la versión del backend.
+ * @throws {@link ApiClientError} Si no se puede completar la petición.
+ */
 export function checkHealth(): Promise<HealthResponse> {
   return requestJson<HealthResponse>("/health");
 }
 
+/**
+ * Solicita la inspección de la carpeta individual de un ensayo.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @returns El resultado completo de la inspección del proyecto.
+ * @throws {@link ApiClientError} Si el backend rechaza la petición o no está
+ * disponible.
+ */
 export function inspectProject(
   testRoot: string,
 ): Promise<ProjectInspectionResponse> {
@@ -146,6 +173,14 @@ export function inspectProject(
   });
 }
 
+/**
+ * Solicita la generación del informe PowerPoint para un ensayo.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @returns El resultado de la generación, incluido el nombre y la ruta del
+ * informe cuando la operación finaliza correctamente.
+ * @throws {@link ApiClientError} Si el informe no puede generarse.
+ */
 export function generateReport(
   testRoot: string,
 ): Promise<ReportGenerationResponse> {
@@ -165,6 +200,13 @@ export function generateReport(
   );
 }
 
+/**
+ * Solicita el análisis de la adquisición SIMPATI del ensayo.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @returns El resultado del análisis y los datos de vista previa disponibles.
+ * @throws {@link ApiClientError} Si la adquisición no puede analizarse.
+ */
 export function inspectSimpati(
   testRoot: string,
 ): Promise<SimpatiInspectionResponse> {
@@ -184,6 +226,14 @@ export function inspectSimpati(
   );
 }
 
+/**
+ * Guarda una gráfica SIMPATI como imagen para incluirla en el informe.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param imageBase64 Imagen PNG codificada como una URL de datos.
+ * @returns El resultado del guardado y la lista actualizada de gráficas.
+ * @throws {@link ApiClientError} Si la imagen no puede guardarse.
+ */
 export function saveSimpatiChart(
   testRoot: string,
   imageBase64: string,
@@ -205,6 +255,13 @@ export function saveSimpatiChart(
   );
 }
 
+/**
+ * Obtiene las gráficas SIMPATI guardadas para el ensayo.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @returns La lista de gráficas guardadas y su número total.
+ * @throws {@link ApiClientError} Si no se puede consultar la lista.
+ */
 export function listSimpatiCharts(
   testRoot: string,
 ): Promise<SimpatiChartListResponse> {
@@ -224,6 +281,14 @@ export function listSimpatiCharts(
   );
 }
 
+/**
+ * Elimina una gráfica SIMPATI guardada para el ensayo.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param chartName Nombre del archivo de la gráfica.
+ * @returns La lista actualizada de gráficas después de la eliminación.
+ * @throws {@link ApiClientError} Si la gráfica no puede eliminarse.
+ */
 export function deleteSimpatiChart(
   testRoot: string,
   chartName: string,
@@ -245,6 +310,13 @@ export function deleteSimpatiChart(
   );
 }
 
+/**
+ * Construye la URL utilizada para solicitar una gráfica SIMPATI guardada.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param chartName Nombre del archivo de la gráfica.
+ * @returns La URL del recurso servido por el backend.
+ */
 export function getSimpatiChartUrl(
   testRoot: string,
   chartName: string,
@@ -257,6 +329,16 @@ export function getSimpatiChartUrl(
   return `${API_BASE_URL}/projects/simpati/chart?${query.toString()}`;
 }
 
+/**
+ * Descarga una gráfica SIMPATI guardada y valida que la respuesta sea una
+ * imagen.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param chartName Nombre del archivo de la gráfica.
+ * @returns El contenido binario de la imagen.
+ * @throws {@link ApiClientError} Si la petición falla, el backend devuelve un
+ * error o la respuesta no contiene una imagen válida.
+ */
 export async function fetchSimpatiChart(
   testRoot: string,
   chartName: string,

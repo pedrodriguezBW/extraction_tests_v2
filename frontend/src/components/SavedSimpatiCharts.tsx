@@ -3,12 +3,41 @@ import { useEffect, useState } from "react";
 import type { SimpatiSavedChart } from "../types/simpati";
 
 
-interface SavedSimpatiChartsProps {
+/**
+ * Propiedades necesarias para mostrar y gestionar las gráficas SIMPATI
+ * guardadas.
+ */
+export interface SavedSimpatiChartsProps {
+  /** Gráficas almacenadas para el ensayo seleccionado. */
   charts: SimpatiSavedChart[];
+
+  /** Indica si se está actualizando la lista de gráficas. */
   loading: boolean;
+
+  /** Nombre de la gráfica que se está eliminando. */
   deletingChartName: string | null;
+
+  /**
+   * Construye la URL utilizada para mostrar la vista previa.
+   *
+   * @param chartName Nombre del archivo de la gráfica.
+   * @returns La URL de la imagen.
+   */
   getImageUrl: (chartName: string) => string;
+
+  /**
+   * Recupera una gráfica guardada.
+   *
+   * @param chartName Nombre del archivo de la gráfica.
+   * @returns El contenido binario de la imagen.
+   */
   onOpen: (chartName: string) => Promise<Blob>;
+
+  /**
+   * Solicita la eliminación de una gráfica.
+   *
+   * @param chartName Nombre del archivo de la gráfica.
+   */
   onDelete: (chartName: string) => void;
 }
 
@@ -28,6 +57,21 @@ function formatFileSize(sizeBytes: number): string {
 
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+
+/**
+ * Muestra y gestiona las gráficas SIMPATI guardadas para el ensayo
+ * seleccionado.
+ *
+ * Las gráficas se presentan en el orden en el que se incluirán en el informe
+ * PowerPoint. El componente permite solicitar la imagen completa, mostrarla
+ * en una vista modal y delegar su eliminación en el componente padre.
+ *
+ * Las URL temporales creadas para las vistas previas se liberan cuando dejan
+ * de ser necesarias.
+ *
+ * @returns La lista de gráficas guardadas y el diálogo de vista previa.
+ */
 
 export function SavedSimpatiCharts({
   charts,

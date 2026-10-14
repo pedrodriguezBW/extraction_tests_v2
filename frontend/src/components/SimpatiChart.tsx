@@ -14,11 +14,28 @@ import type {
 } from "../types/simpati";
 
 
-interface SimpatiChartProps {
+/**
+ * Propiedades necesarias para mostrar y guardar una gráfica SIMPATI.
+ */
+export interface SimpatiChartProps {
+  /** Datos procesados de la adquisición y de su vista previa. */
   data: SimpatiInspectionResponse;
+
+  /** Indica si existe una operación de guardado en curso. */
   saving: boolean;
+
+  /** Nombres de las gráficas almacenadas actualmente para el ensayo. */
   savedChartNames: string[];
-  onSave: (imageBase64: string) => Promise<SimpatiChartSaveResponse>;
+
+  /**
+   * Guarda la representación PNG de la vista actual.
+   *
+   * @param imageBase64 Imagen PNG codificada como una URL de datos.
+   * @returns La respuesta devuelta por el backend.
+   */
+  onSave: (
+    imageBase64: string,
+  ) => Promise<SimpatiChartSaveResponse>;
 }
 
 interface SeriesStyle {
@@ -120,6 +137,21 @@ function pathSegments(
 
   return segments;
 }
+
+
+/**
+ * Muestra una vista interactiva de los canales extraídos de una adquisición
+ * SIMPATI.
+ *
+ * El componente permite seleccionar canales térmicos y avanzados, limitar el
+ * intervalo temporal visible mediante arrastre, restablecer la vista y guardar
+ * la gráfica visible como una imagen PNG.
+ *
+ * El componente no escribe archivos directamente. La persistencia se delega
+ * en la función `onSave` proporcionada por el componente padre.
+ *
+ * @returns La interfaz interactiva de la gráfica SIMPATI.
+ */
 
 export function SimpatiChart({
   data,
