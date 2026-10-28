@@ -58,7 +58,7 @@ Después de la inspección aparecen dos selectores:
 
 El selector **File** permanece deshabilitado si no hay fuente seleccionada, si la carpeta de la fuente no existe o si no contiene archivos. Cambiar de fuente o de archivo no analiza nada automáticamente y descarta el análisis SIMPATI mostrado anteriormente.
 
-Para Graphtec y CANoe se muestra un aviso indicando que su lectura se añadirá en un incremento posterior.
+Para CANoe se muestra un aviso indicando que su lectura se añadirá en un incremento posterior. Para Graphtec se muestra **Analyze Graphtec**; consulta [Gráficas Graphtec](graphtec-charts.md).
 
 ### Analyze SIMPATI
 

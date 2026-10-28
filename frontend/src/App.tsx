@@ -2,24 +2,34 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { DataSourceSelector } from "./components/DataSourceSelector";
+import { GraphtecAnalysis } from "./components/GraphtecAnalysis";
 import { SavedSimpatiCharts } from "./components/SavedSimpatiCharts";
 import { SimpatiChart } from "./components/SimpatiChart";
 import {
   checkHealth,
+  deleteGraphtecChart,
   deleteSimpatiChart,
+  fetchGraphtecChart,
   fetchSimpatiChart,
   generateReport,
+  getGraphtecChartUrl,
   getSimpatiChartUrl,
+  inspectGraphtec,
   inspectProject,
   inspectSimpati,
+  listGraphtecCharts,
   listSimpatiCharts,
+  previewGraphtecChart,
+  saveGraphtecChart,
   saveSimpatiChart,
 } from "./services/api";
 import {
+  canAnalyzeGraphtec,
   canAnalyzeSimpati,
   dataSelectionReducer,
   dataSourceOptions,
   fileSelectorHint,
+  graphtecAnalysisHint,
   INITIAL_DATA_SELECTION,
   isFileSelectorDisabled,
   pendingSourceMessage,
@@ -37,6 +47,11 @@ import type {
   DataSourceKey,
   ProjectInspectionResponse,
 } from "./types/project";
+import type {
+  GraphtecChartSaveResponse,
+  GraphtecChartSettings,
+  GraphtecSavedChart,
+} from "./types/graphtec";
 import type { ReportGenerationResponse } from "./types/report";
 import type {
   SimpatiChartSaveResponse,
@@ -116,6 +131,14 @@ function App() {
     INITIAL_DATA_SELECTION,
   );
   const simpati = dataSelection.simpati;
+  const graphtec = dataSelection.graphtec;
+  const [graphtecLoading, setGraphtecLoading] = useState(false);
+  const [graphtecSaving, setGraphtecSaving] = useState(false);
+  const [savedGraphtecCharts, setSavedGraphtecCharts] =
+    useState<GraphtecSavedChart[]>([]);
+  const [graphtecChartsLoading, setGraphtecChartsLoading] = useState(false);
+  const [deletingGraphtecChartName, setDeletingGraphtecChartName] =
+    useState<string | null>(null);
   const [simpatiChartSaving, setSimpatiChartSaving] = useState(false);
   const [savedSimpatiCharts, setSavedSimpatiCharts] =
     useState<SimpatiSavedChart[]>([]);
@@ -151,6 +174,7 @@ function App() {
     setInspection(null);
     dispatchDataSelection({ type: "reset" });
     setSavedSimpatiCharts([]);
+    setSavedGraphtecCharts([]);
     setReportChartCount(0);
     setReport(null);
     setCurrentError(null);
@@ -188,6 +212,25 @@ function App() {
     resetProjectResults();
   }, [resetProjectResults]);
 
+  const graphtecOperationActive =
+    graphtecLoading ||
+    graphtecSaving ||
+    graphtecChartsLoading ||
+    deletingGraphtecChartName !== null;
+
+  const refreshSavedGraphtecCharts = useCallback(
+    async (testRoot: string): Promise<void> => {
+      setGraphtecChartsLoading(true);
+      try {
+        const response = await listGraphtecCharts(testRoot);
+        setSavedGraphtecCharts(response.charts);
+      } finally {
+        setGraphtecChartsLoading(false);
+      }
+    },
+    [],
+  );
+
   const refreshSavedSimpatiCharts = useCallback(
     async (
       testRoot: string,
@@ -220,6 +263,7 @@ function App() {
       simpatiChartSaving ||
       savedChartsLoading ||
       deletingChartName !== null ||
+      graphtecOperationActive ||
       reportLoading
     ) {
       return;
@@ -236,6 +280,7 @@ function App() {
       const response = await inspectProject(selectedPath);
       setInspection(response);
       await refreshSavedSimpatiCharts(selectedPath);
+      await refreshSavedGraphtecCharts(selectedPath);
       setOperationMessage(
         canGenerateReport(response)
           ? "The project is ready. Review its resources and generate the report."
@@ -253,7 +298,9 @@ function App() {
     simpatiChartSaving,
     savedChartsLoading,
     deletingChartName,
+    graphtecOperationActive,
     reportLoading,
+    refreshSavedGraphtecCharts,
     refreshSavedSimpatiCharts,
     selectedPath,
   ]);
@@ -268,6 +315,7 @@ function App() {
       simpatiChartSaving ||
       savedChartsLoading ||
       deletingChartName !== null ||
+      graphtecOperationActive ||
       reportLoading
     ) {
       return;
@@ -313,7 +361,9 @@ function App() {
     simpatiChartSaving,
     savedChartsLoading,
     deletingChartName,
+    graphtecOperationActive,
     reportLoading,
+    refreshSavedGraphtecCharts,
     refreshSavedSimpatiCharts,
     selectedPath,
   ]);
@@ -333,6 +383,7 @@ function App() {
           simpatiChartSaving ||
           savedChartsLoading ||
           deletingChartName !== null ||
+          graphtecOperationActive ||
           reportLoading,
       })
     ) {
@@ -369,10 +420,142 @@ function App() {
     simpatiChartSaving,
     savedChartsLoading,
     deletingChartName,
+    graphtecOperationActive,
     reportLoading,
     selectedPath,
     simpatiLoading,
   ]);
+
+  const analyzeSelectedGraphtec = useCallback(async () => {
+    const fileRelativePath = dataSelection.fileRelativePath;
+    if (
+      !selectedPath ||
+      fileRelativePath === null ||
+      !canAnalyzeGraphtec({
+        inspection,
+        selection: dataSelection,
+        backendConnected: backendStatus === "connected",
+        busy:
+          inspectionLoading ||
+          simpatiLoading ||
+          simpatiChartSaving ||
+          savedChartsLoading ||
+          deletingChartName !== null ||
+          graphtecOperationActive ||
+          reportLoading,
+      })
+    ) {
+      return;
+    }
+
+    setGraphtecLoading(true);
+    setCurrentError(null);
+    setOperationMessage(null);
+    dispatchDataSelection({ type: "graphtecCleared" });
+
+    try {
+      const response = await inspectGraphtec(selectedPath, fileRelativePath);
+      dispatchDataSelection({
+        type: "graphtecInspected",
+        fileRelativePath,
+        result: response,
+      });
+      setOperationMessage("The Graphtec file was analyzed successfully.");
+    } catch (error) {
+      setCurrentError(errorMessage(error));
+    } finally {
+      setGraphtecLoading(false);
+    }
+  }, [
+    backendStatus,
+    dataSelection,
+    deletingChartName,
+    graphtecOperationActive,
+    inspection,
+    inspectionLoading,
+    reportLoading,
+    savedChartsLoading,
+    selectedPath,
+    simpatiChartSaving,
+    simpatiLoading,
+  ]);
+
+  const previewSelectedGraphtecChart = useCallback(
+    (settings: GraphtecChartSettings) => {
+      const relativePath = dataSelection.graphtec?.relative_path;
+      if (!selectedPath || !relativePath) {
+        return Promise.reject(
+          new Error("Analyze a Graphtec file before previewing the chart."),
+        );
+      }
+      return previewGraphtecChart(selectedPath, relativePath, settings);
+    },
+    [dataSelection.graphtec?.relative_path, selectedPath],
+  );
+
+  const saveSelectedGraphtecChart = useCallback(
+    async (
+      settings: GraphtecChartSettings,
+    ): Promise<GraphtecChartSaveResponse> => {
+      const relativePath = dataSelection.graphtec?.relative_path;
+      if (!selectedPath || !relativePath) {
+        throw new Error("Analyze a Graphtec file before saving the chart.");
+      }
+      setGraphtecSaving(true);
+      setCurrentError(null);
+      setOperationMessage(null);
+      try {
+        const response = await saveGraphtecChart(
+          selectedPath,
+          relativePath,
+          settings,
+        );
+        setSavedGraphtecCharts(response.charts);
+        setOperationMessage(
+          `Graphtec chart saved as ${response.chart_name ?? "PNG image"}.`,
+        );
+        return response;
+      } finally {
+        setGraphtecSaving(false);
+      }
+    },
+    [dataSelection.graphtec?.relative_path, selectedPath],
+  );
+
+  const deleteSavedGraphtecChart = useCallback(
+    async (chartName: string) => {
+      if (!selectedPath) {
+        return;
+      }
+      const confirmed = window.confirm(`Delete ${chartName}?`);
+      if (!confirmed) {
+        return;
+      }
+      setDeletingGraphtecChartName(chartName);
+      setCurrentError(null);
+      setOperationMessage(null);
+      try {
+        const response = await deleteGraphtecChart(selectedPath, chartName);
+        setSavedGraphtecCharts(response.charts);
+        setOperationMessage(`${chartName} was deleted.`);
+      } catch (error) {
+        setCurrentError(errorMessage(error));
+      } finally {
+        setDeletingGraphtecChartName(null);
+      }
+    },
+    [selectedPath],
+  );
+
+  const openSavedGraphtecChart = useCallback(
+    async (chartName: string): Promise<Blob> => {
+      if (!selectedPath) {
+        throw new Error("Select a test folder before opening the image.");
+      }
+      return fetchGraphtecChart(selectedPath, chartName);
+    },
+    [selectedPath],
+  );
 
   const changeDataSource = useCallback(
     (sourceKey: DataSourceKey | null) => {
@@ -553,6 +736,7 @@ function App() {
     simpatiChartSaving ||
     savedChartsLoading ||
     deletingChartName !== null ||
+    graphtecOperationActive ||
     reportLoading;
   const canInspect =
     selectedPath.length > 0 &&
@@ -573,6 +757,16 @@ function App() {
       busy,
     });
   const simpatiHint = simpatiAnalysisHint(inspection, dataSelection);
+  const graphtecSelected = dataSelection.sourceKey === "graphtec";
+  const canInspectGraphtec =
+    selectedPath.length > 0 &&
+    canAnalyzeGraphtec({
+      inspection,
+      selection: dataSelection,
+      backendConnected: backendStatus === "connected",
+      busy,
+    });
+  const graphtecHint = graphtecAnalysisHint(inspection, dataSelection);
 
   return (
     <div className="app-shell">
@@ -843,21 +1037,73 @@ function App() {
             />
           )}
 
-          <div className="section-actions">
-            <button
-              className="button button--primary"
-              type="button"
-              onClick={() => void inspectSelectedSimpati()}
-              disabled={!canInspectSimpati}
-            >
-              {simpatiLoading
-                ? "Analyzing SIMPATI..."
-                : "Analyze SIMPATI"}
-            </button>
-            {simpatiHint && (
-              <span className="action-hint">{simpatiHint}</span>
-            )}
-          </div>
+          {graphtecSelected ? (
+            <div className="section-actions">
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => void analyzeSelectedGraphtec()}
+                disabled={!canInspectGraphtec}
+              >
+                {graphtecLoading
+                  ? "Analyzing Graphtec..."
+                  : "Analyze Graphtec"}
+              </button>
+              {graphtecHint && (
+                <span className="action-hint">{graphtecHint}</span>
+              )}
+            </div>
+          ) : (
+            <div className="section-actions">
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => void inspectSelectedSimpati()}
+                disabled={!canInspectSimpati}
+              >
+                {simpatiLoading
+                  ? "Analyzing SIMPATI..."
+                  : "Analyze SIMPATI"}
+              </button>
+              {simpatiHint && (
+                <span className="action-hint">{simpatiHint}</span>
+              )}
+            </div>
+          )}
+
+          {graphtecSelected && graphtecLoading && (
+            <p className="loading-text" role="status">
+              Reading the Graphtec file...
+            </p>
+          )}
+
+          {graphtecSelected && graphtec && (
+            <GraphtecAnalysis
+              key={graphtec.relative_path ?? "graphtec"}
+              inspection={graphtec}
+              disabled={busy}
+              onPreview={previewSelectedGraphtecChart}
+              onSave={saveSelectedGraphtecChart}
+            />
+          )}
+
+          {graphtecSelected && inspection !== null && (
+            <SavedSimpatiCharts
+              heading="Saved Graphtec charts"
+              description="Saved in 04_Report/_RenderedAssets. They are not added to the PowerPoint automatically yet."
+              emptyText="No saved Graphtec charts."
+              charts={savedGraphtecCharts}
+              loading={graphtecChartsLoading}
+              deletingChartName={deletingGraphtecChartName}
+              getImageUrl={(chartName) =>
+                getGraphtecChartUrl(selectedPath, chartName)
+              }
+              onOpen={openSavedGraphtecChart}
+              onDelete={(chartName) =>
+                void deleteSavedGraphtecChart(chartName)
+              }
+            />
+          )}
 
           {simpati && !simpati.available && (
             <div className="empty-state simpati-empty-state">
@@ -932,7 +1178,7 @@ function App() {
             </div>
           )}
 
-          {inspection !== null && !simpati?.available && (
+          {inspection !== null && !graphtecSelected && !simpati?.available && (
             <SavedSimpatiCharts
               charts={savedSimpatiCharts}
               loading={savedChartsLoading}

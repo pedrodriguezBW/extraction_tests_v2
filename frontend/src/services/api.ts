@@ -3,6 +3,16 @@ import type {
   ProjectInspectionRequest,
   ProjectInspectionResponse,
 } from "../types/project";
+import type {
+  GraphtecChartDeleteResponse,
+  GraphtecChartListResponse,
+  GraphtecChartPreviewResponse,
+  GraphtecChartRequest,
+  GraphtecChartSaveResponse,
+  GraphtecChartSettings,
+  GraphtecFileRequest,
+  GraphtecInspectionResponse,
+} from "../types/graphtec";
 import type { ReportGenerationResponse } from "../types/report";
 import type {
   SimpatiChartDeleteRequest,
@@ -343,7 +353,10 @@ export async function fetchSimpatiChart(
   testRoot: string,
   chartName: string,
 ): Promise<Blob> {
-  const chartUrl = getSimpatiChartUrl(testRoot, chartName);
+  return fetchChartImage(getSimpatiChartUrl(testRoot, chartName));
+}
+
+async function fetchChartImage(chartUrl: string): Promise<Blob> {
   let response: Response;
 
   try {
@@ -380,4 +393,139 @@ export async function fetchSimpatiChart(
   }
 
   return response.blob();
+}
+
+function postJson<T>(path: string, request: unknown): Promise<T> {
+  return requestJson<T>(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Analiza un archivo Graphtec seleccionado.
+ *
+ * El backend reconstruye y valida la ruta dentro de `03_Data/02_Graphtec` y
+ * obtiene toda la información técnica del contenido, nunca del nombre.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param relativePath Ruta relativa devuelta por la inspección del proyecto.
+ * @returns El resumen y los datos normalizados del archivo.
+ * @throws {@link ApiClientError} Si el archivo no puede analizarse.
+ */
+export function inspectGraphtec(
+  testRoot: string,
+  relativePath: string,
+): Promise<GraphtecInspectionResponse> {
+  const request: GraphtecFileRequest = {
+    test_root: testRoot,
+    relative_path: relativePath,
+  };
+  return postJson<GraphtecInspectionResponse>(
+    "/projects/graphtec/inspect",
+    request,
+  );
+}
+
+/**
+ * Genera la previsualización de una gráfica Graphtec sin guardarla.
+ *
+ * @throws {@link ApiClientError} Si la configuración o el archivo no son
+ * válidos.
+ */
+export function previewGraphtecChart(
+  testRoot: string,
+  relativePath: string,
+  chart: GraphtecChartSettings,
+): Promise<GraphtecChartPreviewResponse> {
+  const request: GraphtecChartRequest = {
+    test_root: testRoot,
+    relative_path: relativePath,
+    chart,
+  };
+  return postJson<GraphtecChartPreviewResponse>(
+    "/projects/graphtec/preview-chart",
+    request,
+  );
+}
+
+/**
+ * Genera y guarda una gráfica Graphtec en `04_Report/_RenderedAssets`.
+ *
+ * @throws {@link ApiClientError} Si la gráfica no puede guardarse.
+ */
+export function saveGraphtecChart(
+  testRoot: string,
+  relativePath: string,
+  chart: GraphtecChartSettings,
+): Promise<GraphtecChartSaveResponse> {
+  const request: GraphtecChartRequest = {
+    test_root: testRoot,
+    relative_path: relativePath,
+    chart,
+  };
+  return postJson<GraphtecChartSaveResponse>(
+    "/projects/graphtec/save-chart",
+    request,
+  );
+}
+
+/**
+ * Obtiene las gráficas Graphtec guardadas para el ensayo.
+ *
+ * @throws {@link ApiClientError} Si no se puede consultar la lista.
+ */
+export function listGraphtecCharts(
+  testRoot: string,
+): Promise<GraphtecChartListResponse> {
+  const request: ProjectInspectionRequest = { test_root: testRoot };
+  return postJson<GraphtecChartListResponse>(
+    "/projects/graphtec/charts",
+    request,
+  );
+}
+
+/**
+ * Elimina una gráfica Graphtec guardada y sus metadatos.
+ *
+ * @throws {@link ApiClientError} Si la gráfica no puede eliminarse.
+ */
+export function deleteGraphtecChart(
+  testRoot: string,
+  chartName: string,
+): Promise<GraphtecChartDeleteResponse> {
+  return postJson<GraphtecChartDeleteResponse>(
+    "/projects/graphtec/delete-chart",
+    { test_root: testRoot, chart_name: chartName },
+  );
+}
+
+/**
+ * Construye la URL de una gráfica Graphtec guardada.
+ */
+export function getGraphtecChartUrl(
+  testRoot: string,
+  chartName: string,
+): string {
+  const query = new URLSearchParams({
+    test_root: testRoot,
+    chart_name: chartName,
+  });
+
+  return `${API_BASE_URL}/projects/graphtec/chart?${query.toString()}`;
+}
+
+/**
+ * Descarga una gráfica Graphtec guardada.
+ *
+ * @throws {@link ApiClientError} Si la respuesta no contiene una imagen.
+ */
+export function fetchGraphtecChart(
+  testRoot: string,
+  chartName: string,
+): Promise<Blob> {
+  return fetchChartImage(getGraphtecChartUrl(testRoot, chartName));
 }

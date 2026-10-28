@@ -1,12 +1,11 @@
 import base64
 import binascii
 import math
-from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 from pandas import isna
-from PIL import Image, UnidentifiedImageError
+from PIL import UnidentifiedImageError
 
 from src.report_generator.assets.simpati_extractor import (
     SimpatiError,
@@ -20,6 +19,10 @@ from src.report_generator.assets.simpati_extractor import (
 )
 from src.report_generator.paths import rendered_assets_directory
 from src.report_generator.powerpoint.images import find_test_result_charts
+from src.report_generator.rendered_assets import (
+    resolve_saved_chart,
+    validate_png_bytes,
+)
 
 from ..models.common import ApiError
 from ..models.simpati_inspection import (
@@ -33,8 +36,6 @@ from ..models.simpati_inspection import (
 
 
 MAX_PREVIEW_POINTS = 1200
-MAX_IMAGE_BYTES = 15 * 1024 * 1024
-MAX_IMAGE_DIMENSION = 8000
 
 
 class SimpatiInspectionError(Exception):
@@ -344,36 +345,20 @@ def resolve_project_simpati_chart(
 
     try:
         project_root = project_root.resolve()
-        requested_name = Path(chart_name).name
-
-        if requested_name != chart_name:
-            raise ValueError("The chart name is invalid.")
-
-        chart_path = next(
-            (
-                candidate
-                for candidate in find_test_result_charts(project_root)
-                if candidate.name == requested_name
-            ),
-            None,
+        resolved_chart_path = resolve_saved_chart(
+            project_root,
+            chart_name,
+            find_test_result_charts,
         )
 
-        if chart_path is None:
+        if resolved_chart_path is None:
             raise _build_management_error(
                 project_root,
                 FileNotFoundError(
-                    f"The saved SIMPATI chart was not found: {requested_name}"
+                    "The saved SIMPATI chart was not found: "
+                    f"{Path(chart_name).name}"
                 ),
                 not_found=True,
-            )
-
-        resolved_chart_path = chart_path.resolve()
-        expected_directory = rendered_assets_directory(
-            project_root
-        ).resolve()
-        if resolved_chart_path.parent != expected_directory:
-            raise ValueError(
-                "The chart path is outside 04_Report/_RenderedAssets."
             )
     except SimpatiChartManagementError:
         raise
@@ -420,26 +405,7 @@ def _decode_png(image_base64: str) -> bytes:
         encoded_data = encoded_data[len(data_url_prefix):]
 
     image_bytes = base64.b64decode(encoded_data, validate=True)
-
-    if not image_bytes:
-        raise ValueError("The PNG image is empty.")
-
-    if len(image_bytes) > MAX_IMAGE_BYTES:
-        raise ValueError("The PNG image exceeds the 15 MB limit.")
-
-    with Image.open(BytesIO(image_bytes)) as image:
-        if image.format != "PNG":
-            raise ValueError("The chart must be a PNG image.")
-        if (
-            image.width > MAX_IMAGE_DIMENSION
-            or image.height > MAX_IMAGE_DIMENSION
-        ):
-            raise ValueError(
-                "The PNG image dimensions exceed the allowed limit."
-            )
-        image.verify()
-
-    return image_bytes
+    return validate_png_bytes(image_bytes)
 
 
 def save_project_simpati_chart(

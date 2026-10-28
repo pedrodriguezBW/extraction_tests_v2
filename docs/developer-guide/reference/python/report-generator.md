@@ -52,6 +52,38 @@ la limpieza de la presentación y la publicación del PowerPoint final.
    :show-inheritance:
 ```
 
+## Recursos renderizados
+
+```{eval-rst}
+.. automodule:: src.report_generator.rendered_assets
+   :members:
+   :show-inheritance:
+```
+
+## Graphtec
+
+```{eval-rst}
+.. automodule:: src.report_generator.graphtec.txt_tabulated
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.graphtec.timeline
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.graphtec.formats
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.graphtec.files
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.graphtec.charts
+   :members:
+   :show-inheritance:
+```
+
 ## Utilidades de imágenes
 
 ```{eval-rst}

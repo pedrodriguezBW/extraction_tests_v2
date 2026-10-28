@@ -76,9 +76,7 @@ describe("DataSourceSelector", () => {
   });
 
   it("shows a neutral message for sources that cannot be read yet", () => {
-    expect(render("graphtec")).toContain(
-      "Reading Graphtec files will be added in a later increment.",
-    );
+    expect(render("graphtec")).not.toContain("later increment");
     expect(render("canoe")).toContain(
       "Reading CANoe files will be added in a later increment.",
     );

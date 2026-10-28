@@ -82,6 +82,34 @@ Modelo de respuesta o error HTTP
 
 Los endpoints SIMPATI permiten inspeccionar la adquisición opcional, guardar una gráfica, listar las gráficas persistidas, abrir una imagen validada y eliminar una gráfica.
 
+## Graphtec
+
+El motor está en `src/report_generator/graphtec/`:
+
+- `models.py`: registro normalizado y errores controlados.
+- `txt_tabulated.py`: parser del TXT tabulado (DCW e IR). Cada formato es un módulo independiente; el otro formato Graphtec conocido se añadirá como un módulo nuevo registrado en `formats.py`.
+- `formats.py`: selección del formato a partir del contenido. La extensión solo limita qué formatos se prueban.
+- `timeline.py`: cálculo de `elapsed_time_seconds` (documentado en el propio módulo).
+- `files.py`: reconstrucción segura de la ruta. Rechaza rutas absolutas, `..`, archivos de SIMPATI o CANoe, subcarpetas, enlaces que salen de la carpeta y archivos externos.
+- `charts.py`: gráfica Matplotlib con doble eje Y, marcadores de límite y separadores de fase.
+
+`src/report_generator/rendered_assets.py` reúne la creación de `_RenderedAssets`, la validación de PNG, la asignación de nombres sin sobrescritura y la resolución segura de gráficas guardadas. SIMPATI y Graphtec lo comparten.
+
+Endpoints (`backend/app/services/graphtec_inspection.py`):
+
+| Método | Ruta | Uso |
+|---|---|---|
+| POST | `/projects/graphtec/inspect` | Analiza `test_root` + `relative_path`. |
+| POST | `/projects/graphtec/preview-chart` | Devuelve un PNG en Base64. No guarda nada. |
+| POST | `/projects/graphtec/save-chart` | Renderiza en el servidor y guarda `graphtec_chart_NN.png` y su JSON. |
+| POST | `/projects/graphtec/charts` | Lista las gráficas Graphtec guardadas. |
+| GET | `/projects/graphtec/chart` | Sirve una gráfica guardada. |
+| POST | `/projects/graphtec/delete-chart` | Elimina la gráfica y su JSON. |
+
+Los errores se devuelven como `ApiError` sin traza: `graphtec_invalid_path` (400), `graphtec_invalid_file` y `graphtec_invalid_line` (400), `graphtec_invalid_chart_config` (400), `graphtec_unsupported_format` (415) y `graphtec_failed` (500).
+
+Las gráficas Graphtec no contienen `simpati_acquisition` en el nombre, por lo que `find_test_result_charts` no las incluye en el PowerPoint.
+
 ## Documentación interactiva
 
 Con el backend iniciado, FastAPI genera documentación OpenAPI interactiva. Se puede consultar mediante las rutas locales `/docs` y `/redoc` del backend.

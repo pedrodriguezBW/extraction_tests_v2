@@ -15,10 +15,22 @@ All notable project changes are documented in this file.
 ### Added
 
 - `Data source` and `File` selectors in `3. Review project resources`, shown after a project inspection.
-- A neutral notice for Graphtec and CANoe indicating that reading those sources will be added in a later increment.
+- A neutral notice for CANoe indicating that reading this source will be added in a later increment.
 - `canoe_directory()` and `CANOE_FOLDER_NAME` in `paths.py`, and `list_data_source_files()` in `data_sources.py`.
 - Frontend selection logic in `services/dataSourceSelection.ts` and the `DataSourceSelector` component.
 - Backend tests for the source inventory (missing `03_Data`, missing or empty sources, SIMPATI, Graphtec and CANoe files, subfolder exclusion, ordering, relative paths, unchanged SIMPATI behaviour, no file reads) and frontend tests for the selectors and SIMPATI gating.
+- Initial Graphtec support for the tab-separated TXT format (no header, six fields per line) with DCW (current in uA) and IR (resistance in Mohm or Gohm, normalized to Mohm) tests, TEST and PASS statuses and I, R, T and D phases.
+- Accumulated `elapsed_time_seconds` across phases, whose time counter restarts at every phase change. A phase time that goes back inside a phase is reported with its line number.
+- Limited measurements such as `>50Gohm` keep their operator and are drawn at the normalized threshold with a distinct marker and a note; they are never shown as exact values.
+- `Analyze Graphtec`, a Graphtec summary, chart configuration (series, title, legend, phase separators and elapsed time range), `Preview chart` and `Save chart` in the desktop interface.
+- `POST /projects/graphtec/inspect`, `/preview-chart`, `/save-chart`, `/charts`, `/delete-chart` and `GET /projects/graphtec/chart`. The server confines every file to `03_Data/02_Graphtec`.
+- Graphtec charts saved in `04_Report/_RenderedAssets` as `graphtec_chart_NN.png` with a JSON metadata file (source, relative path, test type, series, time range and units). They are not added to the PowerPoint yet.
+- Shared `rendered_assets.py` helpers for folder creation, PNG validation, non-overwriting chart names, listing and safe resolution, now also used by SIMPATI.
+
+### Notes
+
+- File names are never interpreted: test type, channel, units, phases, times and result come only from the file content.
+- Another Graphtec format exists and is not supported yet; it returns a controlled unsupported-format error.
 
 ### Removed
 

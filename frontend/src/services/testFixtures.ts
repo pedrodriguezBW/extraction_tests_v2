@@ -1,4 +1,8 @@
 import type {
+  GraphtecChartPreviewResponse,
+  GraphtecInspectionResponse,
+} from "../types/graphtec";
+import type {
   DataSourceFileResult,
   DataSourceInspectionResult,
   DataSourceKey,
@@ -170,6 +174,84 @@ export function buildInspection(
     warnings: [
       "Evidence '99_Final' references a missing photo: 251103_Evidence_02.jpg",
     ],
+    ...overrides,
+  };
+}
+
+/** Graphtec analysis matching the backend contract for an IR file. */
+export function buildGraphtecInspection(
+  overrides: Partial<GraphtecInspectionResponse> = {},
+): GraphtecInspectionResponse {
+  return {
+    success: true,
+    test_root: TEST_ROOT,
+    source: "graphtec",
+    format: "graphtec_txt_tabulated",
+    format_label: "Graphtec TXT (tab-separated)",
+    file_name: "run_01.csv",
+    relative_path: "03_Data/02_Graphtec/run_01.csv",
+    records_count: 73,
+    channels: [1],
+    test_types: ["IR"],
+    statuses: ["TEST", "PASS"],
+    phases: ["R", "T", "D"],
+    phase_segments: [],
+    final_result: "PASS",
+    available_series: [
+      { id: "voltage", label: "Voltage", unit: "kV", axis: "left", default_selected: true },
+      { id: "resistance", label: "Resistance", unit: "Mohm", axis: "right", default_selected: true },
+    ],
+    original_units: { voltage: ["kV"], resistance: ["Mohm", "Gohm"] },
+    normalized_units: { voltage: "kV", resistance: "Mohm", elapsed_time_seconds: "s" },
+    elapsed_time_start: 0,
+    elapsed_time_end: 14.8,
+    duration_seconds: 14.8,
+    limited_values_count: 20,
+    default_title: "Graphtec IR - Channel 1",
+    preview_records: [],
+    preview_truncated: true,
+    chart_data: {
+      elapsed_time_seconds: [],
+      voltage_kv: [],
+      measurement: [],
+      measurement_operator: [],
+      status: [],
+      phase: [],
+      truncated: false,
+    },
+    warnings: [],
+    errors: [],
+    ...overrides,
+  };
+}
+
+/** Graphtec chart preview returned by the backend. */
+export function buildGraphtecPreview(
+  overrides: Partial<GraphtecChartPreviewResponse> = {},
+): GraphtecChartPreviewResponse {
+  return {
+    success: true,
+    test_root: TEST_ROOT,
+    relative_path: "03_Data/02_Graphtec/run_01.csv",
+    image_base64: "data:image/png;base64,iVBORw0KGgo=",
+    width: 1650,
+    height: 840,
+    title: "Graphtec IR - Channel 1",
+    x_axis_label: "Elapsed time [s]",
+    series: [],
+    axes: [
+      { position: "left", label: "Voltage [kV]", series: ["voltage"] },
+      { position: "right", label: "Resistance [Mohm]", series: ["resistance"] },
+    ],
+    time_start: 0,
+    time_end: 14.8,
+    full_range: true,
+    records_plotted: 73,
+    limited_points: 20,
+    result_points: 1,
+    phase_markers: [],
+    notes: ["Limit marker indicates a value greater than the displayed threshold."],
+    errors: [],
     ...overrides,
   };
 }

@@ -61,6 +61,10 @@ Los contratos recibidos desde el backend se representan mediante tipos TypeScrip
 
 `src/services/dataSourceSelection.ts` contiene el reducer de la selección (fuente, archivo y resultado SIMPATI asociado) y las reglas que deciden qué archivos se muestran, cuándo se deshabilita el selector de archivo y cuándo puede analizarse SIMPATI. `src/components/DataSourceSelector.tsx` presenta los dos selectores. Cambiar de fuente limpia el archivo y el resultado SIMPATI; cambiar de archivo limpia el resultado SIMPATI.
 
+## Graphtec
+
+`src/components/GraphtecAnalysis.tsx` muestra el resumen, la configuración, la previsualización y el guardado. Su estado está en `src/services/graphtecChart.ts` (reducer y validaciones puras). `App.tsx` lo monta con `key` igual a la ruta del archivo, de modo que cambiar de archivo o de fuente descarta el análisis, la configuración y la previsualización. La lista de gráficas guardadas reutiliza `SavedSimpatiCharts` con otros textos.
+
 ## Componentes SIMPATI
 
 Los componentes específicos presentan y gestionan la gráfica actual y las gráficas guardadas. La eliminación de una gráfica debe actualizar el estado mostrado y su futura inclusión en `Test Results`.

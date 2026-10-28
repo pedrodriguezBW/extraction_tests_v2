@@ -78,8 +78,25 @@ Después de inspeccionar el ensayo, la interfaz muestra los selectores
   de selección analiza archivos automáticamente.
 - **Analyze SIMPATI** solo se habilita con la fuente SIMPATI y la
   adquisición SIMPATI detectada seleccionada.
-- La lectura de Graphtec y CANoe se añadirá en un incremento posterior;
-  la interfaz lo indica al seleccionarlas.
+- **Analyze Graphtec** lee el archivo Graphtec seleccionado. La lectura
+  de CANoe se añadirá en un incremento posterior; la interfaz lo indica al
+  seleccionarla.
+
+### Graphtec
+
+- Se admite el TXT tabulado de Graphtec (sin cabecera, seis campos por
+  línea) con ensayos DCW (tensión y corriente) e IR (tensión y resistencia).
+  Existe otro formato Graphtec que todavía no se admite y devuelve un error
+  controlado de formato no admitido.
+- El nombre del archivo no se interpreta: tipo de ensayo, canal, unidades,
+  fases, tiempos y resultado se obtienen solo del contenido.
+- El tiempo de cada fase se reinicia en el archivo; la gráfica utiliza
+  `elapsed_time_seconds`, el tiempo acumulado de toda la adquisición.
+- Los valores limitados como `>50Gohm` se dibujan en el umbral (50000 Mohm)
+  con un marcador distinto y una nota; no se presentan como medidas exactas.
+- Las gráficas se previsualizan y se guardan en `04_Report/_RenderedAssets`
+  como `graphtec_chart_NN.png`, junto con un JSON de metadatos. **Todavía no
+  se incorporan al PowerPoint.**
 
 ### Evidencias
 
@@ -122,6 +139,10 @@ fotografías utilizadas en la sección `Test Assembly`.
   evidencias.
 - `src/report_generator/data_sources.py`: fuentes de `03_Data` e
   inventario de sus archivos.
+- `src/report_generator/graphtec/`: parser del TXT tabulado, tiempo
+  acumulado, resolución segura de rutas y gráficas Graphtec.
+- `src/report_generator/rendered_assets.py`: almacenamiento compartido de
+  gráficas en `04_Report/_RenderedAssets`.
 - `src/report_generator/media.py`: utilidades neutrales de imágenes.
 - `src/report_generator/powerpoint/` y `sections/`: motor de generación.
 - `src/report_generator/powerpoint/charts.py`: gráficas climática y DUT
@@ -139,6 +160,10 @@ fotografías utilizadas en la sección `Test Assembly`.
 - `POST /projects/simpati/inspect`, `POST /projects/simpati/save-chart`,
   `POST /projects/simpati/charts`, `GET /projects/simpati/chart` y
   `POST /projects/simpati/delete-chart`: flujo de gráficas SIMPATI.
+- `POST /projects/graphtec/inspect`, `POST /projects/graphtec/preview-chart`,
+  `POST /projects/graphtec/save-chart`, `POST /projects/graphtec/charts`,
+  `GET /projects/graphtec/chart` y `POST /projects/graphtec/delete-chart`:
+  flujo de gráficas Graphtec.
 
 ## Pruebas
 

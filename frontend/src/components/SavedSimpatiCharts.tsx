@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
-import type { SimpatiSavedChart } from "../types/simpati";
+/** Datos mínimos de una gráfica guardada. */
+export interface SavedChartItem {
+  chart_name: string;
+  chart_path: string;
+  size_bytes: number;
+}
 
 
 /**
@@ -9,7 +14,16 @@ import type { SimpatiSavedChart } from "../types/simpati";
  */
 export interface SavedSimpatiChartsProps {
   /** Gráficas almacenadas para el ensayo seleccionado. */
-  charts: SimpatiSavedChart[];
+  charts: SavedChartItem[];
+
+  /** Título de la lista. Por defecto, el de las gráficas SIMPATI. */
+  heading?: string;
+
+  /** Descripción mostrada bajo el título. */
+  description?: string;
+
+  /** Texto mostrado cuando no hay gráficas guardadas. */
+  emptyText?: string;
 
   /** Indica si se está actualizando la lista de gráficas. */
   loading: boolean;
@@ -75,6 +89,9 @@ function formatFileSize(sizeBytes: number): string {
 
 export function SavedSimpatiCharts({
   charts,
+  heading = "Saved charts for Test Results",
+  description = "These images are included in the PowerPoint in the order shown.",
+  emptyText = "No saved SIMPATI charts. The report can still be generated.",
   loading,
   deletingChartName,
   getImageUrl,
@@ -140,10 +157,8 @@ export function SavedSimpatiCharts({
     <div className="saved-simpati">
       <div className="saved-simpati__heading">
         <div>
-          <h3>Saved charts for Test Results</h3>
-          <p>
-            These images are included in the PowerPoint in the order shown.
-          </p>
+          <h3>{heading}</h3>
+          <p>{description}</p>
         </div>
         <span className="saved-simpati__count">
           {charts.length} chart{charts.length === 1 ? "" : "s"}
@@ -153,9 +168,7 @@ export function SavedSimpatiCharts({
       {loading ? (
         <p className="loading-text">Refreshing saved charts...</p>
       ) : charts.length === 0 ? (
-        <div className="empty-state">
-          No saved SIMPATI charts. The report can still be generated.
-        </div>
+        <div className="empty-state">{emptyText}</div>
       ) : (
         <>
           {openError && (

@@ -32,6 +32,10 @@ El frontend transforma esa respuesta en filas de inspección, métricas y condic
 
 Si el usuario analiza SIMPATI, el frontend solicita la inspección de la adquisición. Las gráficas guardadas se escriben en `04_Report/_RenderedAssets` y se listan nuevamente antes de generar el informe.
 
+### Graphtec
+
+Si la fuente es Graphtec, el frontend envía `test_root` y `relative_path` a `POST /projects/graphtec/inspect`. La previsualización y el guardado envían además la configuración de la gráfica; el backend vuelve a leer el archivo y renderiza la imagen. Las gráficas Graphtec se guardan en `04_Report/_RenderedAssets`, pero la generación del PowerPoint no las utiliza todavía.
+
 ## 5. Generación
 
 Antes de solicitar el PowerPoint, el frontend actualiza la lista de gráficas SIMPATI guardadas. Después llama a:

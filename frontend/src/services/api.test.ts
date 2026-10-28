@@ -2,6 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   checkHealth,
+  deleteGraphtecChart,
+  fetchGraphtecChart,
+  getGraphtecChartUrl,
+  inspectGraphtec,
+  listGraphtecCharts,
+  previewGraphtecChart,
+  saveGraphtecChart,
   deleteSimpatiChart,
   fetchSimpatiChart,
   generateReport,
@@ -11,7 +18,12 @@ import {
   listSimpatiCharts,
   saveSimpatiChart,
 } from "./api";
-import { buildInspection, TEST_ROOT } from "./testFixtures";
+import {
+  buildGraphtecInspection,
+  buildGraphtecPreview,
+  buildInspection,
+  TEST_ROOT,
+} from "./testFixtures";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -69,13 +81,20 @@ describe("API service", () => {
       "API_BASE_URL",
       "ApiClientError",
       "checkHealth",
+      "deleteGraphtecChart",
       "deleteSimpatiChart",
+      "fetchGraphtecChart",
       "fetchSimpatiChart",
       "generateReport",
+      "getGraphtecChartUrl",
       "getSimpatiChartUrl",
+      "inspectGraphtec",
       "inspectProject",
       "inspectSimpati",
+      "listGraphtecCharts",
       "listSimpatiCharts",
+      "previewGraphtecChart",
+      "saveGraphtecChart",
       "saveSimpatiChart",
     ]);
   });
@@ -310,5 +329,114 @@ describe("API service", () => {
         cache: "no-store",
       },
     );
+  });
+});
+
+describe("Graphtec API", () => {
+  const relativePath = "03_Data/02_Graphtec/run_01.txt";
+  const chart = {
+    series: ["voltage" as const, "resistance" as const],
+    title: "Graphtec IR - Channel 1",
+    show_legend: true,
+    show_phase_separators: true,
+    time_min: null,
+    time_max: 9,
+  };
+
+  it("sends the test root and relative path when analyzing Graphtec", async () => {
+    const result = buildGraphtecInspection();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(result));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(inspectGraphtec(TEST_ROOT, relativePath)).resolves.toEqual(result);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/graphtec/inspect"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ test_root: TEST_ROOT, relative_path: relativePath }),
+      }),
+    );
+  });
+
+  it("sends the chart settings when previewing and saving", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(jsonResponse(buildGraphtecPreview())),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await previewGraphtecChart(TEST_ROOT, relativePath, chart);
+    await saveGraphtecChart(TEST_ROOT, relativePath, chart);
+
+    const body = JSON.stringify({ test_root: TEST_ROOT, relative_path: relativePath, chart });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/graphtec/preview-chart"),
+      expect.objectContaining({ method: "POST", body }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/graphtec/save-chart"),
+      expect.objectContaining({ method: "POST", body }),
+    );
+  });
+
+  it("reports structured Graphtec errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            success: false,
+            errors: [
+              {
+                code: "graphtec_invalid_path",
+                message: "The selected file is not inside 03_Data/02_Graphtec.",
+              },
+            ],
+          },
+          400,
+        ),
+      ),
+    );
+
+    await expect(inspectGraphtec(TEST_ROOT, "03_Data/01_SIMPATI/a.txt")).rejects.toMatchObject({
+      message: "The selected file is not inside 03_Data/02_Graphtec.",
+      status: 400,
+    });
+  });
+
+  it("lists, opens and deletes saved Graphtec charts", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        jsonResponse({ success: true, test_root: TEST_ROOT, charts_count: 0, charts: [], errors: [] }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await listGraphtecCharts(TEST_ROOT);
+    await deleteGraphtecChart(TEST_ROOT, "graphtec_chart_01.png");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/graphtec/charts"),
+      expect.objectContaining({ body: JSON.stringify({ test_root: TEST_ROOT }) }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/graphtec/delete-chart"),
+      expect.objectContaining({
+        body: JSON.stringify({ test_root: TEST_ROOT, chart_name: "graphtec_chart_01.png" }),
+      }),
+    );
+
+    const url = getGraphtecChartUrl(TEST_ROOT, "graphtec_chart_01.png");
+    expect(url).toContain("/projects/graphtec/chart?");
+    expect(url).toContain("chart_name=graphtec_chart_01.png");
+
+    const imageMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(["image"], { type: "image/png" }), {
+        status: 200,
+        headers: { "Content-Type": "image/png" },
+      }),
+    );
+    vi.stubGlobal("fetch", imageMock);
+    const image = await fetchGraphtecChart(TEST_ROOT, "graphtec_chart_01.png");
+    expect(image.type).toBe("image/png");
   });
 });

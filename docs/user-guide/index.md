@@ -13,6 +13,7 @@ getting-started
 preparing-test-folder
 application-workflow
 simpati-charts
+graphtec-charts
 generated-files
 troubleshooting
 ```
@@ -24,6 +25,6 @@ troubleshooting
 3. Seleccionar la carpeta del ensayo.
 4. Inspeccionar su estructura y sus archivos.
 5. Revisar los metadatos, las evidencias y las fuentes de adquisición.
-6. Analizar y guardar gráficas SIMPATI cuando sea necesario.
+6. Analizar y guardar gráficas SIMPATI o Graphtec cuando sea necesario.
 7. Generar el informe PowerPoint.
 8. Revisar el informe generado en `04_Report`.

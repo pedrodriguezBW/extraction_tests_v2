@@ -40,6 +40,22 @@
    :show-inheritance:
 ```
 
+## Gestión de Graphtec
+
+```{eval-rst}
+.. automodule:: backend.app.services.graphtec_inspection
+   :members:
+   :show-inheritance:
+```
+
+## Modelos Graphtec
+
+```{eval-rst}
+.. automodule:: backend.app.models.graphtec
+   :members:
+   :show-inheritance:
+```
+
 ## Modelos del proyecto
 
 ```{eval-rst}

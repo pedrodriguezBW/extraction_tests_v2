@@ -8,10 +8,10 @@ from matplotlib.widgets import Button, CheckButtons, SpanSelector
 import pandas as pd
 
 from ..cli import prompt_test_root
-from ..paths import (
-    rendered_assets_directory,
-    report_directory,
-    simpati_directory,
+from ..paths import simpati_directory
+from ..rendered_assets import (
+    build_next_chart_path as _build_next_chart_path,
+    prepare_rendered_assets_directory,
 )
 
 OUTPUT_FILE_PREFIX = "chart03_simpati_acquisition"
@@ -90,36 +90,6 @@ def find_simpati_file(test_root: Union[str, Path]) -> Path:
 
     return simpati_files[0]
 
-
-def prepare_rendered_assets_directory(
-    test_root: Union[str, Path],
-) -> Path:
-    """
-    Return ``04_Report/_RenderedAssets``, creating it when needed.
-
-    The report folder itself must already exist because it holds the
-    agent-generated ``test_metadata.json``.
-    """
-    test_root = Path(test_root).expanduser().resolve()
-    output_directory = report_directory(test_root)
-
-    if not output_directory.is_dir():
-        raise FileNotFoundError(
-            "The report folder was not found:\n"
-            f"{output_directory}"
-        )
-
-    assets_directory = rendered_assets_directory(test_root)
-
-    if assets_directory.exists() and not assets_directory.is_dir():
-        raise NotADirectoryError(
-            "The rendered assets path is not a directory:\n"
-            f"{assets_directory}"
-        )
-
-    assets_directory.mkdir(exist_ok=True)
-
-    return assets_directory
 
 def read_text_lines(
     file_path: Union[str, Path],
@@ -534,20 +504,8 @@ def _save_current_view(
 
 
 def build_next_chart_path(output_directory: Path) -> Path:
-    output_directory.mkdir(parents=True, exist_ok=True)
-
-    chart_number = 1
-
-    while True:
-        candidate = output_directory / (
-            f"{OUTPUT_FILE_PREFIX}_{chart_number:02d}.png"
-        )
-
-        if not candidate.exists():
-            return candidate
-
-        chart_number += 1
-
+    """Return the next free ``chart03_simpati_acquisition_NN.png`` path."""
+    return _build_next_chart_path(Path(output_directory), OUTPUT_FILE_PREFIX)
 
 
 def export_simpati_chart(

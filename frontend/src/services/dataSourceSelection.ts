@@ -3,6 +3,7 @@ import type {
   DataSourceKey,
   ProjectInspectionResponse,
 } from "../types/project";
+import type { GraphtecInspectionResponse } from "../types/graphtec";
 import type { SimpatiInspectionResponse } from "../types/simpati";
 import { DATA_SOURCE_KEYS } from "./projectStatus";
 
@@ -24,11 +25,11 @@ export interface DataSourceOption {
 }
 
 /**
- * Selección de fuente y archivo, junto con el resultado SIMPATI asociado.
+ * Selección de fuente y archivo, junto con los análisis asociados.
  *
- * El resultado SIMPATI forma parte de este estado para que cualquier cambio
- * de fuente o de archivo descarte el análisis y la previsualización
- * correspondientes a la selección anterior.
+ * Los resultados SIMPATI y Graphtec forman parte de este estado para que
+ * cualquier cambio de fuente o de archivo descarte el análisis y la
+ * previsualización correspondientes a la selección anterior.
  */
 export interface DataSelectionState {
   /** Fuente seleccionada o `null` si todavía no se ha elegido ninguna. */
@@ -39,6 +40,9 @@ export interface DataSelectionState {
 
   /** Resultado del análisis SIMPATI del archivo seleccionado. */
   simpati: SimpatiInspectionResponse | null;
+
+  /** Resultado del análisis Graphtec del archivo seleccionado. */
+  graphtec: GraphtecInspectionResponse | null;
 }
 
 /**
@@ -53,6 +57,12 @@ export type DataSelectionAction =
       type: "simpatiInspected";
       fileRelativePath: string;
       result: SimpatiInspectionResponse;
+    }
+  | { type: "graphtecCleared" }
+  | {
+      type: "graphtecInspected";
+      fileRelativePath: string;
+      result: GraphtecInspectionResponse;
     };
 
 /** Estado inicial: sin fuente, sin archivo y sin análisis SIMPATI. */
@@ -60,16 +70,16 @@ export const INITIAL_DATA_SELECTION: DataSelectionState = {
   sourceKey: null,
   fileRelativePath: null,
   simpati: null,
+  graphtec: null,
 };
 
 /**
  * Actualiza la selección de fuente y archivo.
  *
- * - Cambiar de fuente limpia el archivo y el resultado SIMPATI.
- * - Cambiar de archivo limpia el resultado SIMPATI del archivo anterior.
+ * - Cambiar de fuente limpia el archivo y los resultados SIMPATI y Graphtec.
+ * - Cambiar de archivo limpia los resultados del archivo anterior.
  * - Ninguna acción de selección inicia un análisis ni lee archivos.
- * - Un resultado SIMPATI solo se acepta si corresponde a la selección
- *   vigente.
+ * - Un resultado solo se acepta si corresponde a la selección vigente.
  *
  * @param state Estado actual.
  * @param action Acción que se debe aplicar.
@@ -90,6 +100,7 @@ export function dataSelectionReducer(
         sourceKey: action.sourceKey,
         fileRelativePath: null,
         simpati: null,
+        graphtec: null,
       };
     case "fileSelected":
       if (action.fileRelativePath === state.fileRelativePath) {
@@ -99,6 +110,7 @@ export function dataSelectionReducer(
         ...state,
         fileRelativePath: action.fileRelativePath,
         simpati: null,
+        graphtec: null,
       };
     case "simpatiCleared":
       return state.simpati === null ? state : { ...state, simpati: null };
@@ -110,6 +122,16 @@ export function dataSelectionReducer(
         return state;
       }
       return { ...state, simpati: action.result };
+    case "graphtecCleared":
+      return state.graphtec === null ? state : { ...state, graphtec: null };
+    case "graphtecInspected":
+      if (
+        state.sourceKey !== "graphtec" ||
+        state.fileRelativePath !== action.fileRelativePath
+      ) {
+        return state;
+      }
+      return { ...state, graphtec: action.result };
     default:
       return state;
   }
@@ -210,16 +232,23 @@ export function fileSelectorHint(
   return null;
 }
 
+/** Fuentes cuya lectura todavía no está implementada. */
+export const PENDING_SOURCE_KEYS: DataSourceKey[] = ["canoe"];
+
 /**
  * Mensaje neutral para las fuentes cuya lectura todavía no está disponible.
  *
- * @returns El mensaje para Graphtec y CANoe, o `null` para SIMPATI.
+ * @returns El mensaje para CANoe, o `null` para SIMPATI y Graphtec.
  */
 export function pendingSourceMessage(
   inspection: ProjectInspectionResponse | null,
   sourceKey: DataSourceKey | null,
 ): string | null {
-  if (inspection === null || sourceKey === null || sourceKey === "simpati") {
+  if (
+    inspection === null ||
+    sourceKey === null ||
+    !PENDING_SOURCE_KEYS.includes(sourceKey)
+  ) {
     return null;
   }
   const label = inspection.data[sourceKey].label;
@@ -335,4 +364,51 @@ export function formatFileSize(size: number): string {
     unit += 1;
   }
   return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unit]}`;
+}
+
+/** Condiciones comunes para habilitar el análisis de una fuente. */
+export type SourceAnalysisContext = SimpatiAnalysisContext;
+
+/**
+ * Determina si el análisis Graphtec puede iniciarse: proyecto inspeccionado,
+ * backend conectado, ninguna operación incompatible en curso, Graphtec como
+ * fuente y un archivo Graphtec seleccionado.
+ *
+ * El nombre del archivo no se evalúa; el backend valida la ruta y el formato
+ * a partir del contenido.
+ */
+export function canAnalyzeGraphtec({
+  inspection,
+  selection,
+  backendConnected,
+  busy,
+}: SourceAnalysisContext): boolean {
+  return (
+    inspection !== null &&
+    backendConnected &&
+    !busy &&
+    selection.sourceKey === "graphtec" &&
+    selectedSourceFile(inspection, selection) !== null
+  );
+}
+
+/**
+ * Explica qué falta para habilitar el análisis Graphtec.
+ *
+ * @returns Un texto en inglés o `null` cuando no hace falta ninguna ayuda.
+ */
+export function graphtecAnalysisHint(
+  inspection: ProjectInspectionResponse | null,
+  selection: Pick<DataSelectionState, "sourceKey" | "fileRelativePath">,
+): string | null {
+  if (inspection === null) {
+    return "Graphtec analysis is enabled after project inspection.";
+  }
+  if (selection.sourceKey !== "graphtec") {
+    return null;
+  }
+  if (selectedSourceFile(inspection, selection) === null) {
+    return "Select a Graphtec file to enable the analysis.";
+  }
+  return null;
 }

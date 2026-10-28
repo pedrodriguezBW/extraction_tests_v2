@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canAnalyzeGraphtec,
   canAnalyzeSimpati,
+  graphtecAnalysisHint,
   dataSelectionReducer,
   dataSourceOptions,
   fileSelectorHint,
@@ -13,7 +15,11 @@ import {
   sourceFiles,
   type DataSelectionState,
 } from "./dataSourceSelection";
-import { buildInspection, dataSource } from "./testFixtures";
+import {
+  buildGraphtecInspection,
+  buildInspection,
+  dataSource,
+} from "./testFixtures";
 import type { SimpatiInspectionResponse } from "../types/simpati";
 
 const SIMPATI_FILE = "03_Data/01_SIMPATI/acquisition.x03";
@@ -167,6 +173,7 @@ describe("selection state", () => {
       sourceKey: "canoe",
       fileRelativePath: null,
       simpati: null,
+      graphtec: null,
     });
   });
 
@@ -277,9 +284,7 @@ describe("SIMPATI analysis gating", () => {
         ...ready,
       }),
     ).toBe(false);
-    expect(pendingSourceMessage(inspection, "graphtec")).toBe(
-      "Reading Graphtec files will be added in a later increment.",
-    );
+    expect(pendingSourceMessage(inspection, "graphtec")).toBeNull();
     expect(pendingSourceMessage(inspection, "canoe")).toBe(
       "Reading CANoe files will be added in a later increment.",
     );
@@ -381,5 +386,108 @@ describe("file size formatting", () => {
     expect(formatFileSize(125600)).toBe("123 KB");
     expect(formatFileSize(1536)).toBe("1.5 KB");
     expect(formatFileSize(5 * 1024 * 1024)).toBe("5.0 MB");
+  });
+});
+
+describe("Graphtec analysis", () => {
+  function graphtecState(): DataSelectionState {
+    let state = dataSelectionReducer(INITIAL_DATA_SELECTION, {
+      type: "sourceSelected",
+      sourceKey: "graphtec",
+    });
+    state = dataSelectionReducer(state, {
+      type: "fileSelected",
+      fileRelativePath: GRAPHTEC_FILE,
+    });
+    return dataSelectionReducer(state, {
+      type: "graphtecInspected",
+      fileRelativePath: GRAPHTEC_FILE,
+      result: buildGraphtecInspection(),
+    });
+  }
+
+  it("is enabled for a selected Graphtec file", () => {
+    expect(
+      canAnalyzeGraphtec({
+        inspection: buildInspection(),
+        selection: { sourceKey: "graphtec", fileRelativePath: GRAPHTEC_FILE },
+        ...ready,
+      }),
+    ).toBe(true);
+  });
+
+  it("is disabled without a selected file", () => {
+    const selection = { sourceKey: "graphtec" as const, fileRelativePath: null };
+
+    expect(
+      canAnalyzeGraphtec({ inspection: buildInspection(), selection, ...ready }),
+    ).toBe(false);
+    expect(graphtecAnalysisHint(buildInspection(), selection)).toBe(
+      "Select a Graphtec file to enable the analysis.",
+    );
+  });
+
+  it("requires inspection, backend and no other operation", () => {
+    const selection = { sourceKey: "graphtec" as const, fileRelativePath: GRAPHTEC_FILE };
+
+    expect(canAnalyzeGraphtec({ inspection: null, selection, ...ready })).toBe(false);
+    expect(
+      canAnalyzeGraphtec({ inspection: buildInspection(), selection, backendConnected: false, busy: false }),
+    ).toBe(false);
+    expect(
+      canAnalyzeGraphtec({ inspection: buildInspection(), selection, backendConnected: true, busy: true }),
+    ).toBe(false);
+  });
+
+  it("is not available for other sources", () => {
+    expect(
+      canAnalyzeGraphtec({
+        inspection: buildInspection(),
+        selection: { sourceKey: "simpati", fileRelativePath: SIMPATI_FILE },
+        ...ready,
+      }),
+    ).toBe(false);
+  });
+
+  it("clears the Graphtec analysis when the file changes", () => {
+    const state = dataSelectionReducer(graphtecState(), {
+      type: "fileSelected",
+      fileRelativePath: "03_Data/02_Graphtec/run_02.csv",
+    });
+
+    expect(state.graphtec).toBeNull();
+    expect(state.fileRelativePath).toBe("03_Data/02_Graphtec/run_02.csv");
+  });
+
+  it("clears the Graphtec analysis when the source changes", () => {
+    const state = dataSelectionReducer(graphtecState(), {
+      type: "sourceSelected",
+      sourceKey: "simpati",
+    });
+
+    expect(state.graphtec).toBeNull();
+    expect(state.fileRelativePath).toBeNull();
+  });
+
+  it("ignores a Graphtec result for a previous selection", () => {
+    const state = dataSelectionReducer(
+      dataSelectionReducer(INITIAL_DATA_SELECTION, {
+        type: "sourceSelected",
+        sourceKey: "canoe",
+      }),
+      {
+        type: "graphtecInspected",
+        fileRelativePath: GRAPHTEC_FILE,
+        result: buildGraphtecInspection(),
+      },
+    );
+
+    expect(state.graphtec).toBeNull();
+  });
+
+  it("keeps CANoe as not implemented yet", () => {
+    expect(pendingSourceMessage(buildInspection(), "canoe")).toBe(
+      "Reading CANoe files will be added in a later increment.",
+    );
   });
 });
