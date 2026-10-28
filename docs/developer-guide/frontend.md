@@ -38,6 +38,7 @@ componentes y servicios
 - Selección y limpieza de la carpeta.
 - Inspección del proyecto.
 - Resumen de recursos.
+- Selección de fuente de datos y archivo.
 - Análisis y gestión de SIMPATI.
 - Generación del PowerPoint.
 - Estados de carga, mensajes y errores.
@@ -55,6 +56,10 @@ Antes de modificarlo, identifica si el cambio pertenece a presentación, estado,
 ## Tipos
 
 Los contratos recibidos desde el backend se representan mediante tipos TypeScript bajo `src/types/`. Cuando cambie un modelo Pydantic o una respuesta de la API, revisa también su tipo equivalente en el frontend.
+
+## Selección de fuente y archivo
+
+`src/services/dataSourceSelection.ts` contiene el reducer de la selección (fuente, archivo y resultado SIMPATI asociado) y las reglas que deciden qué archivos se muestran, cuándo se deshabilita el selector de archivo y cuándo puede analizarse SIMPATI. `src/components/DataSourceSelector.tsx` presenta los dos selectores. Cambiar de fuente limpia el archivo y el resultado SIMPATI; cambiar de archivo limpia el resultado SIMPATI.
 
 ## Componentes SIMPATI
 

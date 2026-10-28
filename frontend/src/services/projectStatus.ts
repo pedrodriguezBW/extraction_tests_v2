@@ -37,9 +37,8 @@ export interface ResourceSummaryItem {
  */
 export const DATA_SOURCE_KEYS: DataSourceKey[] = [
   "simpati",
-  "csv",
-  "datalogger",
   "graphtec",
+  "canoe",
 ];
 
 /**

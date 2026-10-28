@@ -1,4 +1,5 @@
 import type {
+  DataSourceFileResult,
   DataSourceInspectionResult,
   DataSourceKey,
   ProjectInspectionResponse,
@@ -6,20 +7,37 @@ import type {
 
 export const TEST_ROOT = "C:\\Tests\\TEST - 001";
 
-function dataSource(
+/**
+ * Builds a source result as returned by `POST /projects/inspect`.
+ *
+ * @param found `false` simulates a missing source folder.
+ */
+export function dataSource(
   key: DataSourceKey,
   label: string,
   folder: string,
   files: string[],
+  found = true,
 ): DataSourceInspectionResult {
+  const sourceFiles: DataSourceFileResult[] = found
+    ? files.map((name, index) => ({
+        name,
+        relative_path: `03_Data/${folder}/${name}`,
+        extension: name.includes(".")
+          ? name.slice(name.lastIndexOf(".")).toLowerCase()
+          : "",
+        size: 1000 * (index + 1),
+      }))
+    : [];
+
   return {
     key,
     label,
-    found: true,
-    available: files.length > 0,
+    found,
+    available: found && sourceFiles.length > 0,
     path: `${TEST_ROOT}\\03_Data\\${folder}`,
-    file_count: files.length,
-    files,
+    file_count: sourceFiles.length,
+    files: sourceFiles,
   };
 }
 
@@ -110,9 +128,11 @@ export function buildInspection(
       simpati: dataSource("simpati", "SIMPATI", "01_SIMPATI", [
         "acquisition.x03",
       ]),
-      csv: dataSource("csv", "CSV", "02_CSV", ["log.CSV"]),
-      datalogger: dataSource("datalogger", "Datalogger", "03_Datalogger", []),
-      graphtec: dataSource("graphtec", "Graphtec", "04_Graphtec", []),
+      graphtec: dataSource("graphtec", "Graphtec", "02_Graphtec", [
+        "run_01.csv",
+        "run_02.csv",
+      ]),
+      canoe: dataSource("canoe", "CANoe", "03_CANoe", []),
       simpati_file: {
         found: true,
         name: "acquisition.x03",

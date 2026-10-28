@@ -49,7 +49,20 @@ Para cada evidencia se muestra:
 
 Revisa cualquier evidencia marcada con advertencia, especialmente cuando falten fotografías.
 
-Desde esta sección también puedes ejecutar **Analyze SIMPATI**. Este paso es opcional y no bloquea por sí solo la generación del PowerPoint.
+### Data source y File
+
+Después de la inspección aparecen dos selectores:
+
+- **Data source:** SIMPATI, Graphtec o CANoe.
+- **File:** archivos encontrados directamente en la carpeta de la fuente elegida.
+
+El selector **File** permanece deshabilitado si no hay fuente seleccionada, si la carpeta de la fuente no existe o si no contiene archivos. Cambiar de fuente o de archivo no analiza nada automáticamente y descarta el análisis SIMPATI mostrado anteriormente.
+
+Para Graphtec y CANoe se muestra un aviso indicando que su lectura se añadirá en un incremento posterior.
+
+### Analyze SIMPATI
+
+**Analyze SIMPATI** se habilita cuando la fuente seleccionada es SIMPATI y el archivo seleccionado es la adquisición SIMPATI detectada en la inspección. Este paso es opcional y no bloquea por sí solo la generación del PowerPoint.
 
 ## 4. Generate report
 

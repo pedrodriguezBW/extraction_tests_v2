@@ -72,6 +72,8 @@ Modelo de respuesta o error HTTP
 
 `POST /projects/inspect` recibe la carpeta del ensayo y devuelve el estado de la estructura, metadata, evidencias, fuentes de datos y plantilla.
 
+`data` contiene `directory`, una entrada por fuente (`simpati`, `graphtec`, `canoe`) y `simpati_file`. Cada fuente incluye `files`, con `name`, `relative_path` (relativa a la raíz del ensayo, con `/`), `extension` (en minúsculas) y `size` (bytes). Solo se listan archivos regulares situados directamente en la carpeta de la fuente, ordenados sin distinguir mayúsculas; las subcarpetas, los archivos ocultos y los archivos de bloqueo de Office se excluyen. La inspección no lee el contenido de los archivos.
+
 ## Generación
 
 `POST /projects/generate-report` genera el PowerPoint desde el `test_metadata.json` existente. El endpoint contempla respuestas de error de aplicación para peticiones inválidas, problemas de acceso y fallos internos.

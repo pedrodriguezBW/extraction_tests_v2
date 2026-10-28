@@ -6,10 +6,12 @@ El tratamiento de SIMPATI es opcional. El informe puede generarse aunque no exis
 
 Después de inspeccionar el proyecto:
 
-1. Pulsa **Analyze SIMPATI**.
-2. Si se encuentra una adquisición, revisa el nombre del archivo, la codificación, el número de registros y el intervalo temporal mostrado.
-3. Configura la gráfica desde el componente disponible en la interfaz.
-4. Guarda la gráfica cuando quieras incorporarla al informe.
+1. En **Data source**, selecciona **SIMPATI**.
+2. En **File**, selecciona la adquisición SIMPATI detectada.
+3. Pulsa **Analyze SIMPATI**.
+4. Si se encuentra una adquisición, revisa el nombre del archivo, la codificación, el número de registros y el intervalo temporal mostrado.
+5. Configura la gráfica desde el componente disponible en la interfaz.
+6. Guarda la gráfica cuando quieras incorporarla al informe.
 
 Las adquisiciones SIMPATI se buscan en:
 

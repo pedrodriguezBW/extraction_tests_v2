@@ -9,13 +9,15 @@ La aplicación recibe la carpeta raíz de un ensayo, por ejemplo
     │   └── <carpeta de evidencia>/evidence.json
     ├── 03_Data
     │   ├── 01_SIMPATI
-    │   ├── 02_CSV
-    │   ├── 03_Datalogger
-    │   └── 04_Graphtec
+    │   ├── 02_Graphtec
+    │   └── 03_CANoe
     └── 04_Report
         ├── test_metadata.json
         ├── _RenderedAssets
         └── _Working
+
+SIMPATI, Graphtec y CANoe son orígenes de datos. CSV es un formato de
+archivo y no se trata como una fuente independiente.
 
 Un proceso externo genera ``test_metadata.json``. El generador de informes se
 limita a leerlo y escribe sus propias salidas dentro de ``04_Report``.
@@ -36,14 +38,11 @@ DATA_FOLDER_NAME = "03_Data"
 #: Nombre de la subcarpeta de adquisiciones SIMPATI.
 SIMPATI_FOLDER_NAME = "01_SIMPATI"
 
-#: Nombre de la subcarpeta de archivos CSV.
-CSV_FOLDER_NAME = "02_CSV"
-
-#: Nombre de la subcarpeta de adquisiciones del datalogger.
-DATALOGGER_FOLDER_NAME = "03_Datalogger"
-
 #: Nombre de la subcarpeta de adquisiciones Graphtec.
-GRAPHTEC_FOLDER_NAME = "04_Graphtec"
+GRAPHTEC_FOLDER_NAME = "02_Graphtec"
+
+#: Nombre de la subcarpeta de adquisiciones CANoe.
+CANOE_FOLDER_NAME = "03_CANoe"
 
 #: Nombre de la carpeta que contiene los recursos y salidas del informe.
 REPORT_FOLDER_NAME = "04_Report"
@@ -109,30 +108,6 @@ def simpati_directory(test_root: Path) -> Path:
     return data_directory(test_root) / SIMPATI_FOLDER_NAME
 
 
-def csv_directory(test_root: Path) -> Path:
-    """Obtiene la carpeta de archivos CSV.
-
-    Args:
-        test_root: Ruta de la carpeta raíz del ensayo.
-
-    Returns:
-        Ruta de ``03_Data/02_CSV``.
-    """
-    return data_directory(test_root) / CSV_FOLDER_NAME
-
-
-def datalogger_directory(test_root: Path) -> Path:
-    """Obtiene la carpeta de adquisiciones del datalogger.
-
-    Args:
-        test_root: Ruta de la carpeta raíz del ensayo.
-
-    Returns:
-        Ruta de ``03_Data/03_Datalogger``.
-    """
-    return data_directory(test_root) / DATALOGGER_FOLDER_NAME
-
-
 def graphtec_directory(test_root: Path) -> Path:
     """Obtiene la carpeta de adquisiciones Graphtec.
 
@@ -140,9 +115,21 @@ def graphtec_directory(test_root: Path) -> Path:
         test_root: Ruta de la carpeta raíz del ensayo.
 
     Returns:
-        Ruta de ``03_Data/04_Graphtec``.
+        Ruta de ``03_Data/02_Graphtec``.
     """
     return data_directory(test_root) / GRAPHTEC_FOLDER_NAME
+
+
+def canoe_directory(test_root: Path) -> Path:
+    """Obtiene la carpeta de adquisiciones CANoe.
+
+    Args:
+        test_root: Ruta de la carpeta raíz del ensayo.
+
+    Returns:
+        Ruta de ``03_Data/03_CANoe``.
+    """
+    return data_directory(test_root) / CANOE_FOLDER_NAME
 
 
 def report_directory(test_root: Path) -> Path:

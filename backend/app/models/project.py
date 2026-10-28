@@ -109,6 +109,19 @@ class EvidencesInspectionResult(BaseModel):
     )
 
 
+class DataSourceFileResult(BaseModel):
+    """Regular file found in a source folder. Its content is not read."""
+
+    name: str
+    relative_path: str = Field(
+        description="Path relative to the test root, using '/' separators.",
+    )
+    extension: str = Field(
+        description="Lower-case file extension including the dot, or ''.",
+    )
+    size: int = Field(description="File size in bytes.")
+
+
 class DataSourceInspectionResult(BaseModel):
     """Optional acquisition source in 03_Data."""
 
@@ -118,17 +131,20 @@ class DataSourceInspectionResult(BaseModel):
     available: bool
     path: str
     file_count: int = 0
-    files: list[str] = Field(default_factory=list)
+    files: list[DataSourceFileResult] = Field(default_factory=list)
 
 
 class DataSourcesInspectionResult(BaseModel):
-    """Optional acquisition sources stored in 03_Data."""
+    """Optional acquisition sources stored in 03_Data.
+
+    SIMPATI, Graphtec and CANoe are data origins; CSV is a file format and
+    is not reported as an independent source.
+    """
 
     directory: DirectoryInspectionResult
     simpati: DataSourceInspectionResult
-    csv: DataSourceInspectionResult
-    datalogger: DataSourceInspectionResult
     graphtec: DataSourceInspectionResult
+    canoe: DataSourceInspectionResult
     simpati_file: FileInspectionResult
 
 

@@ -13,9 +13,8 @@ TEST - 001/
 │       └── <fotografías>
 ├── 03_Data/
 │   ├── 01_SIMPATI/
-│   ├── 02_CSV/
-│   ├── 03_Datalogger/
-│   └── 04_Graphtec/
+│   ├── 02_Graphtec/
+│   └── 03_CANoe/
 └── 04_Report/
     ├── test_metadata.json
     ├── _RenderedAssets/
@@ -39,7 +38,9 @@ La aplicación también comprueba:
 - `01_Inputs`.
 - `02_Evidences`.
 - `03_Data`.
-- Las fuentes SIMPATI, CSV, Datalogger y Graphtec.
+- Las fuentes SIMPATI (`03_Data/01_SIMPATI`), Graphtec (`03_Data/02_Graphtec`) y CANoe (`03_Data/03_CANoe`).
+
+CSV es un formato de archivo y no una fuente independiente.
 
 La ausencia de estos recursos se muestra como advertencia cuando no bloquea la generación.
 

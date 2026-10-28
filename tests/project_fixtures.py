@@ -108,9 +108,8 @@ def build_test_folder(
     metadata: dict[str, Any] | None = None,
     data_sources: tuple[str, ...] = (
         "01_SIMPATI",
-        "02_CSV",
-        "03_Datalogger",
-        "04_Graphtec",
+        "02_Graphtec",
+        "03_CANoe",
     ),
 ) -> Path:
     """Create the contractual structure of an individual test."""

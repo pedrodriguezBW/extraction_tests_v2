@@ -3,9 +3,8 @@ from pathlib import Path
 
 from src.report_generator import paths
 from src.report_generator.paths import (
-    csv_directory,
+    canoe_directory,
     data_directory,
-    datalogger_directory,
     evidences_directory,
     graphtec_directory,
     inputs_directory,
@@ -46,16 +45,22 @@ class ReportPathTests(unittest.TestCase):
             data_root / "01_SIMPATI",
         )
         self.assertEqual(
-            csv_directory(self.test_root),
-            data_root / "02_CSV",
-        )
-        self.assertEqual(
-            datalogger_directory(self.test_root),
-            data_root / "03_Datalogger",
-        )
-        self.assertEqual(
             graphtec_directory(self.test_root),
-            data_root / "04_Graphtec",
+            data_root / "02_Graphtec",
+        )
+        self.assertEqual(
+            canoe_directory(self.test_root),
+            data_root / "03_CANoe",
+        )
+
+    def test_data_source_folder_names_match_the_contract(self):
+        self.assertEqual(
+            (
+                paths.SIMPATI_FOLDER_NAME,
+                paths.GRAPHTEC_FOLDER_NAME,
+                paths.CANOE_FOLDER_NAME,
+            ),
+            ("01_SIMPATI", "02_Graphtec", "03_CANoe"),
         )
 
     def test_report_outputs_live_in_04_report(self):

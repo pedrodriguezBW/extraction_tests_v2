@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Climatic Report Generator",
+        "title": "Report Generator",
         "width": 1240,
         "height": 840,
         "minWidth": 760,

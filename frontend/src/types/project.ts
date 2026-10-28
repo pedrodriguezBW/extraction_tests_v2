@@ -229,8 +229,33 @@ export interface EvidencesInspectionResult {
 
 /**
  * Identificador de una fuente de adquisición reconocida por la aplicación.
+ *
+ * SIMPATI, Graphtec y CANoe son orígenes de datos. CSV es un formato de
+ * archivo y no se trata como una fuente independiente.
  */
-export type DataSourceKey = "simpati" | "csv" | "datalogger" | "graphtec";
+export type DataSourceKey = "simpati" | "graphtec" | "canoe";
+
+/**
+ * Archivo regular detectado directamente dentro de la carpeta de una fuente.
+ *
+ * La inspección no lee su contenido.
+ */
+export interface DataSourceFileResult {
+  /** Nombre del archivo. */
+  name: string;
+
+  /**
+   * Ruta relativa a la carpeta raíz del ensayo con separadores `/`, por
+   * ejemplo `03_Data/01_SIMPATI/acquisition.csv`.
+   */
+  relative_path: string;
+
+  /** Extensión en minúsculas incluyendo el punto, o cadena vacía. */
+  extension: string;
+
+  /** Tamaño del archivo en bytes. */
+  size: number;
+}
 
 /**
  * Resultado de la inspección de una fuente de adquisición concreta.
@@ -254,8 +279,8 @@ export interface DataSourceInspectionResult {
   /** Número de archivos detectados. */
   file_count: number;
 
-  /** Nombres de los archivos detectados. */
-  files: string[];
+  /** Archivos detectados, ordenados sin distinguir mayúsculas. */
+  files: DataSourceFileResult[];
 }
 
 /**
@@ -265,19 +290,16 @@ export interface DataSourcesInspectionResult {
   /** Estado de la carpeta `03_Data`. */
   directory: DirectoryInspectionResult;
 
-  /** Resultado de la inspección de SIMPATI. */
+  /** Resultado de la inspección de `03_Data/01_SIMPATI`. */
   simpati: DataSourceInspectionResult;
 
-  /** Resultado de la inspección de archivos CSV. */
-  csv: DataSourceInspectionResult;
-
-  /** Resultado de la inspección del datalogger. */
-  datalogger: DataSourceInspectionResult;
-
-  /** Resultado de la inspección de Graphtec. */
+  /** Resultado de la inspección de `03_Data/02_Graphtec`. */
   graphtec: DataSourceInspectionResult;
 
-  /** Archivo SIMPATI seleccionado para el análisis, cuando existe. */
+  /** Resultado de la inspección de `03_Data/03_CANoe`. */
+  canoe: DataSourceInspectionResult;
+
+  /** Archivo SIMPATI que utiliza el análisis SIMPATI, cuando existe. */
   simpati_file: FileInspectionResult;
 }
 

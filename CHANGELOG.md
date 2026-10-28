@@ -2,6 +2,28 @@
 
 All notable project changes are documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- The `03_Data` contract now contains the data sources `01_SIMPATI`, `02_Graphtec` and `03_CANoe`. CSV is treated as a file format, not as an independent source.
+- `POST /projects/inspect` now reports `data.simpati`, `data.graphtec` and `data.canoe` (plus `data.directory` and `data.simpati_file`).
+- Each source now returns `files` as a list of objects with `name`, `relative_path` (relative to the test root, using `/`), `extension` (lower case) and `size` (bytes). Only regular files placed directly in the source folder are listed, sorted case-insensitively. Subfolders, hidden files and Office lock files are excluded, and file content is not read.
+- **Analyze SIMPATI** is enabled only when SIMPATI is the selected source and the selected file is the detected SIMPATI acquisition.
+- Changing the data source clears the selected file and the previous SIMPATI result and preview. Changing the file clears the previous SIMPATI result. No file is analyzed automatically.
+
+### Added
+
+- `Data source` and `File` selectors in `3. Review project resources`, shown after a project inspection.
+- A neutral notice for Graphtec and CANoe indicating that reading those sources will be added in a later increment.
+- `canoe_directory()` and `CANOE_FOLDER_NAME` in `paths.py`, and `list_data_source_files()` in `data_sources.py`.
+- Frontend selection logic in `services/dataSourceSelection.ts` and the `DataSourceSelector` component.
+- Backend tests for the source inventory (missing `03_Data`, missing or empty sources, SIMPATI, Graphtec and CANoe files, subfolder exclusion, ordering, relative paths, unchanged SIMPATI behaviour, no file reads) and frontend tests for the selectors and SIMPATI gating.
+
+### Removed
+
+- The obsolete `02_CSV`, `03_Datalogger` and `04_Graphtec` folders from the active contract, together with `csv_directory()`, `datalogger_directory()`, `CSV_FOLDER_NAME`, `DATALOGGER_FOLDER_NAME` and the `csv` and `datalogger` inspection entries.
+
 ## [0.5.0] - 2026-10-08
 
 ### Changed
@@ -11,16 +33,6 @@ All notable project changes are documented in this file.
 - Report generation starts from the existing `04_Report/test_metadata.json`.
 - The metadata template no longer contains legacy `setup`, `source`, or `extraction` objects.
 - Setup and test-state photographs are now discovered independently from `02_Evidences/*/evidence.json`.
-
-### Added
-
-- Chronological PowerPoint slides generated from `02_Evidences/*/evidence.json`.
-- Evidence titles, references, notes, and photos in Test Results.
-- Automatic continuation slides for evidence states with multiple photos.
-- PowerPoint pruning tests and generated typography checks.
-
-### Changed
-
 - Test Assembly now uses photos from the `initial` evidence state.
 - Test Results preserves the real test sequence defined by each evidence descriptor.
 - Generated report typography uses a minimum font size of 12 pt.
@@ -28,7 +40,12 @@ All notable project changes are documented in this file.
 - The completed climatic PowerPoint keeps only the cover, Tested Parts, TEST A, its generated continuations, and the editable Conclusions slide.
 - Remaining slides are renumbered after report cleanup.
 
+### Added
 
+- Chronological PowerPoint slides generated from `02_Evidences/*/evidence.json`.
+- Evidence titles, references, notes, and photos in Test Results.
+- Automatic continuation slides for evidence states with multiple photos.
+- PowerPoint pruning tests and generated typography checks.
 
 ### Removed
 

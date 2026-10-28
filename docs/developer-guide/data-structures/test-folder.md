@@ -11,9 +11,8 @@ TEST - 001/
 │       └── <fotografías>
 ├── 03_Data/
 │   ├── 01_SIMPATI/
-│   ├── 02_CSV/
-│   ├── 03_Datalogger/
-│   └── 04_Graphtec/
+│   ├── 02_Graphtec/
+│   └── 03_CANoe/
 └── 04_Report/
     ├── test_metadata.json
     ├── _RenderedAssets/
@@ -35,7 +34,9 @@ La ruta entregada a la aplicación debe ser la carpeta individual del ensayo. No
 - `01_Inputs/`.
 - `02_Evidences/`.
 - `03_Data/`.
-- Fuentes SIMPATI, CSV, Datalogger y Graphtec.
+- Fuentes SIMPATI (`03_Data/01_SIMPATI`), Graphtec (`03_Data/02_Graphtec`) y CANoe (`03_Data/03_CANoe`).
+
+CSV es un formato de archivo y no una fuente independiente.
 
 Su ausencia puede producir advertencias sin bloquear necesariamente la generación.
 

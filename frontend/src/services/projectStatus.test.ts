@@ -19,7 +19,7 @@ describe("report generation gating", () => {
   it("does not depend on optional data sources or evidences", () => {
     const inspection = buildInspection();
     inspection.data.simpati.available = false;
-    inspection.data.csv.available = false;
+    inspection.data.graphtec.available = false;
     inspection.evidences.evidences = [];
     inspection.evidences.evidences_count = 0;
 
@@ -77,9 +77,8 @@ describe("resource summary", () => {
       "Evidences",
       "Photos found",
       "SIMPATI",
-      "CSV",
-      "Datalogger",
       "Graphtec",
+      "CANoe",
       "PowerPoint template",
     ]);
   });
@@ -97,9 +96,10 @@ describe("resource summary", () => {
     expect(summary.photos.status).toBe("warning");
     expect(summary.simpati.value).toBe("1 file");
     expect(summary.simpati.status).toBe("success");
-    expect(summary.datalogger.value).toBe("Not available");
-    expect(summary.datalogger.note).toBe("Optional");
-    expect(summary.datalogger.status).toBe("unavailable");
+    expect(summary.graphtec.value).toBe("2 files");
+    expect(summary.canoe.value).toBe("Not available");
+    expect(summary.canoe.note).toBe("Optional");
+    expect(summary.canoe.status).toBe("unavailable");
     expect(summary.template.value).toBe("Found");
   });
 });

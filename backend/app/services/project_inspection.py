@@ -35,6 +35,7 @@ from src.report_generator.paths import (
 )
 
 from ..models.project import (
+    DataSourceFileResult,
     DataSourceInspectionResult,
     DataSourcesInspectionResult,
     DirectoryInspectionResult,
@@ -227,8 +228,13 @@ def _source_result(source: DataSource) -> DataSourceInspectionResult:
         path=str(source.directory),
         file_count=len(source.files),
         files=[
-            file_path.relative_to(source.directory).as_posix()
-            for file_path in source.files
+            DataSourceFileResult(
+                name=source_file.name,
+                relative_path=source_file.relative_path,
+                extension=source_file.extension,
+                size=source_file.size,
+            )
+            for source_file in source.files
         ],
     )
 
@@ -240,8 +246,9 @@ def inspect_project(
     Inspect a test folder without modifying it.
 
     The inspection validates the agent-generated metadata, discovers
-    the evidences and the optional acquisition sources, and checks the
-    PowerPoint template. It does not create folders, generate metadata,
+    the evidences and the optional acquisition sources (SIMPATI,
+    Graphtec and CANoe, with the inventory of their files), and checks
+    the PowerPoint template. Source files are listed but never read. It does not create folders, generate metadata,
     open Excel workbooks, or modify files.
 
     Only the report folder, a valid test_metadata.json and the template
@@ -374,9 +381,8 @@ def inspect_project(
         data=DataSourcesInspectionResult(
             directory=_directory_result(data_path),
             simpati=_source_result(sources["simpati"]),
-            csv=_source_result(sources["csv"]),
-            datalogger=_source_result(sources["datalogger"]),
             graphtec=_source_result(sources["graphtec"]),
+            canoe=_source_result(sources["canoe"]),
             simpati_file=_file_result(simpati_file_path),
         ),
         report_directory=_directory_result(report_path),

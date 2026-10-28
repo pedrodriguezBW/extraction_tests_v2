@@ -4,40 +4,45 @@ La aplicación genera un informe PowerPoint editable a partir del
 `test_metadata.json` de un ensayo. Ese JSON lo produce un agente externo:
 la aplicación ya no abre el Excel de inputs ni extrae datos de él.
 
-Flujo:
+Flujo principal:
 
-```
-Seleccionar ensayo
-→ inspeccionar estructura y test_metadata.json
-→ revisar los recursos detectados
-→ generar PowerPoint
-```
+1. Seleccionar la carpeta individual del ensayo mediante Tauri.
+2. Inspeccionar la estructura del ensayo y `test_metadata.json`.
+3. Revisar las evidencias, las fuentes de datos y la plantilla detectadas.
+4. Seleccionar una fuente de datos (SIMPATI, Graphtec o CANoe) y uno de
+   sus archivos.
+5. Analizar y guardar opcionalmente las gráficas SIMPATI.
+6. Generar el PowerPoint editable dentro de `04_Report`.
 
 ## Estructura del ensayo
 
 La aplicación recibe la carpeta individual de un ensayo:
 
-```
-TEST - 001
-├── 01_Inputs
-├── 02_Evidences
-│   └── <carpeta de evidencia>/evidence.json
-├── 03_Data
-│   ├── 01_SIMPATI
-│   ├── 02_CSV
-│   ├── 03_Datalogger
-│   └── 04_Graphtec
-└── 04_Report
+```text
+TEST - 001/
+├── 01_Inputs/
+├── 02_Evidences/
+│   └── <carpeta de evidencia>/
+│       ├── evidence.json
+│       └── <fotografías>
+├── 03_Data/
+│   ├── 01_SIMPATI/
+│   ├── 02_Graphtec/
+│   └── 03_CANoe/
+└── 04_Report/
     ├── test_metadata.json
-    ├── _RenderedAssets
-    └── _Working
+    ├── _RenderedAssets/
+    └── _Working/
 ```
+
+La carpeta seleccionada debe ser la carpeta individual del ensayo, no `04_Report`, una subcarpeta de evidencias ni la raíz del repositorio.
 
 - `04_Report` y un `test_metadata.json` válido son obligatorios para
   generar el informe.
 - `01_Inputs`, `02_Evidences` y `03_Data` se comprueban y se informan,
   pero su ausencia solo produce advertencias.
-- Las fuentes SIMPATI, CSV, Datalogger y Graphtec son opcionales.
+- Las fuentes SIMPATI, Graphtec y CANoe son opcionales. CSV es un formato
+  de archivo, no una fuente independiente.
 - El PowerPoint final se guarda directamente en `04_Report`. Se monta en
   `04_Report/_Working` y se mueve a `04_Report` cuando está completo.
 - Las gráficas SIMPATI guardadas se almacenan en
@@ -45,18 +50,60 @@ TEST - 001
 
 Todas las rutas se definen en `src/report_generator/paths.py`.
 
-## Evidencias
+### Fuentes de datos
 
-Cada subcarpeta de `02_Evidences` puede contener un `evidence.json`
-(`schemaVersion`, `id`, `type`, `title`, `reference`, `notes`, `sequence`,
-`folder`, `photos`). Las evidencias se descubren dinámicamente, se validan
-y se ordenan por `sequence`; el nombre de la carpeta no determina el orden
-ni el tipo. La ruta de cada fotografía es la carpeta que contiene el
-descriptor más `savedName`. Se informa de los descriptores inválidos y de
-las fotografías referenciadas que no existen.
+`03_Data` contiene tres orígenes de datos opcionales:
 
-En esta versión las evidencias se detectan y se muestran, pero todavía no
-se generan sus diapositivas.
+| Fuente | Carpeta |
+|---|---|
+| SIMPATI | `03_Data/01_SIMPATI` |
+| Graphtec | `03_Data/02_Graphtec` |
+| CANoe | `03_Data/03_CANoe` |
+
+La inspección devuelve, para cada fuente, si su carpeta existe y el
+inventario de sus archivos: `name`, `relative_path` (relativa a la raíz del
+ensayo), `extension` y `size`. Solo se listan los archivos situados
+directamente en la carpeta de la fuente, ordenados alfabéticamente sin
+distinguir mayúsculas. Se excluyen las subcarpetas, los archivos ocultos y
+los archivos de bloqueo de Office. La inspección no lee el contenido de los
+archivos.
+
+Después de inspeccionar el ensayo, la interfaz muestra los selectores
+**Data source** y **File**:
+
+- **File** está deshabilitado si no hay fuente seleccionada, si la carpeta
+  de la fuente no existe o si no contiene archivos.
+- Cambiar de fuente limpia el archivo seleccionado y el análisis SIMPATI
+  anterior. Cambiar de archivo limpia el análisis anterior. Ningún cambio
+  de selección analiza archivos automáticamente.
+- **Analyze SIMPATI** solo se habilita con la fuente SIMPATI y la
+  adquisición SIMPATI detectada seleccionada.
+- La lectura de Graphtec y CANoe se añadirá en un incremento posterior;
+  la interfaz lo indica al seleccionarlas.
+
+### Evidencias
+
+Cada subcarpeta de `02_Evidences` puede contener un archivo
+`evidence.json` con los campos `schemaVersion`, `id`, `type`, `title`,
+`reference`, `notes`, `sequence`, `folder` y `photos`.
+
+Las evidencias se descubren dinámicamente, se validan y se ordenan por
+`sequence`. El nombre de la carpeta no determina el orden ni el tipo de
+la evidencia.
+
+La ruta de cada fotografía se resuelve combinando la carpeta que contiene
+el descriptor con el valor `savedName` de la fotografía. Durante la
+inspección se informa de los descriptores inválidos y de las fotografías
+referenciadas que no existen.
+
+Las evidencias válidas generan diapositivas cronológicas en la sección
+`Test Results` del PowerPoint. Las diapositivas incluyen el título, la
+referencia, las notas y las fotografías definidas en cada descriptor.
+
+Cuando una evidencia contiene más fotografías de las que admite una sola
+diapositiva, el generador crea automáticamente las diapositivas de
+continuación necesarias. La evidencia inicial también proporciona las
+fotografías utilizadas en la sección `Test Assembly`.
 
 ## Uso por consola
 
@@ -73,7 +120,8 @@ se generan sus diapositivas.
   `test_metadata.json`.
 - `src/report_generator/evidences.py`: descubrimiento y validación de
   evidencias.
-- `src/report_generator/data_sources.py`: fuentes de `03_Data`.
+- `src/report_generator/data_sources.py`: fuentes de `03_Data` e
+  inventario de sus archivos.
 - `src/report_generator/media.py`: utilidades neutrales de imágenes.
 - `src/report_generator/powerpoint/` y `sections/`: motor de generación.
 - `src/report_generator/powerpoint/charts.py`: gráficas climática y DUT
@@ -85,7 +133,8 @@ se generan sus diapositivas.
 ## API
 
 - `POST /projects/inspect`: estructura, `test_metadata.json`, evidencias,
-  fuentes de datos, plantilla, errores y advertencias.
+  fuentes de datos con el inventario de sus archivos, plantilla, errores y
+  advertencias.
 - `POST /projects/generate-report`: genera el PowerPoint en `04_Report`.
 - `POST /projects/simpati/inspect`, `POST /projects/simpati/save-chart`,
   `POST /projects/simpati/charts`, `GET /projects/simpati/chart` y

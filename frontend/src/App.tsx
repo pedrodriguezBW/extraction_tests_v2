@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
+import { DataSourceSelector } from "./components/DataSourceSelector";
 import { SavedSimpatiCharts } from "./components/SavedSimpatiCharts";
 import { SimpatiChart } from "./components/SimpatiChart";
 import {
@@ -15,17 +16,30 @@ import {
   saveSimpatiChart,
 } from "./services/api";
 import {
+  canAnalyzeSimpati,
+  dataSelectionReducer,
+  dataSourceOptions,
+  fileSelectorHint,
+  INITIAL_DATA_SELECTION,
+  isFileSelectorDisabled,
+  pendingSourceMessage,
+  simpatiAnalysisHint,
+  sourceFiles,
+} from "./services/dataSourceSelection";
+import {
   buildResourceSummary,
   canGenerateReport,
   evidenceLabel,
   metadataStatus,
   type ResultStatus,
 } from "./services/projectStatus";
-import type { ProjectInspectionResponse } from "./types/project";
+import type {
+  DataSourceKey,
+  ProjectInspectionResponse,
+} from "./types/project";
 import type { ReportGenerationResponse } from "./types/report";
 import type {
   SimpatiChartSaveResponse,
-  SimpatiInspectionResponse,
   SimpatiSavedChart,
 } from "./types/simpati";
 
@@ -97,8 +111,11 @@ function App() {
   const [inspection, setInspection] =
     useState<ProjectInspectionResponse | null>(null);
   const [simpatiLoading, setSimpatiLoading] = useState(false);
-  const [simpati, setSimpati] =
-    useState<SimpatiInspectionResponse | null>(null);
+  const [dataSelection, dispatchDataSelection] = useReducer(
+    dataSelectionReducer,
+    INITIAL_DATA_SELECTION,
+  );
+  const simpati = dataSelection.simpati;
   const [simpatiChartSaving, setSimpatiChartSaving] = useState(false);
   const [savedSimpatiCharts, setSavedSimpatiCharts] =
     useState<SimpatiSavedChart[]>([]);
@@ -132,7 +149,7 @@ function App() {
 
   const resetProjectResults = useCallback(() => {
     setInspection(null);
-    setSimpati(null);
+    dispatchDataSelection({ type: "reset" });
     setSavedSimpatiCharts([]);
     setReportChartCount(0);
     setReport(null);
@@ -212,7 +229,7 @@ function App() {
     setCurrentError(null);
     setOperationMessage(null);
     setInspection(null);
-    setSimpati(null);
+    dispatchDataSelection({ type: "reset" });
     setReport(null);
 
     try {
@@ -302,16 +319,22 @@ function App() {
   ]);
 
   const inspectSelectedSimpati = useCallback(async () => {
+    const fileRelativePath = dataSelection.fileRelativePath;
     if (
       !selectedPath ||
-      inspection === null ||
-      backendStatus !== "connected" ||
-      inspectionLoading ||
-      simpatiLoading ||
-      simpatiChartSaving ||
-      savedChartsLoading ||
-      deletingChartName !== null ||
-      reportLoading
+      fileRelativePath === null ||
+      !canAnalyzeSimpati({
+        inspection,
+        selection: dataSelection,
+        backendConnected: backendStatus === "connected",
+        busy:
+          inspectionLoading ||
+          simpatiLoading ||
+          simpatiChartSaving ||
+          savedChartsLoading ||
+          deletingChartName !== null ||
+          reportLoading,
+      })
     ) {
       return;
     }
@@ -319,11 +342,15 @@ function App() {
     setSimpatiLoading(true);
     setCurrentError(null);
     setOperationMessage(null);
-    setSimpati(null);
+    dispatchDataSelection({ type: "simpatiCleared" });
 
     try {
       const response = await inspectSimpati(selectedPath);
-      setSimpati(response);
+      dispatchDataSelection({
+        type: "simpatiInspected",
+        fileRelativePath,
+        result: response,
+      });
       setOperationMessage(
         response.available
           ? "The SIMPATI acquisition was inspected successfully."
@@ -336,6 +363,7 @@ function App() {
     }
   }, [
     backendStatus,
+    dataSelection,
     inspection,
     inspectionLoading,
     simpatiChartSaving,
@@ -345,6 +373,30 @@ function App() {
     selectedPath,
     simpatiLoading,
   ]);
+
+  const changeDataSource = useCallback(
+    (sourceKey: DataSourceKey | null) => {
+      if (sourceKey === dataSelection.sourceKey) {
+        return;
+      }
+      dispatchDataSelection({ type: "sourceSelected", sourceKey });
+      setCurrentError(null);
+      setOperationMessage(null);
+    },
+    [dataSelection.sourceKey],
+  );
+
+  const changeDataSourceFile = useCallback(
+    (fileRelativePath: string | null) => {
+      if (fileRelativePath === dataSelection.fileRelativePath) {
+        return;
+      }
+      dispatchDataSelection({ type: "fileSelected", fileRelativePath });
+      setCurrentError(null);
+      setOperationMessage(null);
+    },
+    [dataSelection.fileRelativePath],
+  );
 
   const saveCurrentSimpatiChart = useCallback(
     async (imageBase64: string): Promise<SimpatiChartSaveResponse> => {
@@ -514,9 +566,13 @@ function App() {
     !busy;
   const canInspectSimpati =
     selectedPath.length > 0 &&
-    backendStatus === "connected" &&
-    inspection !== null &&
-    !busy;
+    canAnalyzeSimpati({
+      inspection,
+      selection: dataSelection,
+      backendConnected: backendStatus === "connected",
+      busy,
+    });
+  const simpatiHint = simpatiAnalysisHint(inspection, dataSelection);
 
   return (
     <div className="app-shell">
@@ -766,6 +822,27 @@ function App() {
             </>
           )}
 
+          {inspection && (
+            <DataSourceSelector
+              options={dataSourceOptions(inspection)}
+              selectedSourceKey={dataSelection.sourceKey}
+              files={sourceFiles(inspection, dataSelection.sourceKey)}
+              selectedFileRelativePath={dataSelection.fileRelativePath}
+              fileSelectorDisabled={isFileSelectorDisabled(
+                inspection,
+                dataSelection.sourceKey,
+              )}
+              fileHint={fileSelectorHint(inspection, dataSelection.sourceKey)}
+              pendingMessage={pendingSourceMessage(
+                inspection,
+                dataSelection.sourceKey,
+              )}
+              disabled={busy}
+              onSourceChange={changeDataSource}
+              onFileChange={changeDataSourceFile}
+            />
+          )}
+
           <div className="section-actions">
             <button
               className="button button--primary"
@@ -777,10 +854,8 @@ function App() {
                 ? "Analyzing SIMPATI..."
                 : "Analyze SIMPATI"}
             </button>
-            {inspection === null && (
-              <span className="action-hint">
-                SIMPATI analysis is enabled after project inspection.
-              </span>
+            {simpatiHint && (
+              <span className="action-hint">{simpatiHint}</span>
             )}
           </div>
 

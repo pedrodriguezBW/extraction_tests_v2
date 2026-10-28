@@ -86,11 +86,57 @@ class ProjectInspectionEndpointTests(unittest.TestCase):
             {
                 "directory",
                 "simpati",
-                "csv",
-                "datalogger",
                 "graphtec",
+                "canoe",
                 "simpati_file",
             },
+        )
+        self.assertEqual(
+            body["data"]["simpati"]["files"],
+            [],
+        )
+        self.assertEqual(
+            Path(body["data"]["canoe"]["path"]),
+            (self.test_root / "03_Data" / "03_CANoe").resolve(),
+        )
+
+    def test_inspect_endpoint_returns_source_file_inventory(self):
+        graphtec = self.test_root / "03_Data" / "02_Graphtec"
+        (graphtec / "b_run.csv").write_bytes(b"12345")
+        (graphtec / "A_run.CSV").write_bytes(b"123")
+        (graphtec / "nested").mkdir()
+
+        with patch(
+            "backend.app.services.project_inspection."
+            "POWERPOINT_TEMPLATE_PATH",
+            self.template_path,
+        ):
+            response = self.client.post(
+                "/projects/inspect",
+                json={"test_root": str(self.test_root)},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        source = body["data"]["graphtec"]
+        self.assertTrue(source["found"])
+        self.assertEqual(source["file_count"], 2)
+        self.assertEqual(
+            source["files"],
+            [
+                {
+                    "name": "A_run.CSV",
+                    "relative_path": "03_Data/02_Graphtec/A_run.CSV",
+                    "extension": ".csv",
+                    "size": 3,
+                },
+                {
+                    "name": "b_run.csv",
+                    "relative_path": "03_Data/02_Graphtec/b_run.csv",
+                    "extension": ".csv",
+                    "size": 5,
+                },
+            ],
         )
         self.assertNotIn("input_workbook", body)
         self.assertNotIn("setup_images", body)
