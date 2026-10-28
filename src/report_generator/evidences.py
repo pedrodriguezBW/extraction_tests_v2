@@ -1,15 +1,16 @@
-"""
-Discovery and validation of test evidences.
+"""Descubre y valida las evidencias de un ensayo.
 
-Every sub-folder of ``02_Evidences`` may contain an ``evidence.json``
-descriptor written by the evidence capture tool. Descriptors are
-discovered dynamically, validated, and ordered by ``sequence``. Folder
-names are only used as a last tie-breaker and as the physical location
-of the photos; they are never parsed to infer the evidence type or
-order.
+Cada subcarpeta de ``02_Evidences`` puede contener un descriptor
+``evidence.json`` generado por la herramienta de captura de evidencias. Los
+descriptores se descubren dinámicamente, se validan y se ordenan mediante
+``sequence``.
 
-This module does not create slides. It produces a structured result
-that the backend, the frontend and future PowerPoint sections can use.
+Los nombres de las carpetas solo se utilizan como último criterio de desempate
+y como ubicación física de las fotografías. Nunca se interpretan para deducir
+el tipo ni el orden de una evidencia.
+
+Este módulo no crea diapositivas. Produce un resultado estructurado que pueden
+utilizar el backend, el frontend y las secciones del informe PowerPoint.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from .media import is_supported_image, is_temporary_file
 from .paths import EVIDENCE_DESCRIPTOR_FILENAME, evidences_directory
 
 
+#: Versiones del esquema ``evidence.json`` admitidas por la aplicación.
 SUPPORTED_EVIDENCE_SCHEMA_VERSIONS = frozenset({1})
 
 _TEXT_FIELDS = ("id", "type", "title", "notes", "folder")
@@ -31,87 +33,155 @@ _PHOTO_TEXT_FIELDS = ("id", "originalName", "captureDate", "mime")
 
 @dataclass(frozen=True)
 class EvidencePhoto:
-    """Photo referenced by an evidence descriptor."""
+    """Representa una fotografía declarada por un descriptor de evidencia."""
 
+    #: Nombre con el que la fotografía está guardada.
     saved_name: str
+
+    #: Ruta resuelta del archivo.
     path: Path
+
+    #: Indica si el archivo existe.
     found: bool
+
+    #: Identificador declarado de la fotografía.
     id: str | None = None
+
+    #: Nombre original del archivo.
     original_name: str | None = None
+
+    #: Fecha y hora de captura declaradas.
     capture_date: str | None = None
+
+    #: Tipo MIME declarado.
     mime: str | None = None
+
+    #: Tamaño declarado del archivo en bytes.
     size: int | None = None
 
 
 @dataclass(frozen=True)
 class Evidence:
-    """Valid evidence descriptor with its resolved photos."""
+    """Representa un descriptor válido y sus fotografías resueltas."""
 
+    #: Carpeta física que contiene la evidencia.
     directory: Path
+
+    #: Ruta del descriptor ``evidence.json``.
     descriptor_path: Path
+
+    #: Nombre real de la carpeta de la evidencia.
     folder_name: str
+
+    #: Versión declarada del esquema.
     schema_version: int | None = None
+
+    #: Identificador de la evidencia.
     id: str | None = None
+
+    #: Tipo de evidencia.
     type: str | None = None
+
+    #: Título visible de la evidencia.
     title: str | None = None
+
+    #: Tipo de referencia temporal o funcional.
     reference_type: str | None = None
+
+    #: Valor asociado a la referencia.
     reference_value: str | None = None
+
+    #: Notas declaradas para la evidencia.
     notes: str | None = None
+
+    #: Posición cronológica de la evidencia.
     sequence: int | None = None
+
+    #: Nombre de carpeta declarado dentro del descriptor.
     declared_folder: str | None = None
+
+    #: Fotografías declaradas por la evidencia.
     photos: list[EvidencePhoto] = field(default_factory=list)
 
     @property
     def found_photos(self) -> list[EvidencePhoto]:
+        """Devuelve las fotografías cuyo archivo existe."""
         return [photo for photo in self.photos if photo.found]
 
     @property
     def missing_photos(self) -> list[EvidencePhoto]:
+        """Devuelve las fotografías cuyo archivo no se ha encontrado."""
         return [photo for photo in self.photos if not photo.found]
 
 
 @dataclass(frozen=True)
 class InvalidEvidence:
-    """Evidence folder whose descriptor cannot be used."""
+    """Representa una carpeta cuyo descriptor no puede utilizarse."""
 
+    #: Carpeta física inspeccionada.
     directory: Path
+
+    #: Ruta del descriptor no válido.
     descriptor_path: Path
+
+    #: Nombre de la carpeta de la evidencia.
     folder_name: str
+
+    #: Errores detectados durante la lectura o validación.
     errors: list[str]
 
 
 @dataclass(frozen=True)
 class MissingEvidencePhoto:
-    """Photo referenced by a descriptor but absent on disk."""
+    """Representa una fotografía declarada que no existe en disco."""
 
+    #: Carpeta de la evidencia.
     evidence_folder: str
+
+    #: Título de la evidencia.
     evidence_title: str | None
+
+    #: Nombre esperado del archivo.
     saved_name: str
+
+    #: Ruta esperada de la fotografía.
     path: Path
 
 
 @dataclass(frozen=True)
 class EvidenceDiscovery:
-    """Result of inspecting ``02_Evidences``."""
+    """Contiene el resultado de inspeccionar ``02_Evidences``."""
 
+    #: Ruta de la carpeta de evidencias.
     directory: Path
+
+    #: Indica si la carpeta de evidencias existe.
     found: bool
+
+    #: Evidencias válidas ordenadas por secuencia.
     evidences: list[Evidence] = field(default_factory=list)
+
+    #: Evidencias cuyos descriptores no son válidos.
     invalid_evidences: list[InvalidEvidence] = field(default_factory=list)
+
+    #: Advertencias no bloqueantes detectadas durante la inspección.
     warnings: list[str] = field(default_factory=list)
 
     @property
     def photos_count(self) -> int:
+        """Devuelve el número total de fotografías declaradas."""
         return sum(len(evidence.photos) for evidence in self.evidences)
 
     @property
     def found_photos_count(self) -> int:
+        """Devuelve el número total de fotografías encontradas."""
         return sum(
             len(evidence.found_photos) for evidence in self.evidences
         )
 
     @property
     def missing_photos(self) -> list[MissingEvidencePhoto]:
+        """Devuelve la información agregada de las fotografías ausentes."""
         return [
             MissingEvidencePhoto(
                 evidence_folder=evidence.folder_name,
@@ -124,7 +194,14 @@ class EvidenceDiscovery:
         ]
 
     def found_photo_paths_for_type(self, evidence_type: str) -> list[Path]:
-        """Return existing supported photos for one evidence type."""
+        """Obtiene las fotografías válidas de un tipo de evidencia.
+
+        Args:
+            evidence_type: Tipo de evidencia que se debe seleccionar.
+
+        Returns:
+            Rutas de las fotografías existentes con un formato compatible.
+        """
         normalized_type = evidence_type.strip().casefold()
         return [
             photo.path
@@ -136,17 +213,19 @@ class EvidenceDiscovery:
 
 
 def _is_integer(value: Any) -> bool:
+    """Comprueba si un valor es un entero y no un booleano."""
     return isinstance(value, int) and not isinstance(value, bool)
 
 
 def _optional_text(value: Any) -> str | None:
+    """Convierte un valor opcional a texto sin modificar los valores nulos."""
     if value is None:
         return None
     return str(value)
 
 
 def _is_plain_file_name(name: str) -> bool:
-    """Reject names that would escape the evidence folder."""
+    """Rechaza nombres que podrían escapar de la carpeta de evidencia."""
     return (
         bool(name.strip())
         and name not in (".", "..")
@@ -158,6 +237,7 @@ def _is_plain_file_name(name: str) -> bool:
 
 
 def _read_descriptor(descriptor_path: Path) -> Any:
+    """Lee un descriptor de evidencia y devuelve su contenido JSON."""
     try:
         with descriptor_path.open("r", encoding="utf-8-sig") as file:
             return json.load(file)
@@ -177,12 +257,13 @@ def _read_descriptor(descriptor_path: Path) -> Any:
 
 
 def _validate_descriptor(descriptor: Any) -> list[str]:
+    """Devuelve los errores estructurales de un descriptor de evidencia."""
     if not isinstance(descriptor, dict):
         return ["The descriptor must contain a JSON object."]
 
     errors: list[str] = []
-
     schema_version = descriptor.get("schemaVersion")
+
     if schema_version is not None:
         if not _is_integer(schema_version):
             errors.append("'schemaVersion' must be an integer.")
@@ -214,7 +295,6 @@ def _validate_descriptor(descriptor: Any) -> list[str]:
 
     for index, photo in enumerate(photos, start=1):
         label = f"Photo {index}"
-
         if not isinstance(photo, dict):
             errors.append(f"{label} must be an object.")
             continue
@@ -245,6 +325,7 @@ def _validate_descriptor(descriptor: Any) -> list[str]:
 
 
 def _reference_parts(reference: Any) -> tuple[str | None, str | None]:
+    """Separa una referencia en su tipo y su valor opcionales."""
     if isinstance(reference, dict):
         return (
             _optional_text(reference.get("type")),
@@ -260,10 +341,10 @@ def _build_evidence(
     descriptor_path: Path,
     descriptor: dict[str, Any],
 ) -> Evidence:
+    """Construye una evidencia validada y resuelve sus fotografías."""
     reference_type, reference_value = _reference_parts(
         descriptor.get("reference")
     )
-
     photos = [
         EvidencePhoto(
             saved_name=photo["savedName"],
@@ -277,7 +358,6 @@ def _build_evidence(
         )
         for photo in descriptor.get("photos") or []
     ]
-
     return Evidence(
         directory=directory,
         descriptor_path=descriptor_path,
@@ -296,12 +376,14 @@ def _build_evidence(
 
 
 def _sort_key(evidence: Evidence) -> tuple[int, int, str]:
+    """Construye la clave utilizada para ordenar las evidencias."""
     if evidence.sequence is None:
         return (1, 0, evidence.folder_name.casefold())
     return (0, evidence.sequence, evidence.folder_name.casefold())
 
 
 def _collect_warnings(evidences: list[Evidence]) -> list[str]:
+    """Recopila advertencias no bloqueantes de evidencias válidas."""
     warnings: list[str] = []
     seen_sequences: dict[int, str] = {}
     seen_ids: dict[str, str] = {}
@@ -357,14 +439,19 @@ def _collect_warnings(evidences: list[Evidence]) -> list[str]:
 
 
 def discover_evidences(test_root: Path) -> EvidenceDiscovery:
-    """
-    Discover, validate and order the evidences of a test.
+    """Descubre, valida y ordena las evidencias de un ensayo.
 
-    The function only reads files. Missing folders, invalid descriptors
-    and missing photos are reported in the result instead of raising.
+    La función solo lee archivos. Las carpetas ausentes, los descriptores no
+    válidos y las fotografías que faltan se reflejan en el resultado en lugar
+    de provocar una excepción.
+
+    Args:
+        test_root: Ruta de la carpeta raíz del ensayo.
+
+    Returns:
+        Resultado estructurado de la inspección de ``02_Evidences``.
     """
     directory = evidences_directory(Path(test_root))
-
     if not directory.is_dir():
         return EvidenceDiscovery(directory=directory, found=False)
 
@@ -385,7 +472,6 @@ def discover_evidences(test_root: Path) -> EvidenceDiscovery:
         descriptor_path = (
             evidence_directory / EVIDENCE_DESCRIPTOR_FILENAME
         )
-
         if not descriptor_path.is_file():
             warnings.append(
                 f"The evidence folder '{evidence_directory.name}' has "

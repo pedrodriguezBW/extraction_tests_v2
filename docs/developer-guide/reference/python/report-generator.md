@@ -10,9 +10,13 @@
 
 ## Orquestación
 
+El módulo `src.report_generator.generator` coordina la carga de metadatos,
+el descubrimiento de evidencias, la generación de las secciones del informe,
+la limpieza de la presentación y la publicación del PowerPoint final.
+
 ```{eval-rst}
 .. automodule:: src.report_generator.generator
-   :members:
+   :exclude-members: generate_climatic_report
    :show-inheritance:
 ```
 

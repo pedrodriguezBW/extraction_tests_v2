@@ -1,14 +1,12 @@
-"""
-Reading and validation of the agent-generated ``test_metadata.json``.
+"""Lee y valida el archivo ``test_metadata.json`` generado externamente.
 
-The report generator no longer extracts data from Excel. The metadata
-file is produced by an external agent and stored in
-``04_Report/test_metadata.json``. This module only reads and validates
-it; it never creates or rewrites it.
+El generador de informes no extrae datos del archivo Excel. Un proceso externo
+crea ``04_Report/test_metadata.json`` y este módulo se limita a leerlo y
+validarlo; nunca lo crea ni lo reescribe.
 
-The validation is intentionally limited to the structure that the
-PowerPoint engine relies on. Business values are represented exactly
-as they appear in the file.
+La validación se limita de forma intencionada a la estructura consumida por el
+motor de PowerPoint. Los valores funcionales se conservan tal como aparecen en
+el archivo.
 """
 
 from __future__ import annotations
@@ -22,28 +20,54 @@ from .paths import metadata_path
 
 
 class MetadataError(ValueError):
-    """Raised when ``test_metadata.json`` cannot be used."""
+    """Indica que ``test_metadata.json`` no puede utilizarse.
+
+    Attributes:
+        errors: Errores estructurales asociados a la excepción.
+    """
 
     def __init__(self, message: str, errors: list[str] | None = None):
+        """Inicializa el error de metadatos.
+
+        Args:
+            message: Mensaje principal del error.
+            errors: Errores estructurales detectados. Si no se indican, se
+                utiliza el mensaje principal como único elemento.
+        """
         super().__init__(message)
         self.errors = list(errors or [message])
 
 
 @dataclass(frozen=True)
 class MetadataSummary:
-    """Compact information about a valid metadata file."""
+    """Resume la información relevante de un archivo de metadatos válido."""
 
+    #: Nombre del ensayo.
     test_name: str | None = None
+
+    #: Versión declarada del esquema.
     schema_version: str | None = None
+
+    #: Número de muestras.
     samples_count: int = 0
+
+    #: Número de equipos.
     equipment_count: int = 0
+
+    #: Número de puntos del perfil climático.
     climatic_profile_points_count: int = 0
+
+    #: Número de puntos del perfil DUT.
     dut_profile_points_count: int = 0
+
+    #: Número de eventos del ensayo.
     test_events_count: int = 0
+
+    #: Imágenes de montaje declaradas en los metadatos.
     setup_images: list[dict[str, Any]] = field(default_factory=list)
 
 
-# Sections that must be JSON objects when present.
+# Secciones que deben ser objetos JSON cuando están presentes.
 _OBJECT_SECTIONS = (
     "people",
     "test_facility",
@@ -52,14 +76,14 @@ _OBJECT_SECTIONS = (
     "dut_controller_inputs",
 )
 
-# Sections that must be lists of JSON objects when present.
+# Secciones que deben ser listas de objetos JSON cuando están presentes.
 _LIST_SECTIONS = (
     "samples",
     "equipment",
     "test_events",
 )
 
-# Profile point lists consumed by the native PowerPoint charts.
+# Listas de puntos consumidas por las gráficas nativas de PowerPoint.
 _PROFILE_SECTIONS = (
     "climatic_inputs",
     "dut_controller_inputs",
@@ -67,7 +91,19 @@ _PROFILE_SECTIONS = (
 
 
 def read_metadata_file(metadata_file: Path) -> dict[str, Any]:
-    """Read a metadata file and check that it contains a JSON object."""
+    """Lee un archivo de metadatos y comprueba que contiene un objeto JSON.
+
+    Args:
+        metadata_file: Ruta del archivo ``test_metadata.json``.
+
+    Returns:
+        Contenido del archivo como diccionario.
+
+    Raises:
+        FileNotFoundError: Si el archivo no existe.
+        MetadataError: Si el archivo no utiliza UTF-8, no contiene JSON válido,
+            no puede leerse o su raíz no es un objeto JSON.
+    """
     metadata_file = Path(metadata_file)
 
     if not metadata_file.is_file():
@@ -101,23 +137,29 @@ def read_metadata_file(metadata_file: Path) -> dict[str, Any]:
 
 
 def _is_list_of_objects(value: Any) -> bool:
+    """Comprueba si un valor es una lista formada únicamente por objetos."""
     return isinstance(value, list) and all(
         isinstance(item, dict) for item in value
     )
 
 
 def validate_metadata(metadata: Any) -> list[str]:
-    """
-    Return the structural errors that prevent report generation.
+    """Devuelve los errores estructurales que impiden generar el informe.
 
-    An empty list means that the generator can consume the metadata.
+    Una lista vacía indica que el generador puede consumir los metadatos.
+
+    Args:
+        metadata: Contenido que se debe validar.
+
+    Returns:
+        Mensajes de error estructural detectados.
     """
     if not isinstance(metadata, dict):
         return ["The metadata file must contain a JSON object."]
 
     errors: list[str] = []
-
     test_data = metadata.get("test")
+
     if not isinstance(test_data, dict):
         errors.append(
             "The metadata must contain a 'test' object."
@@ -154,6 +196,7 @@ def validate_metadata(metadata: Any) -> list[str]:
         section_data = metadata.get(section)
         if not isinstance(section_data, dict):
             continue
+
         points = section_data.get("profile_points")
         if points is not None and not _is_list_of_objects(points):
             errors.append(
@@ -174,7 +217,14 @@ def validate_metadata(metadata: Any) -> list[str]:
 
 
 def summarize_metadata(metadata: dict[str, Any]) -> MetadataSummary:
-    """Build a compact summary of an already validated metadata file."""
+    """Construye un resumen compacto de metadatos ya validados.
+
+    Args:
+        metadata: Metadatos válidos del ensayo.
+
+    Returns:
+        Resumen con identificadores y recuentos utilizados por la inspección.
+    """
 
     def count(value: Any) -> int:
         return len(value) if isinstance(value, list) else 0
@@ -204,11 +254,18 @@ def summarize_metadata(metadata: dict[str, Any]) -> MetadataSummary:
 
 
 def load_test_metadata(test_root: Path) -> dict[str, Any]:
-    """
-    Load and validate ``04_Report/test_metadata.json``.
+    """Carga y valida ``04_Report/test_metadata.json``.
 
-    Raises ``FileNotFoundError`` when the file does not exist and
-    ``MetadataError`` when it cannot be used for report generation.
+    Args:
+        test_root: Ruta de la carpeta raíz del ensayo.
+
+    Returns:
+        Metadatos validados del ensayo.
+
+    Raises:
+        FileNotFoundError: Si ``test_metadata.json`` no existe.
+        MetadataError: Si el archivo no puede utilizarse para generar el
+            informe.
     """
     metadata = read_metadata_file(metadata_path(Path(test_root)))
     errors = validate_metadata(metadata)
@@ -226,13 +283,18 @@ def resolve_setup_images(
     metadata: dict[str, Any],
     test_root: Path,
 ) -> tuple[list[Path], list[str]]:
-    """
-    Resolve the setup photos referenced by ``setup.images``.
+    """Resuelve las fotografías referenciadas mediante ``setup.images``.
 
-    Each ``relative_path`` is resolved inside the test folder. Returns
-    the existing image paths, in metadata order, and the references
-    that could not be found. References that point outside the test
-    folder are treated as missing.
+    Cada ``relative_path`` se resuelve dentro de la carpeta del ensayo. Las
+    referencias que apuntan fuera de esa carpeta se consideran ausentes.
+
+    Args:
+        metadata: Metadatos del ensayo.
+        test_root: Ruta de la carpeta raíz del ensayo.
+
+    Returns:
+        Una tupla con las rutas existentes, conservando el orden de los
+        metadatos, y las referencias que no se han encontrado.
     """
     test_root = Path(test_root)
     root = test_root.resolve()
