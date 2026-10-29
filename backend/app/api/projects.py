@@ -7,46 +7,48 @@ from ..models.project import (
     ProjectInspectionResponse,
 )
 from ..models.graphtec import (
-    GraphtecChartDeleteRequest,
-    GraphtecChartDeleteResponse,
-    GraphtecChartListResponse,
     GraphtecChartPreviewResponse,
     GraphtecChartRequest,
     GraphtecChartSaveResponse,
     GraphtecFileRequest,
     GraphtecInspectionResponse,
 )
-from ..models.report_generation import ReportGenerationResponse
+from ..models.rendered_assets import (
+    RenderedAssetDeleteResponse,
+    RenderedAssetListResponse,
+    RenderedAssetRequest,
+)
+from ..models.report_generation import (
+    ReportGenerationRequest,
+    ReportGenerationResponse,
+)
 from ..models.simpati_inspection import (
-    SimpatiChartDeleteRequest,
-    SimpatiChartDeleteResponse,
-    SimpatiChartListResponse,
     SimpatiChartSaveRequest,
     SimpatiChartSaveResponse,
     SimpatiInspectionResponse,
 )
 from ..services.graphtec_inspection import (
     GraphtecServiceError,
-    delete_project_graphtec_chart,
     inspect_project_graphtec,
-    list_project_graphtec_charts,
     preview_project_graphtec_chart,
-    resolve_project_graphtec_chart,
     save_project_graphtec_chart,
 )
 from ..services.project_inspection import inspect_project
+from ..services.rendered_assets import (
+    RenderedAssetServiceError,
+    delete_project_rendered_asset,
+    list_project_rendered_assets,
+    media_type_for,
+    resolve_project_rendered_asset,
+)
 from ..services.report_generation import (
     ReportGenerationError,
     generate_project_report,
 )
 from ..services.simpati_inspection import (
-    SimpatiChartManagementError,
     SimpatiChartSaveError,
-    delete_project_simpati_chart,
     SimpatiInspectionError,
     inspect_project_simpati,
-    list_project_simpati_charts,
-    resolve_project_simpati_chart,
     save_project_simpati_chart,
 )
 
@@ -74,15 +76,25 @@ def inspect_project_endpoint(
     responses={
         400: {"model": ReportGenerationResponse},
         403: {"model": ReportGenerationResponse},
+        404: {"model": ReportGenerationResponse},
+        415: {"model": ReportGenerationResponse},
         500: {"model": ReportGenerationResponse},
     },
 )
 def generate_project_report_endpoint(
-    request: ProjectInspectionRequest,
+    request: ReportGenerationRequest,
 ) -> ReportGenerationResponse | JSONResponse:
-    """Generate the PowerPoint from the existing test_metadata.json."""
+    """Generate the PowerPoint from test_metadata.json and the selected images.
+
+    ``selected_rendered_assets`` lists, in order, the images of
+    ``04_Report/_RenderedAssets`` to insert in Test Results. Only those
+    images are inserted; an empty list generates the report without them.
+    """
     try:
-        return generate_project_report(request.test_root)
+        return generate_project_report(
+            request.test_root,
+            request.selected_rendered_assets,
+        )
     except ReportGenerationError as error:
         return JSONResponse(
             status_code=error.status_code,
@@ -124,7 +136,7 @@ def inspect_project_simpati_endpoint(
 def save_project_simpati_chart_endpoint(
     request: SimpatiChartSaveRequest,
 ) -> SimpatiChartSaveResponse | JSONResponse:
-    """Save a SIMPATI chart for later PowerPoint generation."""
+    """Save a SIMPATI chart in 04_Report/_RenderedAssets."""
     try:
         return save_project_simpati_chart(
             request.test_root,
@@ -137,80 +149,79 @@ def save_project_simpati_chart_endpoint(
         )
 
 
+def _rendered_asset_error_response(
+    error: RenderedAssetServiceError,
+    response_type,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=error.status_code,
+        content=jsonable_encoder(error.to_response(response_type)),
+    )
+
+
+_RENDERED_ASSET_ERROR_STATUSES = (400, 403, 404, 415, 500)
+
+
 @router.post(
-    "/simpati/charts",
-    response_model=SimpatiChartListResponse,
+    "/rendered-assets",
+    response_model=RenderedAssetListResponse,
     responses={
-        400: {"model": SimpatiChartListResponse},
-        403: {"model": SimpatiChartListResponse},
-        500: {"model": SimpatiChartListResponse},
+        code: {"model": RenderedAssetListResponse}
+        for code in _RENDERED_ASSET_ERROR_STATUSES
     },
 )
-def list_project_simpati_charts_endpoint(
+def list_project_rendered_assets_endpoint(
     request: ProjectInspectionRequest,
-) -> SimpatiChartListResponse | JSONResponse:
-    """List saved SIMPATI charts included in Test Results."""
+) -> RenderedAssetListResponse | JSONResponse:
+    """List the images of 04_Report/_RenderedAssets selectable for the report.
+
+    Every PNG, JPG or JPEG placed directly in the folder is listed whatever
+    its origin (SIMPATI, Graphtec, manual...). Unsupported files are
+    reported as warnings and never block the listing.
+    """
     try:
-        return list_project_simpati_charts(request.test_root)
-    except SimpatiChartManagementError as error:
-        return JSONResponse(
-            status_code=error.status_code,
-            content=jsonable_encoder(error.to_list_response()),
-        )
+        return list_project_rendered_assets(request.test_root)
+    except RenderedAssetServiceError as error:
+        return _rendered_asset_error_response(error, RenderedAssetListResponse)
 
 
-@router.get("/simpati/chart", response_model=None)
-def open_project_simpati_chart_endpoint(
+@router.get("/rendered-asset", response_model=None)
+def open_project_rendered_asset_endpoint(
     test_root: str,
-    chart_name: str,
+    relative_path: str,
 ) -> Response:
-    """Serve one validated saved chart for safe viewing."""
+    """Serve one validated image of 04_Report/_RenderedAssets."""
     try:
-        chart_path = resolve_project_simpati_chart(
-            test_root,
-            chart_name,
-        )
-        media_types = {
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-        }
-
+        image_path = resolve_project_rendered_asset(test_root, relative_path)
         return FileResponse(
-            chart_path,
-            media_type=media_types[chart_path.suffix.casefold()],
+            image_path,
+            media_type=media_type_for(image_path),
             headers={"Cache-Control": "no-store"},
         )
-    except SimpatiChartManagementError as error:
-        return JSONResponse(
-            status_code=error.status_code,
-            content=jsonable_encoder(error.to_list_response()),
-        )
+    except RenderedAssetServiceError as error:
+        return _rendered_asset_error_response(error, RenderedAssetListResponse)
 
 
 @router.post(
-    "/simpati/delete-chart",
-    response_model=SimpatiChartDeleteResponse,
+    "/rendered-assets/delete",
+    response_model=RenderedAssetDeleteResponse,
     responses={
-        400: {"model": SimpatiChartDeleteResponse},
-        403: {"model": SimpatiChartDeleteResponse},
-        404: {"model": SimpatiChartDeleteResponse},
-        500: {"model": SimpatiChartDeleteResponse},
+        code: {"model": RenderedAssetDeleteResponse}
+        for code in _RENDERED_ASSET_ERROR_STATUSES
     },
 )
-def delete_project_simpati_chart_endpoint(
-    request: SimpatiChartDeleteRequest,
-) -> SimpatiChartDeleteResponse | JSONResponse:
-    """Delete one validated saved SIMPATI chart."""
+def delete_project_rendered_asset_endpoint(
+    request: RenderedAssetRequest,
+) -> RenderedAssetDeleteResponse | JSONResponse:
+    """Delete one image of 04_Report/_RenderedAssets and its metadata file."""
     try:
-        return delete_project_simpati_chart(
+        return delete_project_rendered_asset(
             request.test_root,
-            request.chart_name,
+            request.relative_path,
         )
-    except SimpatiChartManagementError as error:
-        return JSONResponse(
-            status_code=error.status_code,
-            content=jsonable_encoder(error.to_delete_response()),
+    except RenderedAssetServiceError as error:
+        return _rendered_asset_error_response(
+            error, RenderedAssetDeleteResponse
         )
 
 
@@ -290,59 +301,3 @@ def save_project_graphtec_chart_endpoint(
         )
     except GraphtecServiceError as error:
         return _graphtec_error_response(error, GraphtecChartSaveResponse)
-
-
-@router.post(
-    "/graphtec/charts",
-    response_model=GraphtecChartListResponse,
-    responses={
-        code: {"model": GraphtecChartListResponse}
-        for code in _GRAPHTEC_ERROR_STATUSES
-    },
-)
-def list_project_graphtec_charts_endpoint(
-    request: ProjectInspectionRequest,
-) -> GraphtecChartListResponse | JSONResponse:
-    """List saved Graphtec charts. They are not added to the PowerPoint."""
-    try:
-        return list_project_graphtec_charts(request.test_root)
-    except GraphtecServiceError as error:
-        return _graphtec_error_response(error, GraphtecChartListResponse)
-
-
-@router.get("/graphtec/chart", response_model=None)
-def open_project_graphtec_chart_endpoint(
-    test_root: str,
-    chart_name: str,
-) -> Response:
-    """Serve one saved Graphtec chart."""
-    try:
-        chart_path = resolve_project_graphtec_chart(test_root, chart_name)
-        return FileResponse(
-            chart_path,
-            media_type="image/png",
-            headers={"Cache-Control": "no-store"},
-        )
-    except GraphtecServiceError as error:
-        return _graphtec_error_response(error, GraphtecChartListResponse)
-
-
-@router.post(
-    "/graphtec/delete-chart",
-    response_model=GraphtecChartDeleteResponse,
-    responses={
-        code: {"model": GraphtecChartDeleteResponse}
-        for code in _GRAPHTEC_ERROR_STATUSES
-    },
-)
-def delete_project_graphtec_chart_endpoint(
-    request: GraphtecChartDeleteRequest,
-) -> GraphtecChartDeleteResponse | JSONResponse:
-    """Delete one saved Graphtec chart and its metadata."""
-    try:
-        return delete_project_graphtec_chart(
-            request.test_root,
-            request.chart_name,
-        )
-    except GraphtecServiceError as error:
-        return _graphtec_error_response(error, GraphtecChartDeleteResponse)

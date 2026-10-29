@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from .common import ApiError
+from .rendered_assets import RenderedAssetResult, RenderedAssetWarning
 
 
 class SimpatiChartSaveRequest(BaseModel):
@@ -17,58 +18,23 @@ class SimpatiChartSaveRequest(BaseModel):
     )
 
 
-class SimpatiChartDeleteRequest(BaseModel):
-    """Saved SIMPATI chart to delete."""
-
-    test_root: str = Field(
-        min_length=1,
-        description="Full path to the test folder.",
-    )
-    chart_name: str = Field(
-        min_length=1,
-        max_length=255,
-        description="Exact saved chart file name.",
-    )
-
-
-class SimpatiSavedChart(BaseModel):
-    """Saved SIMPATI image available for Test Results."""
-
-    chart_name: str
-    chart_path: str
-    size_bytes: int
-
-
-class SimpatiChartListResponse(BaseModel):
-    """Saved SIMPATI charts discovered for a test."""
-
-    success: bool
-    test_root: str
-    charts_count: int = 0
-    charts: list[SimpatiSavedChart] = Field(default_factory=list)
-    errors: list[ApiError] = Field(default_factory=list)
-
-
 class SimpatiChartSaveResponse(BaseModel):
-    """Result of saving a SIMPATI chart image."""
+    """Result of saving a SIMPATI chart image.
+
+    The saved image becomes a generic rendered asset. The response returns
+    the refreshed inventory of ``04_Report/_RenderedAssets`` so the client
+    can add the new image to the report selection.
+    """
 
     success: bool
     test_root: str
     chart_path: str | None = None
     chart_name: str | None = None
-    charts_count: int = 0
-    charts: list[SimpatiSavedChart] = Field(default_factory=list)
-    errors: list[ApiError] = Field(default_factory=list)
-
-
-class SimpatiChartDeleteResponse(BaseModel):
-    """Result of deleting a saved SIMPATI chart."""
-
-    success: bool
-    test_root: str
-    deleted_chart_name: str | None = None
-    charts_count: int = 0
-    charts: list[SimpatiSavedChart] = Field(default_factory=list)
+    relative_path: str | None = None
+    directory_found: bool = False
+    assets_count: int = 0
+    assets: list[RenderedAssetResult] = Field(default_factory=list)
+    warnings: list[RenderedAssetWarning] = Field(default_factory=list)
     errors: list[ApiError] = Field(default_factory=list)
 
 

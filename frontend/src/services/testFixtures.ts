@@ -8,6 +8,7 @@ import type {
   DataSourceKey,
   ProjectInspectionResponse,
 } from "../types/project";
+import type { RenderedAsset } from "../types/renderedAssets";
 
 export const TEST_ROOT = "C:\\Tests\\TEST - 001";
 
@@ -252,6 +253,31 @@ export function buildGraphtecPreview(
     phase_markers: [],
     notes: ["Limit marker indicates a value greater than the displayed threshold."],
     errors: [],
+    ...overrides,
+  };
+}
+
+/**
+ * Rendered asset of `04_Report/_RenderedAssets` as listed by the backend.
+ *
+ * @param name File name; the extension is derived from it.
+ * @param source Informative origin (`simpati`, `graphtec`, `manual`...).
+ */
+export function buildRenderedAsset(
+  name: string,
+  source = "manual",
+  overrides: Partial<RenderedAsset> = {},
+): RenderedAsset {
+  const extension = name.includes(".")
+    ? name.slice(name.lastIndexOf(".")).toLowerCase()
+    : "";
+  return {
+    name,
+    relative_path: `04_Report/_RenderedAssets/${name}`,
+    extension,
+    size: 1200,
+    source,
+    metadata_name: source === "manual" ? null : `${name.slice(0, name.lastIndexOf("."))}.json`,
     ...overrides,
   };
 }

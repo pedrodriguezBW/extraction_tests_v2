@@ -1,9 +1,15 @@
+"""Image helpers for the PowerPoint engine.
+
+The engine never discovers images on its own: the images of Test Results
+are passed explicitly, already validated, by the caller (see
+``sections.test_results.populate_test_results``).
+"""
+
 from __future__ import annotations
 import re
 from pathlib import Path
 from PIL import Image
 from pptx.util import Cm
-from ..paths import rendered_assets_directory
 
 def add_contained_image(
     slide,
@@ -64,48 +70,3 @@ def extract_natural_sort_key(file_path):
         else part
         for part in name_parts
     )
-
-def find_test_result_charts(test_root):
-    """
-    Localiza las gráficas de adquisición dentro de:
-
-    04_Report/_RenderedAssets
-
-    Solo selecciona imágenes válidas cuyo nombre contiene
-    'simpati_acquisition'.
-    """
-    test_root = Path(test_root)
-
-    assets_directory = rendered_assets_directory(test_root)
-
-    if not assets_directory.is_dir():
-        return []
-
-    supported_extensions = {
-        ".png",
-        ".jpg",
-        ".jpeg",
-    }
-
-    result_charts = []
-
-    for file_path in assets_directory.iterdir():
-        if not file_path.is_file():
-            continue
-
-        if file_path.suffix.casefold() not in supported_extensions:
-            continue
-
-        if "simpati_acquisition" not in file_path.stem.casefold():
-            continue
-
-        if file_path.stat().st_size <= 0:
-            continue
-
-        result_charts.append(file_path)
-
-    result_charts.sort(
-        key=extract_natural_sort_key
-    )
-
-    return result_charts

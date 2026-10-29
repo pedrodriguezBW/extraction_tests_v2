@@ -9,7 +9,7 @@ python -m unittest discover -s tests
 
 ```
 
-Estas pruebas validan el motor, los contratos de carpetas, la inspección, el backend y la generación del informe según los casos cubiertos en `tests/`.
+Estas pruebas validan el motor, los contratos de carpetas, la inspección, el backend y la generación del informe según los casos cubiertos en `tests/`. `test_rendered_assets.py` cubre el inventario de `_RenderedAssets`, la seguridad de rutas y la inserción en el PowerPoint de exactamente las imágenes seleccionadas; `test_rendered_assets_api.py` cubre el servicio y los endpoints genéricos.
 
 ## Pruebas del frontend
 
@@ -19,7 +19,7 @@ Desde `frontend/`:
 npm test
 ```
 
-El comando ejecuta Vitest. La versión actual incluye pruebas para los servicios HTTP y las reglas de estado del proyecto.
+El comando ejecuta Vitest. La versión actual incluye pruebas para los servicios HTTP, las reglas de estado del proyecto, la selección de fuente y archivo, el panel Graphtec y la selección de imágenes del informe (`services/renderedAssetSelection.test.ts` y `components/RenderedAssets.test.tsx`).
 
 ## Compilación del frontend
 

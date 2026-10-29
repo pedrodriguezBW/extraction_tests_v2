@@ -6,14 +6,11 @@ from unittest.mock import MagicMock, patch
 
 from pptx import Presentation
 
-from project_fixtures import build_test_folder
+from project_fixtures import build_test_folder, write_image
 
 from src.report_generator.powerpoint.charts import (
     add_climatic_profile_chart,
     add_dut_profile_chart,
-)
-from src.report_generator.powerpoint.images import (
-    find_test_result_charts,
 )
 from src.report_generator.powerpoint.styles import (
     FONT_SIZE_CHART_AXIS_PT,
@@ -288,16 +285,15 @@ class TestResultsPopulationTests(unittest.TestCase):
         "find_slide_in_section"
     )
     @patch(
-        "src.report_generator.sections.test_results."
-        "find_test_result_charts"
+        "src.report_generator.sections.test_results.discover_evidences"
     )
     @patch(
         "src.report_generator.sections.test_results.Presentation"
     )
-    def test_saved_charts_create_test_results_continuations(
+    def test_selected_images_create_test_results_continuations(
         self,
         presentation_mock,
-        find_charts_mock,
+        discover_mock,
         find_slide_mock,
         clear_slide_mock,
         create_continuation_mock,
@@ -309,36 +305,64 @@ class TestResultsPopulationTests(unittest.TestCase):
         presentation_mock.return_value = presentation
         find_slide_mock.return_value = first_slide
         create_continuation_mock.return_value = continuation_slide
+        discover_mock.return_value = EvidenceDiscovery(
+            directory=Path("test") / "02_Evidences", found=False
+        )
 
+        # Mixed origins and formats, deliberately out of natural order: the
+        # engine inserts exactly what it receives, in that order.
         charts = [
-            Path(f"chart03_simpati_acquisition_{index:02d}.png")
-            for index in range(1, 7)
+            Path("graphtec_chart_02.png"),
+            Path("chart03_simpati_acquisition_01.png"),
+            Path("manual_photo.JPG"),
+            Path("canoe_future.jpeg"),
+            Path("graphtec_chart_01.png"),
+            Path("extra.png"),
         ]
-        find_charts_mock.return_value = charts
 
         populate_test_results(
             presentation_path=Path("report.pptx"),
             test_root=Path("test"),
+            result_image_paths=charts,
         )
 
         clear_slide_mock.assert_called_once_with(
             slide=first_slide,
             expected_title="4. Test Results",
         )
-        self.assertEqual(populate_slide_mock.call_count, 2)
+        self.assertEqual(populate_slide_mock.call_count, 3)
         self.assertEqual(
             populate_slide_mock.call_args_list[0].kwargs["image_paths"],
-            charts[:4],
+            charts[:2],
         )
         self.assertEqual(
             populate_slide_mock.call_args_list[1].kwargs["image_paths"],
+            charts[2:4],
+        )
+        self.assertEqual(
+            populate_slide_mock.call_args_list[2].kwargs["image_paths"],
             charts[4:],
         )
-        create_continuation_mock.assert_called_once_with(
-            presentation=presentation,
-            reference_slide=first_slide,
-            title="4. Test Results (cont.)",
+        
+        self.assertEqual(create_continuation_mock.call_count, 2)
+
+        self.assertEqual(
+            create_continuation_mock.call_args_list[0].kwargs,
+            {
+                "presentation": presentation,
+                "reference_slide": first_slide,
+                "title": "4. Test Results (cont.)",
+            },
         )
+        self.assertEqual(
+            create_continuation_mock.call_args_list[1].kwargs,
+            {
+                "presentation": presentation,
+                "reference_slide": continuation_slide,
+                "title": "4. Test Results (cont.)",
+            },
+        )
+
         presentation.save.assert_called_once_with(Path("report.pptx"))
 
     @patch(
@@ -350,16 +374,15 @@ class TestResultsPopulationTests(unittest.TestCase):
         "find_slide_in_section"
     )
     @patch(
-        "src.report_generator.sections.test_results."
-        "find_test_result_charts"
+        "src.report_generator.sections.test_results.discover_evidences"
     )
     @patch(
         "src.report_generator.sections.test_results.Presentation"
     )
-    def test_report_generation_continues_without_saved_charts(
+    def test_report_generation_continues_without_selected_images(
         self,
         presentation_mock,
-        find_charts_mock,
+        discover_mock,
         find_slide_mock,
         clear_slide_mock,
     ):
@@ -367,15 +390,69 @@ class TestResultsPopulationTests(unittest.TestCase):
         first_slide = object()
         presentation_mock.return_value = presentation
         find_slide_mock.return_value = first_slide
-        find_charts_mock.return_value = []
+        discover_mock.return_value = EvidenceDiscovery(
+            directory=Path("test") / "02_Evidences", found=False
+        )
 
         populate_test_results(
             presentation_path=Path("report.pptx"),
             test_root=Path("test"),
+            result_image_paths=[],
         )
 
         clear_slide_mock.assert_called_once()
         presentation.save.assert_called_once_with(Path("report.pptx"))
+
+    @patch(
+        "src.report_generator.sections.test_results."
+        "populate_test_results_slide"
+    )
+    @patch(
+        "src.report_generator.sections.test_results."
+        "clear_slide_body"
+    )
+    @patch(
+        "src.report_generator.sections.test_results."
+        "find_slide_in_section"
+    )
+    @patch(
+        "src.report_generator.sections.test_results.discover_evidences"
+    )
+    @patch(
+        "src.report_generator.sections.test_results.Presentation"
+    )
+    def test_engine_never_scans_rendered_assets(
+        self,
+        presentation_mock,
+        discover_mock,
+        find_slide_mock,
+        clear_slide_mock,
+        populate_slide_mock,
+    ):
+        """Images present on disk but not selected are never inserted."""
+        presentation_mock.return_value = MagicMock()
+        find_slide_mock.return_value = object()
+        discover_mock.return_value = EvidenceDiscovery(
+            directory=Path("test") / "02_Evidences", found=False
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            test_root = Path(directory)
+            assets = test_root / "04_Report" / "_RenderedAssets"
+            write_image(assets / "chart03_simpati_acquisition_01.png")
+            write_image(assets / "graphtec_chart_01.png")
+            selected = write_image(assets / "manual.png")
+
+            populate_test_results(
+                presentation_path=Path("report.pptx"),
+                test_root=test_root,
+                result_image_paths=[selected],
+            )
+
+        populate_slide_mock.assert_called_once()
+        self.assertEqual(
+            populate_slide_mock.call_args.kwargs["image_paths"],
+            [selected],
+        )
 
     @patch("src.report_generator.generator.publish_report")
     @patch("src.report_generator.generator.prune_climatic_report_slides")
@@ -390,8 +467,10 @@ class TestResultsPopulationTests(unittest.TestCase):
     @patch("src.report_generator.generator.require_report_directory")
     @patch("src.report_generator.generator.load_test_metadata")
     @patch("src.report_generator.generator.discover_evidences")
-    def test_generator_includes_saved_charts_in_test_results(
+    @patch("src.report_generator.generator.select_rendered_assets")
+    def test_generator_passes_selected_images_to_test_results(
         self,
+        select_assets_mock,
         discover_evidences_mock,
         load_metadata_mock,
         require_report_mock,
@@ -418,15 +497,23 @@ class TestResultsPopulationTests(unittest.TestCase):
         prepare_directory_mock.return_value = Path("working")
         create_presentation_mock.return_value = working_path
         publish_report_mock.return_value = output_path
+        selected = [
+            "04_Report/_RenderedAssets/graphtec_chart_01.png",
+            "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+        ]
+        resolved = [test_root / "04_Report" / "_RenderedAssets" / Path(s).name for s in selected]
+        select_assets_mock.return_value = resolved
 
         result = generate_climatic_report(
             test_root=test_root,
             template_path=template_path,
+            selected_rendered_assets=selected,
         )
 
         self.assertEqual(result, output_path)
+        select_assets_mock.assert_called_once_with(test_root, selected)
         populate_assembly_mock.assert_called_once_with(presentation_path=working_path,metadata=metadata,image_paths=initial_images)
-        populate_results_mock.assert_called_once_with(presentation_path=working_path,test_root=test_root,evidence_discovery=evidence_discovery)
+        populate_results_mock.assert_called_once_with(presentation_path=working_path,test_root=test_root,evidence_discovery=evidence_discovery,result_image_paths=resolved)
         prune_slides_mock.assert_called_once_with(working_path)
         publish_report_mock.assert_called_once_with(
             working_path,
@@ -559,8 +646,10 @@ class ReportFileNameTests(unittest.TestCase):
             build_report_filename("  ")
 
 
-class SavedChartDiscoveryTests(unittest.TestCase):
-    def test_simpati_charts_are_returned_in_natural_order(self):
+class RenderedAssetOrderTests(unittest.TestCase):
+    def test_inventory_uses_a_stable_natural_order(self):
+        from src.report_generator.rendered_assets import list_rendered_assets
+
         with tempfile.TemporaryDirectory() as directory:
             test_root = Path(directory)
             assets_directory = (
@@ -568,22 +657,25 @@ class SavedChartDiscoveryTests(unittest.TestCase):
                 / "04_Report"
                 / "_RenderedAssets"
             )
-            assets_directory.mkdir(parents=True)
+            for name in (
+                "chart03_simpati_acquisition_10.png",
+                "chart03_simpati_acquisition_2.png",
+                "Zeta.jpg",
+                "chart03_simpati_acquisition_1.png",
+                "graphtec_chart_01.png",
+            ):
+                write_image(assets_directory / name)
 
-            for chart_number in (10, 2, 1):
-                chart_path = assets_directory / (
-                    f"chart03_simpati_acquisition_{chart_number}.png"
-                )
-                chart_path.write_bytes(b"image")
-
-            charts = find_test_result_charts(test_root)
+            names = [a.name for a in list_rendered_assets(test_root).assets]
 
             self.assertEqual(
-                [chart.name for chart in charts],
+                names,
                 [
                     "chart03_simpati_acquisition_1.png",
                     "chart03_simpati_acquisition_2.png",
                     "chart03_simpati_acquisition_10.png",
+                    "graphtec_chart_01.png",
+                    "Zeta.jpg",
                 ],
             )
 

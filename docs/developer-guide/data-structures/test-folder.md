@@ -44,7 +44,7 @@ Su ausencia puede producir advertencias sin bloquear necesariamente la generaci�
 
 ### `_RenderedAssets`
 
-Almacena gráficas SIMPATI guardadas para su inclusión posterior en `Test Results`.
+Repositorio genérico de imágenes renderizadas (gráficas SIMPATI y Graphtec guardadas desde la aplicación, imágenes copiadas a mano y fuentes futuras) que pueden seleccionarse para `Test Results`. Solo se consideran los archivos PNG, JPG y JPEG situados directamente en la carpeta; los JSON de metadatos acompañan a las gráficas generadas y no se listan como imágenes.
 
 ### `_Working`
 

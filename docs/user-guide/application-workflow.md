@@ -74,6 +74,6 @@ El botón **Generate PowerPoint** se habilita cuando:
 - `test_metadata.json` existe y es válido.
 - No hay otra operación en curso.
 
-Antes de generar, la aplicación indica cuántas gráficas SIMPATI guardadas se incluirán en `Test Results`.
+Antes de generar, revisa la sección **Report images** y marca las imágenes de `04_Report/_RenderedAssets` que deben aparecer en `Test Results` (todas están marcadas por defecto). El mensaje de la sección de generación indica cuántas se incluirán; el informe puede generarse sin ninguna. Consulta [Imágenes del informe](report-images.md).
 
 Pulsa **Generate PowerPoint** y espera a que aparezca **Report generated**. La aplicación mostrará el nombre y la ruta del archivo creado.

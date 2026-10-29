@@ -2,20 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   checkHealth,
-  deleteGraphtecChart,
-  fetchGraphtecChart,
-  getGraphtecChartUrl,
-  inspectGraphtec,
-  listGraphtecCharts,
-  previewGraphtecChart,
-  saveGraphtecChart,
-  deleteSimpatiChart,
-  fetchSimpatiChart,
+  deleteRenderedAsset,
+  fetchRenderedAsset,
   generateReport,
-  getSimpatiChartUrl,
+  getRenderedAssetUrl,
+  inspectGraphtec,
   inspectProject,
   inspectSimpati,
-  listSimpatiCharts,
+  listRenderedAssets,
+  previewGraphtecChart,
+  saveGraphtecChart,
   saveSimpatiChart,
 } from "./api";
 import {
@@ -81,18 +77,14 @@ describe("API service", () => {
       "API_BASE_URL",
       "ApiClientError",
       "checkHealth",
-      "deleteGraphtecChart",
-      "deleteSimpatiChart",
-      "fetchGraphtecChart",
-      "fetchSimpatiChart",
+      "deleteRenderedAsset",
+      "fetchRenderedAsset",
       "generateReport",
-      "getGraphtecChartUrl",
-      "getSimpatiChartUrl",
+      "getRenderedAssetUrl",
       "inspectGraphtec",
       "inspectProject",
       "inspectSimpati",
-      "listGraphtecCharts",
-      "listSimpatiCharts",
+      "listRenderedAssets",
       "previewGraphtecChart",
       "saveGraphtecChart",
       "saveSimpatiChart",
@@ -120,14 +112,14 @@ describe("API service", () => {
     );
 
     await expect(
-      generateReport("C:\\Tests\\Missing"),
+      generateReport("C:\\Tests\\Missing", []),
     ).rejects.toMatchObject({
       message: "The metadata file was not found.",
       status: 400,
     });
   });
 
-  it("sends the selected path when generating a report", async () => {
+  it("sends the ordered image selection when generating a report", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         success: true,
@@ -135,19 +127,59 @@ describe("API service", () => {
         report_path:
           "C:\\Tests\\Climate\\04_Report\\report.pptx",
         report_name: "report.pptx",
+        rendered_assets_count: 2,
+        rendered_assets: [
+          "04_Report/_RenderedAssets/graphtec_chart_01.png",
+          "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+        ],
         errors: [],
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await generateReport("C:\\Tests\\Climate");
+    const response = await generateReport("C:\\Tests\\Climate", [
+      "04_Report/_RenderedAssets/graphtec_chart_01.png",
+      "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+    ]);
 
+    expect(response.rendered_assets_count).toBe(2);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/projects/generate-report"),
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
           test_root: "C:\\Tests\\Climate",
+          selected_rendered_assets: [
+            "04_Report/_RenderedAssets/graphtec_chart_01.png",
+            "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("sends an explicit empty selection when no image is selected", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        success: true,
+        test_root: "C:\\Tests\\Climate",
+        report_path: "C:\\Tests\\Climate\\04_Report\\report.pptx",
+        report_name: "report.pptx",
+        rendered_assets_count: 0,
+        rendered_assets: [],
+        errors: [],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await generateReport("C:\\Tests\\Climate", []);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/generate-report"),
+      expect.objectContaining({
+        body: JSON.stringify({
+          test_root: "C:\\Tests\\Climate",
+          selected_rendered_assets: [],
         }),
       }),
     );
@@ -207,25 +239,33 @@ describe("API service", () => {
         chart_path:
           "C:\\Tests\\Climate\\04_Report\\_RenderedAssets\\chart03_simpati_acquisition_01.png",
         chart_name: "chart03_simpati_acquisition_01.png",
-        charts_count: 1,
-        charts: [
+        relative_path:
+          "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+        directory_found: true,
+        assets_count: 1,
+        assets: [
           {
-            chart_name: "chart03_simpati_acquisition_01.png",
-            chart_path:
-              "C:\\Tests\\Climate\\04_Report\\_RenderedAssets\\chart03_simpati_acquisition_01.png",
-            size_bytes: 1200,
+            name: "chart03_simpati_acquisition_01.png",
+            relative_path:
+              "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+            extension: ".png",
+            size: 1200,
+            source: "simpati",
+            metadata_name: "chart03_simpati_acquisition_01.json",
           },
         ],
+        warnings: [],
         errors: [],
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await saveSimpatiChart(
+    const saved = await saveSimpatiChart(
       "C:\\Tests\\Climate",
       "data:image/png;base64,AAAA",
     );
 
+    expect(saved.assets[0].source).toBe("simpati");
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/projects/simpati/save-chart"),
       expect.objectContaining({
@@ -238,22 +278,47 @@ describe("API service", () => {
     );
   });
 
-  it("lists saved SIMPATI charts for the selected project", async () => {
+  it("lists the rendered assets of the selected project", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         success: true,
         test_root: "C:\\Tests\\Climate",
-        charts_count: 1,
-        charts: [],
+        directory_found: true,
+        assets_count: 2,
+        assets: [
+          {
+            name: "chart03_simpati_acquisition_01.png",
+            relative_path:
+              "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+            extension: ".png",
+            size: 1200,
+            source: "simpati",
+            metadata_name: null,
+          },
+          {
+            name: "manual.jpg",
+            relative_path: "04_Report/_RenderedAssets/manual.jpg",
+            extension: ".jpg",
+            size: 800,
+            source: "manual",
+            metadata_name: null,
+          },
+        ],
+        warnings: [{ name: "notes.txt", code: "unsupported_file", message: "x" }],
         errors: [],
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await listSimpatiCharts("C:\\Tests\\Climate");
+    const response = await listRenderedAssets("C:\\Tests\\Climate");
 
+    expect(response.assets.map((asset) => asset.source)).toEqual([
+      "simpati",
+      "manual",
+    ]);
+    expect(response.warnings).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/projects/simpati/charts"),
+      expect.stringContaining("/projects/rendered-assets"),
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
@@ -263,48 +328,54 @@ describe("API service", () => {
     );
   });
 
-  it("deletes one saved SIMPATI chart by exact name", async () => {
+  it("deletes one rendered asset by relative path", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         success: true,
         test_root: "C:\\Tests\\Climate",
-        deleted_chart_name: "chart03_simpati_acquisition_01.png",
-        charts_count: 0,
-        charts: [],
+        deleted_relative_path:
+          "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+        directory_found: true,
+        assets_count: 0,
+        assets: [],
+        warnings: [],
         errors: [],
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await deleteSimpatiChart(
+    await deleteRenderedAsset(
       "C:\\Tests\\Climate",
-      "chart03_simpati_acquisition_01.png",
+      "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/projects/simpati/delete-chart"),
+      expect.stringContaining("/projects/rendered-assets/delete"),
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
           test_root: "C:\\Tests\\Climate",
-          chart_name: "chart03_simpati_acquisition_01.png",
+          relative_path:
+            "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
         }),
       }),
     );
   });
 
-  it("builds an encoded URL for safely opening a saved chart", () => {
-    const url = getSimpatiChartUrl(
+  it("builds an encoded URL for safely opening a rendered asset", () => {
+    const url = getRenderedAssetUrl(
       "C:\\Tests\\Climate",
-      "chart03_simpati_acquisition_01.png",
+      "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
     );
 
-    expect(url).toContain("/projects/simpati/chart?");
-    expect(url).toContain("chart_name=chart03_simpati_acquisition_01.png");
+    expect(url).toContain("/projects/rendered-asset?");
+    expect(url).toContain(
+      "relative_path=04_Report%2F_RenderedAssets%2Fchart03_simpati_acquisition_01.png",
+    );
     expect(url).toContain("test_root=C%3A%5CTests%5CClimate");
   });
 
-  it("fetches a saved chart image from FastAPI", async () => {
+  it("fetches a rendered asset image from FastAPI", async () => {
     const imageBlob = new Blob(["image"], { type: "image/png" });
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(imageBlob, {
@@ -316,19 +387,32 @@ describe("API service", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await fetchSimpatiChart(
+    const result = await fetchRenderedAsset(
       "C:\\Tests\\Climate",
-      "chart03_simpati_acquisition_01.png",
+      "04_Report/_RenderedAssets/graphtec_chart_01.png",
     );
 
     expect(result.type).toBe("image/png");
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/projects/simpati/chart?"),
+      expect.stringContaining("/projects/rendered-asset?"),
       {
         method: "GET",
         cache: "no-store",
       },
     );
+  });
+
+  it("rejects a non-image response when opening a rendered asset", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ success: true }, 200)),
+    );
+
+    await expect(
+      fetchRenderedAsset("C:\\Tests\\Climate", "04_Report/_RenderedAssets/x.png"),
+    ).rejects.toMatchObject({
+      message: "The backend did not return a valid image.",
+    });
   });
 });
 
@@ -403,40 +487,43 @@ describe("Graphtec API", () => {
     });
   });
 
-  it("lists, opens and deletes saved Graphtec charts", async () => {
-    const fetchMock = vi.fn(() =>
-      Promise.resolve(
-        jsonResponse({ success: true, test_root: TEST_ROOT, charts_count: 0, charts: [], errors: [] }),
-      ),
+  it("returns the rendered asset inventory after saving a Graphtec chart", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        success: true,
+        test_root: TEST_ROOT,
+        chart_name: "graphtec_chart_01.png",
+        chart_path: `${TEST_ROOT}\\04_Report\\_RenderedAssets\\graphtec_chart_01.png`,
+        relative_path: "04_Report/_RenderedAssets/graphtec_chart_01.png",
+        metadata_name: "graphtec_chart_01.json",
+        directory_found: true,
+        assets_count: 1,
+        assets: [
+          {
+            name: "graphtec_chart_01.png",
+            relative_path: "04_Report/_RenderedAssets/graphtec_chart_01.png",
+            extension: ".png",
+            size: 2000,
+            source: "graphtec",
+            metadata_name: "graphtec_chart_01.json",
+          },
+        ],
+        warnings: [],
+        errors: [],
+      }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await listGraphtecCharts(TEST_ROOT);
-    await deleteGraphtecChart(TEST_ROOT, "graphtec_chart_01.png");
+    const response = await saveGraphtecChart(TEST_ROOT, "03_Data/02_Graphtec/a.txt", {
+      series: ["voltage"],
+      title: "",
+      show_legend: true,
+      show_phase_separators: true,
+      time_min: null,
+      time_max: null,
+    });
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/projects/graphtec/charts"),
-      expect.objectContaining({ body: JSON.stringify({ test_root: TEST_ROOT }) }),
-    );
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/projects/graphtec/delete-chart"),
-      expect.objectContaining({
-        body: JSON.stringify({ test_root: TEST_ROOT, chart_name: "graphtec_chart_01.png" }),
-      }),
-    );
-
-    const url = getGraphtecChartUrl(TEST_ROOT, "graphtec_chart_01.png");
-    expect(url).toContain("/projects/graphtec/chart?");
-    expect(url).toContain("chart_name=graphtec_chart_01.png");
-
-    const imageMock = vi.fn().mockResolvedValue(
-      new Response(new Blob(["image"], { type: "image/png" }), {
-        status: 200,
-        headers: { "Content-Type": "image/png" },
-      }),
-    );
-    vi.stubGlobal("fetch", imageMock);
-    const image = await fetchGraphtecChart(TEST_ROOT, "graphtec_chart_01.png");
-    expect(image.type).toBe("image/png");
+    expect(response.relative_path).toBe("04_Report/_RenderedAssets/graphtec_chart_01.png");
+    expect(response.assets.map((asset) => asset.source)).toEqual(["graphtec"]);
   });
 });

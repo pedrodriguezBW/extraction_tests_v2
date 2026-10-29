@@ -63,11 +63,19 @@ Los contratos recibidos desde el backend se representan mediante tipos TypeScrip
 
 ## Graphtec
 
-`src/components/GraphtecAnalysis.tsx` muestra el resumen, la configuración, la previsualización y el guardado. Su estado está en `src/services/graphtecChart.ts` (reducer y validaciones puras). `App.tsx` lo monta con `key` igual a la ruta del archivo, de modo que cambiar de archivo o de fuente descarta el análisis, la configuración y la previsualización. La lista de gráficas guardadas reutiliza `SavedSimpatiCharts` con otros textos.
+`src/components/GraphtecAnalysis.tsx` muestra el resumen, la configuración, la previsualización y el guardado. Su estado está en `src/services/graphtecChart.ts` (reducer y validaciones puras). `App.tsx` lo monta con `key` igual a la ruta del archivo, de modo que cambiar de archivo o de fuente descarta el análisis, la configuración y la previsualización. Tras guardar una gráfica, el inventario de imágenes del informe se actualiza con la respuesta del backend.
 
 ## Componentes SIMPATI
 
-Los componentes específicos presentan y gestionan la gráfica actual y las gráficas guardadas. La eliminación de una gráfica debe actualizar el estado mostrado y su futura inclusión en `Test Results`.
+`SimpatiChart.tsx` presenta y guarda la gráfica actual. Las gráficas guardadas no tienen una lista propia: se muestran en la sección genérica de imágenes del informe.
+
+## Imágenes del informe (`Report images`)
+
+`src/services/renderedAssetSelection.ts` contiene el reducer puro del inventario de `04_Report/_RenderedAssets` y de la selección: las imágenes detectadas se seleccionan por defecto; al refrescar el inventario se conserva la selección de las que siguen existiendo, se seleccionan las nuevas y desaparecen las eliminadas; `toggled`, `selectAll`, `clearSelection` y `removed` modifican la selección. `selectedRenderedAssetPaths` devuelve las rutas seleccionadas en el orden del inventario y es la lista exacta que `generateReport` envía en `selected_rendered_assets`. `renderedAssetSelectionSummary` produce los textos `N of M images selected for the report.`, `No rendered images were found. The report can still be generated.` y `No rendered images are selected. The report will be generated without them.`.
+
+`src/components/RenderedAssets.tsx` muestra cada imagen una sola vez, sea cual sea su origen, con casilla accesible, miniatura, nombre, procedencia, tamaño, estado (seleccionada, no seleccionada, no disponible, en eliminación), `Open image` y `Delete`, además de `Select all` y `Clear selection`. Los archivos no compatibles devueltos en `warnings` se listan como no disponibles.
+
+`App.tsx` mantiene este estado con `useReducer`, lo refresca tras la inspección y tras cada guardado (SIMPATI o Graphtec) y, al generar el informe, envía la selección explícita, aunque esté vacía.
 
 ## Desarrollo y compilación
 

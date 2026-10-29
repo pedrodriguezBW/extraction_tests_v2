@@ -1,4 +1,5 @@
 import base64
+import json
 import tempfile
 import unittest
 from datetime import datetime
@@ -24,7 +25,7 @@ from src.report_generator.assets.simpati_extractor import (
     find_simpati_file,
     prepare_rendered_assets_directory,
 )
-from src.report_generator.powerpoint.images import find_test_result_charts
+from src.report_generator.rendered_assets import list_rendered_assets
 
 
 def build_dataframe() -> pd.DataFrame:
@@ -198,7 +199,7 @@ class SimpatiInspectionServiceTests(unittest.TestCase):
         )
         self.assertEqual(error.error.exception_type, "SimpatiFormatError")
 
-    def test_chart_is_saved_for_powerpoint_discovery(self):
+    def test_chart_is_saved_as_a_rendered_asset(self):
         result = save_project_simpati_chart(
             self.test_root,
             build_png_data_url(),
@@ -216,15 +217,28 @@ class SimpatiInspectionServiceTests(unittest.TestCase):
             result.chart_path,
             str(expected_path.resolve()),
         )
-        self.assertTrue(expected_path.is_file())
         self.assertEqual(
-            find_test_result_charts(self.test_root),
-            [expected_path],
+            result.relative_path,
+            "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
         )
-        self.assertEqual(result.charts_count, 1)
+        self.assertTrue(expected_path.is_file())
+        metadata = json.loads(
+            expected_path.with_suffix(".json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(metadata["source"], "simpati")
+        # The saved chart is part of the generic inventory.
         self.assertEqual(
-            [chart.chart_name for chart in result.charts],
-            ["chart03_simpati_acquisition_01.png"],
+            [(a.name, a.source) for a in list_rendered_assets(self.test_root).assets],
+            [("chart03_simpati_acquisition_01.png", "simpati")],
+        )
+        self.assertEqual(result.assets_count, 1)
+        self.assertEqual(
+            [(a.name, a.source, a.relative_path) for a in result.assets],
+            [(
+                "chart03_simpati_acquisition_01.png",
+                "simpati",
+                "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+            )],
         )
 
     def test_chart_is_not_saved_without_report_folder(self):
@@ -256,36 +270,35 @@ class SimpatiInspectionServiceTests(unittest.TestCase):
             "simpati_chart_invalid_image",
         )
 
-    def test_saved_charts_use_natural_order(self):
+    def test_saved_charts_never_overwrite_and_keep_natural_order(self):
         assets_directory = (
             self.test_root
             / "04_Report"
             / "_RenderedAssets"
         )
         assets_directory.mkdir()
-
-        for chart_number in (10, 2, 1):
+        for chart_number in (10, 2):
             chart_path = assets_directory / (
-                f"chart03_simpati_acquisition_{chart_number}.png"
+                f"chart03_simpati_acquisition_{chart_number:02d}.png"
             )
             Image.new("RGB", (8, 6), "white").save(chart_path)
 
-        from backend.app.services.simpati_inspection import (
-            list_project_simpati_charts,
+        result = save_project_simpati_chart(
+            self.test_root,
+            build_png_data_url(),
         )
 
-        result = list_project_simpati_charts(self.test_root)
-
+        self.assertEqual(result.chart_name, "chart03_simpati_acquisition_01.png")
         self.assertEqual(
-            [chart.chart_name for chart in result.charts],
+            [a.name for a in result.assets],
             [
-                "chart03_simpati_acquisition_1.png",
-                "chart03_simpati_acquisition_2.png",
+                "chart03_simpati_acquisition_01.png",
+                "chart03_simpati_acquisition_02.png",
                 "chart03_simpati_acquisition_10.png",
             ],
         )
 
-    def test_delete_chart_refreshes_saved_chart_list(self):
+    def test_saved_chart_is_deleted_through_the_generic_inventory(self):
         first = save_project_simpati_chart(
             self.test_root,
             build_png_data_url(),
@@ -295,33 +308,22 @@ class SimpatiInspectionServiceTests(unittest.TestCase):
             build_png_data_url(),
         )
 
-        from backend.app.services.simpati_inspection import (
-            delete_project_simpati_chart,
+        from backend.app.services.rendered_assets import (
+            delete_project_rendered_asset,
         )
 
-        result = delete_project_simpati_chart(
+        result = delete_project_rendered_asset(
             self.test_root,
-            first.chart_name,
+            first.relative_path,
         )
 
         self.assertFalse(Path(first.chart_path).exists())
-        self.assertEqual(result.charts_count, 1)
+        self.assertFalse(Path(first.chart_path).with_suffix(".json").exists())
+        self.assertEqual(result.assets_count, 1)
         self.assertEqual(
-            [chart.chart_name for chart in result.charts],
-            [second.chart_name],
+            [a.relative_path for a in result.assets],
+            [second.relative_path],
         )
-
-    def test_resolve_chart_rejects_path_traversal(self):
-        from backend.app.services.simpati_inspection import (
-            SimpatiChartManagementError,
-            resolve_project_simpati_chart,
-        )
-
-        with self.assertRaises(SimpatiChartManagementError):
-            resolve_project_simpati_chart(
-                self.test_root,
-                "../outside.png",
-            )
 
 
 class SimpatiFolderTests(unittest.TestCase):
@@ -509,8 +511,10 @@ class SimpatiInspectionEndpointTests(unittest.TestCase):
             "chart03_simpati_acquisition_01.png",
         )
         self.assertTrue(Path(body["chart_path"]).is_file())
+        self.assertEqual(body["assets_count"], 1)
+        self.assertEqual(body["assets"][0]["source"], "simpati")
 
-    def test_list_open_and_delete_chart_endpoints(self):
+    def test_saved_chart_is_served_by_the_generic_endpoints(self):
         save_response = self.client.post(
             "/projects/simpati/save-chart",
             json={
@@ -518,34 +522,37 @@ class SimpatiInspectionEndpointTests(unittest.TestCase):
                 "image_base64": build_png_data_url(),
             },
         )
-        chart_name = save_response.json()["chart_name"]
+        relative_path = save_response.json()["relative_path"]
 
         list_response = self.client.post(
-            "/projects/simpati/charts",
+            "/projects/rendered-assets",
             json={"test_root": str(self.test_root)},
         )
         self.assertEqual(list_response.status_code, 200)
-        self.assertEqual(list_response.json()["charts_count"], 1)
+        self.assertEqual(list_response.json()["assets_count"], 1)
+        self.assertEqual(
+            list_response.json()["assets"][0]["relative_path"], relative_path
+        )
 
         open_response = self.client.get(
-            "/projects/simpati/chart",
+            "/projects/rendered-asset",
             params={
                 "test_root": str(self.test_root),
-                "chart_name": chart_name,
+                "relative_path": relative_path,
             },
         )
         self.assertEqual(open_response.status_code, 200)
         self.assertEqual(open_response.headers["content-type"], "image/png")
 
         delete_response = self.client.post(
-            "/projects/simpati/delete-chart",
+            "/projects/rendered-assets/delete",
             json={
                 "test_root": str(self.test_root),
-                "chart_name": chart_name,
+                "relative_path": relative_path,
             },
         )
         self.assertEqual(delete_response.status_code, 200)
-        self.assertEqual(delete_response.json()["charts_count"], 0)
+        self.assertEqual(delete_response.json()["assets_count"], 0)
 
 
 if __name__ == "__main__":

@@ -60,7 +60,7 @@ Contiene la lógica independiente de la interfaz: rutas, metadata, evidencias, f
 ## Salidas principales
 
 - PowerPoint editable en `04_Report`.
-- Recursos SIMPATI guardados en `04_Report/_RenderedAssets`.
+- Imágenes renderizadas (SIMPATI, Graphtec, manuales o futuras) guardadas en `04_Report/_RenderedAssets` y seleccionables para el informe.
 - Archivos de trabajo temporales en `04_Report/_Working`.
 
 ## Límite importante

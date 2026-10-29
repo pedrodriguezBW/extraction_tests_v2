@@ -18,13 +18,13 @@ Cuando la generación termina correctamente, el archivo completo queda disponibl
 
 ## Recursos renderizados
 
-Las gráficas SIMPATI guardadas se conservan en:
+Las imágenes que pueden incorporarse a `Test Results` se conservan en:
 
 ```text
 04_Report/_RenderedAssets
 ```
 
-Estos recursos pueden incorporarse a la sección `Test Results` del PowerPoint.
+Contiene las gráficas SIMPATI y Graphtec guardadas desde la aplicación (con un JSON de metadatos junto a cada una) y cualquier imagen PNG, JPG o JPEG copiada a mano. Las imágenes que se insertan en el PowerPoint son exactamente las marcadas en **Report images**.
 
 ## Revisión posterior
 

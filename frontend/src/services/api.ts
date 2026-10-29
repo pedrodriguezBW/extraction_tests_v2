@@ -4,8 +4,6 @@ import type {
   ProjectInspectionResponse,
 } from "../types/project";
 import type {
-  GraphtecChartDeleteResponse,
-  GraphtecChartListResponse,
   GraphtecChartPreviewResponse,
   GraphtecChartRequest,
   GraphtecChartSaveResponse,
@@ -13,11 +11,16 @@ import type {
   GraphtecFileRequest,
   GraphtecInspectionResponse,
 } from "../types/graphtec";
-import type { ReportGenerationResponse } from "../types/report";
 import type {
-  SimpatiChartDeleteRequest,
-  SimpatiChartDeleteResponse,
-  SimpatiChartListResponse,
+  RenderedAssetDeleteResponse,
+  RenderedAssetListResponse,
+  RenderedAssetRequest,
+} from "../types/renderedAssets";
+import type {
+  ReportGenerationRequest,
+  ReportGenerationResponse,
+} from "../types/report";
+import type {
   SimpatiChartSaveRequest,
   SimpatiChartSaveResponse,
   SimpatiInspectionResponse,
@@ -187,15 +190,21 @@ export function inspectProject(
  * Solicita la generación del informe PowerPoint para un ensayo.
  *
  * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param selectedRenderedAssets Rutas relativas, en orden, de las imágenes
+ * de `04_Report/_RenderedAssets` que se insertarán en Test Results. Se envía
+ * siempre de forma explícita: una lista vacía genera el informe sin ellas.
  * @returns El resultado de la generación, incluido el nombre y la ruta del
- * informe cuando la operación finaliza correctamente.
+ * informe y las imágenes insertadas cuando la operación finaliza
+ * correctamente.
  * @throws {@link ApiClientError} Si el informe no puede generarse.
  */
 export function generateReport(
   testRoot: string,
+  selectedRenderedAssets: readonly string[],
 ): Promise<ReportGenerationResponse> {
-  const request: ProjectInspectionRequest = {
+  const request: ReportGenerationRequest = {
     test_root: testRoot,
+    selected_rendered_assets: [...selectedRenderedAssets],
   };
 
   return requestJson<ReportGenerationResponse>(
@@ -265,97 +274,6 @@ export function saveSimpatiChart(
   );
 }
 
-/**
- * Obtiene las gráficas SIMPATI guardadas para el ensayo.
- *
- * @param testRoot Ruta de la carpeta raíz del ensayo.
- * @returns La lista de gráficas guardadas y su número total.
- * @throws {@link ApiClientError} Si no se puede consultar la lista.
- */
-export function listSimpatiCharts(
-  testRoot: string,
-): Promise<SimpatiChartListResponse> {
-  const request: ProjectInspectionRequest = {
-    test_root: testRoot,
-  };
-
-  return requestJson<SimpatiChartListResponse>(
-    "/projects/simpati/charts",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    },
-  );
-}
-
-/**
- * Elimina una gráfica SIMPATI guardada para el ensayo.
- *
- * @param testRoot Ruta de la carpeta raíz del ensayo.
- * @param chartName Nombre del archivo de la gráfica.
- * @returns La lista actualizada de gráficas después de la eliminación.
- * @throws {@link ApiClientError} Si la gráfica no puede eliminarse.
- */
-export function deleteSimpatiChart(
-  testRoot: string,
-  chartName: string,
-): Promise<SimpatiChartDeleteResponse> {
-  const request: SimpatiChartDeleteRequest = {
-    test_root: testRoot,
-    chart_name: chartName,
-  };
-
-  return requestJson<SimpatiChartDeleteResponse>(
-    "/projects/simpati/delete-chart",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    },
-  );
-}
-
-/**
- * Construye la URL utilizada para solicitar una gráfica SIMPATI guardada.
- *
- * @param testRoot Ruta de la carpeta raíz del ensayo.
- * @param chartName Nombre del archivo de la gráfica.
- * @returns La URL del recurso servido por el backend.
- */
-export function getSimpatiChartUrl(
-  testRoot: string,
-  chartName: string,
-): string {
-  const query = new URLSearchParams({
-    test_root: testRoot,
-    chart_name: chartName,
-  });
-
-  return `${API_BASE_URL}/projects/simpati/chart?${query.toString()}`;
-}
-
-/**
- * Descarga una gráfica SIMPATI guardada y valida que la respuesta sea una
- * imagen.
- *
- * @param testRoot Ruta de la carpeta raíz del ensayo.
- * @param chartName Nombre del archivo de la gráfica.
- * @returns El contenido binario de la imagen.
- * @throws {@link ApiClientError} Si la petición falla, el backend devuelve un
- * error o la respuesta no contiene una imagen válida.
- */
-export async function fetchSimpatiChart(
-  testRoot: string,
-  chartName: string,
-): Promise<Blob> {
-  return fetchChartImage(getSimpatiChartUrl(testRoot, chartName));
-}
-
 async function fetchChartImage(chartUrl: string): Promise<Blob> {
   let response: Response;
 
@@ -367,7 +285,7 @@ async function fetchChartImage(chartUrl: string): Promise<Blob> {
   } catch (error) {
     const detail = error instanceof Error ? ` ${error.message}` : "";
     throw new ApiClientError(
-      `The saved chart could not be loaded.${detail}`,
+      `The image could not be loaded.${detail}`,
     );
   }
 
@@ -387,7 +305,7 @@ async function fetchChartImage(chartUrl: string): Promise<Blob> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.startsWith("image/")) {
     throw new ApiClientError(
-      "The backend did not return a valid chart image.",
+      "The backend did not return a valid image.",
       response.status,
     );
   }
@@ -474,58 +392,80 @@ export function saveGraphtecChart(
 }
 
 /**
- * Obtiene las gráficas Graphtec guardadas para el ensayo.
+ * Obtiene el inventario de imágenes de `04_Report/_RenderedAssets`
+ * seleccionables para el informe, con independencia de su origen.
  *
- * @throws {@link ApiClientError} Si no se puede consultar la lista.
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @returns Las imágenes en orden estable y las advertencias de archivos no
+ * compatibles.
+ * @throws {@link ApiClientError} Si no se puede consultar el inventario.
  */
-export function listGraphtecCharts(
+export function listRenderedAssets(
   testRoot: string,
-): Promise<GraphtecChartListResponse> {
+): Promise<RenderedAssetListResponse> {
   const request: ProjectInspectionRequest = { test_root: testRoot };
-  return postJson<GraphtecChartListResponse>(
-    "/projects/graphtec/charts",
+  return postJson<RenderedAssetListResponse>(
+    "/projects/rendered-assets",
     request,
   );
 }
 
 /**
- * Elimina una gráfica Graphtec guardada y sus metadatos.
+ * Elimina una imagen de `04_Report/_RenderedAssets` y su archivo de
+ * metadatos, si existe.
  *
- * @throws {@link ApiClientError} Si la gráfica no puede eliminarse.
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param relativePath Ruta relativa devuelta por el inventario.
+ * @returns El inventario actualizado tras la eliminación.
+ * @throws {@link ApiClientError} Si la imagen no puede eliminarse.
  */
-export function deleteGraphtecChart(
+export function deleteRenderedAsset(
   testRoot: string,
-  chartName: string,
-): Promise<GraphtecChartDeleteResponse> {
-  return postJson<GraphtecChartDeleteResponse>(
-    "/projects/graphtec/delete-chart",
-    { test_root: testRoot, chart_name: chartName },
+  relativePath: string,
+): Promise<RenderedAssetDeleteResponse> {
+  const request: RenderedAssetRequest = {
+    test_root: testRoot,
+    relative_path: relativePath,
+  };
+  return postJson<RenderedAssetDeleteResponse>(
+    "/projects/rendered-assets/delete",
+    request,
   );
 }
 
 /**
- * Construye la URL de una gráfica Graphtec guardada.
+ * Construye la URL utilizada para mostrar una imagen de
+ * `04_Report/_RenderedAssets`.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param relativePath Ruta relativa devuelta por el inventario.
+ * @returns La URL del recurso servido por el backend.
  */
-export function getGraphtecChartUrl(
+export function getRenderedAssetUrl(
   testRoot: string,
-  chartName: string,
+  relativePath: string,
 ): string {
   const query = new URLSearchParams({
     test_root: testRoot,
-    chart_name: chartName,
+    relative_path: relativePath,
   });
 
-  return `${API_BASE_URL}/projects/graphtec/chart?${query.toString()}`;
+  return `${API_BASE_URL}/projects/rendered-asset?${query.toString()}`;
 }
 
 /**
- * Descarga una gráfica Graphtec guardada.
+ * Descarga una imagen de `04_Report/_RenderedAssets` y valida que la
+ * respuesta sea una imagen.
  *
- * @throws {@link ApiClientError} Si la respuesta no contiene una imagen.
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param relativePath Ruta relativa devuelta por el inventario.
+ * @returns El contenido binario de la imagen.
+ * @throws {@link ApiClientError} Si la petición falla, el backend devuelve un
+ * error o la respuesta no contiene una imagen válida.
  */
-export function fetchGraphtecChart(
+export function fetchRenderedAsset(
   testRoot: string,
-  chartName: string,
+  relativePath: string,
 ): Promise<Blob> {
-  return fetchChartImage(getGraphtecChartUrl(testRoot, chartName));
+  return fetchChartImage(getRenderedAssetUrl(testRoot, relativePath));
 }

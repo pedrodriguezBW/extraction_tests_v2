@@ -5,11 +5,15 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from project_fixtures import write_image
+
 from backend.app.main import app
 from backend.app.services.report_generation import (
     ReportGenerationError,
     generate_project_report,
 )
+
+ASSETS = "04_Report/_RenderedAssets"
 
 
 class ReportGenerationServiceTests(unittest.TestCase):
@@ -56,11 +60,142 @@ class ReportGenerationServiceTests(unittest.TestCase):
             result.report_name,
             "Thermal_cycle_report_prototype.pptx",
         )
+        self.assertEqual(result.rendered_assets_count, 0)
+        self.assertEqual(result.rendered_assets, [])
         self.assertEqual(result.errors, [])
         generate_report_mock.assert_called_once_with(
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
+            selected_rendered_assets=[],
         )
+
+    @patch(
+        "backend.app.services.report_generation."
+        "generate_climatic_report"
+    )
+    def test_selected_rendered_assets_are_validated_and_forwarded_in_order(
+        self,
+        generate_report_mock,
+    ):
+        generate_report_mock.return_value = self.report_path
+        assets = self.test_root / ASSETS
+        write_image(assets / "chart03_simpati_acquisition_01.png")
+        write_image(assets / "graphtec_chart_01.png")
+        write_image(assets / "manual.png")
+        selection = [
+            f"{ASSETS}/manual.png",
+            f"{ASSETS}/chart03_simpati_acquisition_01.png",
+        ]
+
+        with patch(
+            "backend.app.services.report_generation."
+            "POWERPOINT_TEMPLATE_PATH",
+            self.template_path,
+        ):
+            result = generate_project_report(self.test_root, selection)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.rendered_assets_count, 2)
+        self.assertEqual(result.rendered_assets, selection)
+        generate_report_mock.assert_called_once_with(
+            test_root=self.test_root.resolve(),
+            template_path=self.template_path.resolve(),
+            selected_rendered_assets=selection,
+        )
+
+    @patch(
+        "backend.app.services.report_generation."
+        "generate_climatic_report"
+    )
+    def test_empty_selection_is_not_replaced_by_the_inventory(
+        self,
+        generate_report_mock,
+    ):
+        generate_report_mock.return_value = self.report_path
+        write_image(self.test_root / ASSETS / "graphtec_chart_01.png")
+
+        with patch(
+            "backend.app.services.report_generation."
+            "POWERPOINT_TEMPLATE_PATH",
+            self.template_path,
+        ):
+            result = generate_project_report(self.test_root, [])
+
+        self.assertEqual(result.rendered_assets_count, 0)
+        generate_report_mock.assert_called_once_with(
+            test_root=self.test_root.resolve(),
+            template_path=self.template_path.resolve(),
+            selected_rendered_assets=[],
+        )
+
+    @patch(
+        "backend.app.services.report_generation."
+        "generate_climatic_report"
+    )
+    def test_omitted_selection_uses_every_valid_image(
+        self,
+        generate_report_mock,
+    ):
+        generate_report_mock.return_value = self.report_path
+        write_image(self.test_root / ASSETS / "graphtec_chart_01.png")
+        write_image(self.test_root / ASSETS / "chart03_simpati_acquisition_01.png")
+        (self.test_root / ASSETS / "notes.txt").write_text("x", encoding="utf-8")
+
+        with patch(
+            "backend.app.services.report_generation."
+            "POWERPOINT_TEMPLATE_PATH",
+            self.template_path,
+        ):
+            result = generate_project_report(self.test_root, None)
+
+        expected = [
+            f"{ASSETS}/chart03_simpati_acquisition_01.png",
+            f"{ASSETS}/graphtec_chart_01.png",
+        ]
+        self.assertEqual(result.rendered_assets, expected)
+        generate_report_mock.assert_called_once_with(
+            test_root=self.test_root.resolve(),
+            template_path=self.template_path.resolve(),
+            selected_rendered_assets=expected,
+        )
+
+    @patch(
+        "backend.app.services.report_generation."
+        "generate_climatic_report"
+    )
+    def test_invalid_selection_is_a_structured_error_before_generation(
+        self,
+        generate_report_mock,
+    ):
+        assets = self.test_root / ASSETS
+        write_image(assets / "chart.png")
+        (assets / "data.csv").write_text("1", encoding="utf-8")
+        cases = {
+            f"{ASSETS}/missing.png": (404, "report_generation_rendered_asset_not_found"),
+            f"{ASSETS}/data.csv": (415, "report_generation_rendered_asset_unsupported"),
+            "../outside.png": (400, "report_generation_invalid_rendered_asset"),
+            str((assets / "chart.png").resolve()): (400, "report_generation_invalid_rendered_asset"),
+            "04_Report/test_metadata.json": (400, "report_generation_invalid_rendered_asset"),
+        }
+
+        with patch(
+            "backend.app.services.report_generation."
+            "POWERPOINT_TEMPLATE_PATH",
+            self.template_path,
+        ):
+            for path, (status, code) in cases.items():
+                with self.assertRaises(ReportGenerationError, msg=path) as context:
+                    generate_project_report(self.test_root, [path])
+                self.assertEqual(context.exception.status_code, status, path)
+                self.assertEqual(context.exception.error.code, code, path)
+
+            with self.assertRaises(ReportGenerationError) as context:
+                generate_project_report(
+                    self.test_root, [f"{ASSETS}/chart.png", f"{ASSETS}/chart.png"]
+                )
+            self.assertEqual(context.exception.status_code, 400)
+
+        generate_report_mock.assert_not_called()
 
     @patch(
         "backend.app.services.report_generation."
@@ -96,6 +231,7 @@ class ReportGenerationServiceTests(unittest.TestCase):
         generate_report_mock.assert_called_once_with(
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
+            selected_rendered_assets=[],
         )
 
 
@@ -184,13 +320,128 @@ class ReportGenerationEndpointTests(unittest.TestCase):
                 "test_root": str(self.test_root.resolve()),
                 "report_path": str(self.report_path.resolve()),
                 "report_name": "Thermal_cycle_report_prototype.pptx",
+                "rendered_assets_count": 0,
+                "rendered_assets": [],
                 "errors": [],
             },
         )
         generate_report_mock.assert_called_once_with(
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
+            selected_rendered_assets=[],
         )
+
+    @patch(
+        "backend.app.services.report_generation."
+        "generate_climatic_report"
+    )
+    def test_generate_report_endpoint_uses_the_selected_rendered_assets(
+        self,
+        generate_report_mock,
+    ):
+        generate_report_mock.return_value = self.report_path
+        assets = self.test_root / ASSETS
+        write_image(assets / "chart03_simpati_acquisition_01.png")
+        write_image(assets / "graphtec_chart_01.png")
+        write_image(assets / "manual.jpg")
+        write_image(assets / "unselected.png")
+
+        with patch(
+            "backend.app.services.report_generation."
+            "POWERPOINT_TEMPLATE_PATH",
+            self.template_path,
+        ):
+            single = self.client.post(
+                "/projects/generate-report",
+                json={
+                    "test_root": str(self.test_root),
+                    "selected_rendered_assets": [f"{ASSETS}/manual.jpg"],
+                },
+            )
+            several = self.client.post(
+                "/projects/generate-report",
+                json={
+                    "test_root": str(self.test_root),
+                    "selected_rendered_assets": [
+                        f"{ASSETS}/graphtec_chart_01.png",
+                        f"{ASSETS}/manual.jpg",
+                        f"{ASSETS}/chart03_simpati_acquisition_01.png",
+                    ],
+                },
+            )
+            empty = self.client.post(
+                "/projects/generate-report",
+                json={
+                    "test_root": str(self.test_root),
+                    "selected_rendered_assets": [],
+                },
+            )
+
+        self.assertEqual(single.status_code, 200)
+        self.assertEqual(single.json()["rendered_assets_count"], 1)
+        self.assertEqual(single.json()["rendered_assets"], [f"{ASSETS}/manual.jpg"])
+
+        self.assertEqual(several.status_code, 200)
+        self.assertEqual(several.json()["rendered_assets_count"], 3)
+        self.assertEqual(
+            several.json()["rendered_assets"],
+            [
+                f"{ASSETS}/graphtec_chart_01.png",
+                f"{ASSETS}/manual.jpg",
+                f"{ASSETS}/chart03_simpati_acquisition_01.png",
+            ],
+        )
+        forwarded = generate_report_mock.call_args_list[1].kwargs["selected_rendered_assets"]
+        self.assertEqual(forwarded, several.json()["rendered_assets"])
+        self.assertNotIn(f"{ASSETS}/unselected.png", forwarded)
+
+        self.assertEqual(empty.status_code, 200)
+        self.assertEqual(empty.json()["rendered_assets_count"], 0)
+        self.assertEqual(
+            generate_report_mock.call_args_list[2].kwargs["selected_rendered_assets"],
+            [],
+        )
+
+    @patch(
+        "backend.app.services.report_generation."
+        "generate_climatic_report"
+    )
+    def test_generate_report_endpoint_rejects_invalid_selections(
+        self,
+        generate_report_mock,
+    ):
+        assets = self.test_root / ASSETS
+        write_image(assets / "chart.png")
+        (assets / "data.csv").write_text("1", encoding="utf-8")
+        write_image(self.test_root / "04_Report" / "outside.png")
+        cases = [
+            (["../outside.png"], 400),
+            ([str((assets / "chart.png").resolve())], 400),
+            ([r"C:\\Tests\\chart.png"], 400),
+            (["04_Report/outside.png"], 400),
+            ([f"{ASSETS}/missing.png"], 404),
+            ([f"{ASSETS}/data.csv"], 415),
+            ([f"{ASSETS}/chart.png", f"{ASSETS}/chart.png"], 400),
+        ]
+
+        with patch(
+            "backend.app.services.report_generation."
+            "POWERPOINT_TEMPLATE_PATH",
+            self.template_path,
+        ):
+            for selection, status in cases:
+                response = self.client.post(
+                    "/projects/generate-report",
+                    json={
+                        "test_root": str(self.test_root),
+                        "selected_rendered_assets": selection,
+                    },
+                )
+                self.assertEqual(response.status_code, status, selection)
+                self.assertFalse(response.json()["success"])
+                self.assertEqual(len(response.json()["errors"]), 1)
+
+        generate_report_mock.assert_not_called()
 
     @patch(
         "backend.app.services.report_generation."
@@ -222,6 +473,8 @@ class ReportGenerationEndpointTests(unittest.TestCase):
                 "test_root": str(self.test_root.resolve()),
                 "report_path": None,
                 "report_name": None,
+                "rendered_assets_count": 0,
+                "rendered_assets": [],
                 "errors": [
                     {
                         "code": "report_generation_invalid_project",
@@ -234,6 +487,7 @@ class ReportGenerationEndpointTests(unittest.TestCase):
         generate_report_mock.assert_called_once_with(
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
+            selected_rendered_assets=[],
         )
 
 

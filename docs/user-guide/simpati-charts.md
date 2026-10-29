@@ -27,16 +27,10 @@ Las gráficas guardadas se almacenan en:
 04_Report/_RenderedAssets
 ```
 
-La interfaz permite:
-
-- Consultar las gráficas guardadas.
-- Abrir una gráfica.
-- Eliminar una gráfica.
-
-Al eliminar una gráfica, esta deja de incluirse en `Test Results`.
+Una vez guardada, la gráfica aparece en la sección **Report images**, junto con las gráficas Graphtec y cualquier otra imagen compatible de esa carpeta, con la procedencia `SIMPATI`. Allí puede abrirse, eliminarse y marcarse o desmarcarse para el informe. Consulta [Imágenes del informe](report-images.md).
 
 ## Inclusión en el informe
 
-Antes de generar el PowerPoint, la aplicación actualiza la lista de gráficas guardadas. El mensaje situado en la sección de generación indica cuántas se incluirán.
+Las gráficas recién guardadas quedan seleccionadas por defecto. Solo las imágenes marcadas en **Report images** se insertan en `Test Results`; el mensaje de la sección de generación indica cuántas se incluirán.
 
 Si no hay ninguna, el informe puede generarse igualmente.

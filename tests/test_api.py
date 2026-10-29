@@ -176,15 +176,12 @@ class ProjectInspectionEndpointTests(unittest.TestCase):
                 ("POST", "/projects/generate-report"),
                 ("POST", "/projects/simpati/inspect"),
                 ("POST", "/projects/simpati/save-chart"),
-                ("POST", "/projects/simpati/charts"),
-                ("GET", "/projects/simpati/chart"),
-                ("POST", "/projects/simpati/delete-chart"),
+                ("POST", "/projects/rendered-assets"),
+                ("GET", "/projects/rendered-asset"),
+                ("POST", "/projects/rendered-assets/delete"),
                 ("POST", "/projects/graphtec/inspect"),
                 ("POST", "/projects/graphtec/preview-chart"),
                 ("POST", "/projects/graphtec/save-chart"),
-                ("POST", "/projects/graphtec/charts"),
-                ("GET", "/projects/graphtec/chart"),
-                ("POST", "/projects/graphtec/delete-chart"),
             },
         )
 

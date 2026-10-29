@@ -94,10 +94,8 @@ La gráfica se guarda en `04_Report/_RenderedAssets` con un nombre generado
 otra imagen. Junto a ella se guarda un JSON con el archivo de origen, el tipo
 de ensayo, las series, el intervalo y las unidades.
 
-Las gráficas guardadas aparecen en **Saved Graphtec charts**, donde pueden
-abrirse y eliminarse.
-
-```{important}
-Las gráficas Graphtec **no se incorporan todavía al PowerPoint**. La
-generación del informe solo incluye las gráficas SIMPATI guardadas.
-```
+Las gráficas guardadas aparecen en **Report images** con la procedencia
+`Graphtec`, donde pueden abrirse, eliminarse y marcarse o desmarcarse para el
+informe. Una gráfica recién guardada queda seleccionada por defecto y se
+inserta en `Test Results` al generar el PowerPoint. Consulta
+[Imágenes del informe](report-images.md).

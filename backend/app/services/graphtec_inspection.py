@@ -1,9 +1,11 @@
-"""Graphtec inspection, chart preview and saved chart management.
+"""Graphtec inspection, chart preview and chart saving.
 
 Every request rebuilds and confines the file path on the server, reads the
 file content without modifying it and never interprets the file name.
 Saved charts are written to ``04_Report/_RenderedAssets`` with generated
-names and a JSON metadata file. The PowerPoint does not include them.
+names and a JSON metadata file. From then on they are generic rendered
+assets: the user selects in the interface which images of the folder the
+PowerPoint includes (see ``services.rendered_assets``).
 """
 
 from __future__ import annotations
@@ -37,9 +39,10 @@ from src.report_generator.graphtec.charts import (
 )
 from src.report_generator.graphtec.files import relative_to_test_root
 from src.report_generator.rendered_assets import (
-    find_charts_with_prefix,
+    METADATA_SUFFIX,
+    metadata_path_for,
     prepare_rendered_assets_directory,
-    resolve_saved_chart,
+    relative_asset_path,
     write_new_chart,
 )
 
@@ -47,8 +50,6 @@ from ..models.common import ApiError
 from ..models.graphtec import (
     GraphtecChartAxis,
     GraphtecChartData,
-    GraphtecChartDeleteResponse,
-    GraphtecChartListResponse,
     GraphtecChartPreviewResponse,
     GraphtecChartSaveResponse,
     GraphtecChartSettings,
@@ -56,14 +57,13 @@ from ..models.graphtec import (
     GraphtecPhaseMarker,
     GraphtecPhaseSegmentResult,
     GraphtecRecordResult,
-    GraphtecSavedChart,
     GraphtecSeriesResult,
 )
+from .rendered_assets import inventory_fields
 
-#: Prefix of saved Graphtec charts. It does not contain
-#: ``simpati_acquisition``, so the PowerPoint does not pick them up.
+#: Prefix of saved Graphtec charts. The name is only a label: it never
+#: decides whether the chart is included in the PowerPoint.
 CHART_PREFIX = "graphtec_chart"
-METADATA_SUFFIX = ".json"
 METADATA_SCHEMA_VERSION = 1
 
 MAX_PREVIEW_RECORDS = 25
@@ -319,53 +319,6 @@ def preview_project_graphtec_chart(
         raise _service_error(test_root, error) from error
 
 
-def _metadata_path(chart_path: Path) -> Path:
-    return chart_path.with_suffix(METADATA_SUFFIX)
-
-
-def _read_metadata(chart_path: Path) -> dict:
-    metadata_path = _metadata_path(chart_path)
-    try:
-        content = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return content if isinstance(content, dict) else {}
-
-
-def _find_charts(project_root: Path) -> list[Path]:
-    return find_charts_with_prefix(project_root, CHART_PREFIX)
-
-
-def _saved_charts(project_root: Path) -> list[GraphtecSavedChart]:
-    charts = []
-    for chart_path in _find_charts(project_root):
-        metadata = _read_metadata(chart_path)
-        source_file = metadata.get("source_file") or {}
-        time_range = metadata.get("time_range") or {}
-        charts.append(
-            GraphtecSavedChart(
-                chart_name=chart_path.name,
-                chart_path=str(chart_path.resolve()),
-                size_bytes=chart_path.stat().st_size,
-                metadata_name=(
-                    _metadata_path(chart_path).name
-                    if _metadata_path(chart_path).is_file()
-                    else None
-                ),
-                source_relative_path=source_file.get("relative_path"),
-                test_type=metadata.get("test_type"),
-                series=[
-                    str(s.get("id")) for s in metadata.get("series", [])
-                    if isinstance(s, dict)
-                ],
-                time_start=time_range.get("start"),
-                time_end=time_range.get("end"),
-                created_at=metadata.get("created_at"),
-            )
-        )
-    return charts
-
-
 def _chart_metadata(
     chart_path: Path,
     project_root: Path,
@@ -407,7 +360,6 @@ def _chart_metadata(
         "show_phase_separators": settings.show_phase_separators,
         "records_plotted": render.records_plotted,
         "limited_points": render.limited_points,
-        "included_in_powerpoint": False,
     }
 
 
@@ -428,7 +380,7 @@ def save_project_graphtec_chart(
                 chart_path, project_root, file_path, acquisition, render, settings
             )
             yield (
-                _metadata_path(chart_path),
+                metadata_path_for(chart_path),
                 json.dumps(metadata, indent=2, ensure_ascii=False).encode("utf-8"),
             )
 
@@ -439,74 +391,15 @@ def save_project_graphtec_chart(
             companions=companions,
             companion_suffixes=(METADATA_SUFFIX,),
         )
-        charts = _saved_charts(project_root)
         return GraphtecChartSaveResponse(
             success=True,
             test_root=str(project_root),
             chart_name=chart_path.name,
             chart_path=str(chart_path.resolve()),
-            metadata_name=_metadata_path(chart_path).name,
-            charts_count=len(charts),
-            charts=charts,
+            relative_path=relative_asset_path(chart_path.name),
+            metadata_name=metadata_path_for(chart_path).name,
             errors=[],
-        )
-    except Exception as error:
-        raise _service_error(test_root, error) from error
-
-
-def list_project_graphtec_charts(test_root: str | Path) -> GraphtecChartListResponse:
-    try:
-        project_root = _project_root(test_root)
-        charts = _saved_charts(project_root)
-        return GraphtecChartListResponse(
-            success=True,
-            test_root=str(project_root),
-            charts_count=len(charts),
-            charts=charts,
-            errors=[],
-        )
-    except Exception as error:
-        raise _service_error(test_root, error) from error
-
-
-def resolve_project_graphtec_chart(test_root: str | Path, chart_name: str) -> Path:
-    try:
-        project_root = _project_root(test_root)
-        chart_path = resolve_saved_chart(project_root, chart_name, _find_charts)
-        if chart_path is None:
-            raise GraphtecServiceError(
-                test_root=project_root,
-                status_code=404,
-                errors=[
-                    ApiError(
-                        code="graphtec_chart_not_found",
-                        message=f"The saved Graphtec chart was not found: {chart_name}",
-                    )
-                ],
-            )
-        return chart_path
-    except Exception as error:
-        raise _service_error(test_root, error) from error
-
-
-def delete_project_graphtec_chart(
-    test_root: str | Path,
-    chart_name: str,
-) -> GraphtecChartDeleteResponse:
-    """Delete a saved Graphtec chart and its metadata file."""
-    try:
-        chart_path = resolve_project_graphtec_chart(test_root, chart_name)
-        project_root = _project_root(test_root)
-        _metadata_path(chart_path).unlink(missing_ok=True)
-        chart_path.unlink()
-        charts = _saved_charts(project_root)
-        return GraphtecChartDeleteResponse(
-            success=True,
-            test_root=str(project_root),
-            deleted_chart_name=chart_path.name,
-            charts_count=len(charts),
-            charts=charts,
-            errors=[],
+            **inventory_fields(project_root),
         )
     except Exception as error:
         raise _service_error(test_root, error) from error

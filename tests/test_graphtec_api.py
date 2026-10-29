@@ -291,22 +291,34 @@ class GraphtecEndpointTests(GraphtecFolderMixin, unittest.TestCase):
         self.assertEqual(save.status_code, 200)
         self.assertEqual(save.json()["chart_name"], "graphtec_chart_01.png")
         self.assertEqual(save.json()["metadata_name"], "graphtec_chart_01.json")
+        relative_path = save.json()["relative_path"]
+        self.assertEqual(relative_path, "04_Report/_RenderedAssets/graphtec_chart_01.png")
+        self.assertEqual(save.json()["assets_count"], 1)
+        self.assertEqual(save.json()["assets"][0]["source"], "graphtec")
 
-        listing = self.post("charts")
-        self.assertEqual(listing.json()["charts_count"], 1)
+        listing = self.client.post(
+            "/projects/rendered-assets", json={"test_root": str(self.test_root)}
+        )
+        self.assertEqual(listing.json()["assets_count"], 1)
 
         image = self.client.get(
-            "/projects/graphtec/chart",
-            params={"test_root": str(self.test_root), "chart_name": "graphtec_chart_01.png"},
+            "/projects/rendered-asset",
+            params={"test_root": str(self.test_root), "relative_path": relative_path},
         )
         self.assertEqual(image.status_code, 200)
         self.assertEqual(image.headers["content-type"], "image/png")
 
-        deleted = self.post("delete-chart", chart_name="graphtec_chart_01.png")
+        deleted = self.client.post(
+            "/projects/rendered-assets/delete",
+            json={"test_root": str(self.test_root), "relative_path": relative_path},
+        )
         self.assertEqual(deleted.status_code, 200)
-        self.assertEqual(deleted.json()["charts_count"], 0)
+        self.assertEqual(deleted.json()["assets_count"], 0)
 
-        missing = self.post("delete-chart", chart_name="graphtec_chart_01.png")
+        missing = self.client.post(
+            "/projects/rendered-assets/delete",
+            json={"test_root": str(self.test_root), "relative_path": relative_path},
+        )
         self.assertEqual(missing.status_code, 404)
 
     def test_name_independence(self):

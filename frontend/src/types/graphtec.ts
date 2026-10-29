@@ -1,4 +1,5 @@
 import type { ApiError } from "./common";
+import type { RenderedAsset, RenderedAssetWarning } from "./renderedAssets";
 
 /**
  * Identificador de una serie Graphtec. `current` solo existe en DCW y
@@ -162,37 +163,23 @@ export interface GraphtecChartPreviewResponse {
   errors: ApiError[];
 }
 
-/** Gráfica Graphtec guardada en `04_Report/_RenderedAssets`. */
-export interface GraphtecSavedChart {
-  chart_name: string;
-  chart_path: string;
-  size_bytes: number;
-  metadata_name: string | null;
-  source_relative_path: string | null;
-  test_type: string | null;
-  series: string[];
-  time_start: number | null;
-  time_end: number | null;
-  created_at: string | null;
-}
-
-/** Lista de gráficas Graphtec guardadas. */
-export interface GraphtecChartListResponse {
+/**
+ * Resultado del guardado de una gráfica Graphtec.
+ *
+ * La gráfica guardada pasa a ser un recurso genérico de
+ * `04_Report/_RenderedAssets`; la respuesta incluye el inventario
+ * actualizado para añadirla a la selección del informe.
+ */
+export interface GraphtecChartSaveResponse {
   success: boolean;
   test_root: string;
-  charts_count: number;
-  charts: GraphtecSavedChart[];
-  errors: ApiError[];
-}
-
-/** Resultado del guardado de una gráfica Graphtec. */
-export interface GraphtecChartSaveResponse extends GraphtecChartListResponse {
   chart_name: string | null;
   chart_path: string | null;
+  relative_path: string | null;
   metadata_name: string | null;
-}
-
-/** Resultado de la eliminación de una gráfica Graphtec. */
-export interface GraphtecChartDeleteResponse extends GraphtecChartListResponse {
-  deleted_chart_name: string | null;
+  directory_found: boolean;
+  assets_count: number;
+  assets: RenderedAsset[];
+  warnings: RenderedAssetWarning[];
+  errors: ApiError[];
 }

@@ -1,6 +1,8 @@
 import base64
 import binascii
+import json
 import math
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -8,31 +10,30 @@ from pandas import isna
 from PIL import UnidentifiedImageError
 
 from src.report_generator.assets.simpati_extractor import (
+    OUTPUT_FILE_PREFIX,
     SimpatiError,
     SimpatiFileNotFoundError,
     SimpatiFormatError,
-    build_next_chart_path,
     find_simpati_file,
     get_temperature_channels,
     prepare_rendered_assets_directory,
     read_simpati,
 )
-from src.report_generator.paths import rendered_assets_directory
-from src.report_generator.powerpoint.images import find_test_result_charts
 from src.report_generator.rendered_assets import (
-    resolve_saved_chart,
+    METADATA_SUFFIX,
+    metadata_path_for,
+    relative_asset_path,
     validate_png_bytes,
+    write_new_chart,
 )
 
 from ..models.common import ApiError
 from ..models.simpati_inspection import (
-    SimpatiChartDeleteResponse,
-    SimpatiChartListResponse,
     SimpatiChartSaveResponse,
     SimpatiInspectionResponse,
     SimpatiPreviewChannel,
-    SimpatiSavedChart,
 )
+from .rendered_assets import inventory_fields
 
 
 MAX_PREVIEW_POINTS = 1200
@@ -79,36 +80,6 @@ class SimpatiChartSaveError(Exception):
 
     def to_response(self) -> SimpatiChartSaveResponse:
         return SimpatiChartSaveResponse(
-            success=False,
-            test_root=str(self.test_root),
-            errors=[self.error],
-        )
-
-
-class SimpatiChartManagementError(Exception):
-    """Controlled saved-chart management error."""
-
-    def __init__(
-        self,
-        *,
-        test_root: Path,
-        status_code: int,
-        error: ApiError,
-    ) -> None:
-        super().__init__(error.message)
-        self.test_root = test_root
-        self.status_code = status_code
-        self.error = error
-
-    def to_list_response(self) -> SimpatiChartListResponse:
-        return SimpatiChartListResponse(
-            success=False,
-            test_root=str(self.test_root),
-            errors=[self.error],
-        )
-
-    def to_delete_response(self) -> SimpatiChartDeleteResponse:
-        return SimpatiChartDeleteResponse(
             success=False,
             test_root=str(self.test_root),
             errors=[self.error],
@@ -250,153 +221,6 @@ def _build_save_error(
     )
 
 
-def _build_management_error(
-    test_root: Path,
-    error: Exception,
-    *,
-    not_found: bool = False,
-) -> SimpatiChartManagementError:
-    if not_found:
-        status_code = 404
-        code = "simpati_chart_not_found"
-    elif isinstance(error, PermissionError):
-        status_code = 403
-        code = "simpati_chart_permission_denied"
-    elif isinstance(
-        error,
-        (
-            FileNotFoundError,
-            NotADirectoryError,
-            ValueError,
-        ),
-    ):
-        status_code = 400
-        code = "simpati_chart_invalid_request"
-    else:
-        status_code = 500
-        code = "simpati_chart_management_failed"
-
-    message = str(error).strip()
-    if not message:
-        message = "The saved SIMPATI charts could not be managed."
-
-    return SimpatiChartManagementError(
-        test_root=test_root,
-        status_code=status_code,
-        error=ApiError(
-            code=code,
-            message=message,
-            exception_type=type(error).__name__,
-        ),
-    )
-
-
-def _saved_charts(test_root: Path) -> list[SimpatiSavedChart]:
-    assets_directory = rendered_assets_directory(test_root).resolve()
-    saved_charts: list[SimpatiSavedChart] = []
-
-    for chart_path in find_test_result_charts(test_root):
-        resolved_chart_path = chart_path.resolve()
-        if resolved_chart_path.parent != assets_directory:
-            continue
-
-        saved_charts.append(
-            SimpatiSavedChart(
-                chart_name=chart_path.name,
-                chart_path=str(resolved_chart_path),
-                size_bytes=chart_path.stat().st_size,
-            )
-        )
-
-    return saved_charts
-
-
-def list_project_simpati_charts(
-    test_root: str | Path,
-) -> SimpatiChartListResponse:
-    """List the saved images that PowerPoint will include."""
-    project_root = Path(test_root).expanduser()
-
-    try:
-        project_root = project_root.resolve()
-        if not project_root.is_dir():
-            raise FileNotFoundError(
-                f"The test folder does not exist: {project_root}"
-            )
-        charts = _saved_charts(project_root)
-    except Exception as error:
-        raise _build_management_error(project_root, error) from error
-
-    return SimpatiChartListResponse(
-        success=True,
-        test_root=str(project_root),
-        charts_count=len(charts),
-        charts=charts,
-        errors=[],
-    )
-
-
-def resolve_project_simpati_chart(
-    test_root: str | Path,
-    chart_name: str,
-) -> Path:
-    """Resolve a chart only when it belongs to the discovered chart set."""
-    project_root = Path(test_root).expanduser()
-
-    try:
-        project_root = project_root.resolve()
-        resolved_chart_path = resolve_saved_chart(
-            project_root,
-            chart_name,
-            find_test_result_charts,
-        )
-
-        if resolved_chart_path is None:
-            raise _build_management_error(
-                project_root,
-                FileNotFoundError(
-                    "The saved SIMPATI chart was not found: "
-                    f"{Path(chart_name).name}"
-                ),
-                not_found=True,
-            )
-    except SimpatiChartManagementError:
-        raise
-    except Exception as error:
-        raise _build_management_error(project_root, error) from error
-
-    return resolved_chart_path
-
-
-def delete_project_simpati_chart(
-    test_root: str | Path,
-    chart_name: str,
-) -> SimpatiChartDeleteResponse:
-    """Delete one chart from the same confined set used by PowerPoint."""
-    project_root = Path(test_root).expanduser().resolve()
-
-    try:
-        chart_path = resolve_project_simpati_chart(
-            project_root,
-            chart_name,
-        )
-        chart_path.unlink()
-        charts = _saved_charts(project_root)
-    except SimpatiChartManagementError:
-        raise
-    except Exception as error:
-        raise _build_management_error(project_root, error) from error
-
-    return SimpatiChartDeleteResponse(
-        success=True,
-        test_root=str(project_root),
-        deleted_chart_name=chart_name,
-        charts_count=len(charts),
-        charts=charts,
-        errors=[],
-    )
-
-
 def _decode_png(image_base64: str) -> bytes:
     encoded_data = image_base64.strip()
     data_url_prefix = "data:image/png;base64,"
@@ -408,6 +232,21 @@ def _decode_png(image_base64: str) -> bytes:
     return validate_png_bytes(image_bytes)
 
 
+SIMPATI_SOURCE = "simpati"
+METADATA_SCHEMA_VERSION = 1
+
+
+def _chart_metadata(chart_path: Path, image_bytes: bytes) -> dict:
+    """Companion metadata of a saved SIMPATI chart (origin is informative)."""
+    return {
+        "schema_version": METADATA_SCHEMA_VERSION,
+        "source": SIMPATI_SOURCE,
+        "chart_name": chart_path.name,
+        "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "size": len(image_bytes),
+    }
+
+
 def save_project_simpati_chart(
     test_root: str | Path,
     image_base64: str,
@@ -415,11 +254,13 @@ def save_project_simpati_chart(
     """
     Save a PNG chart in 04_Report/_RenderedAssets.
 
-    PowerPoint generation discovers the saved charts there. The
-    04_Report folder must already exist.
+    The chart is written with a generated, non-overwriting name and a JSON
+    metadata file that records its origin. From then on it is a generic
+    rendered asset: the user selects in the interface which images of
+    ``_RenderedAssets`` the PowerPoint includes. The 04_Report folder must
+    already exist.
     """
     project_root = Path(test_root).expanduser()
-    temporary_path: Path | None = None
 
     try:
         project_root = project_root.resolve()
@@ -432,25 +273,36 @@ def save_project_simpati_chart(
         output_directory = prepare_rendered_assets_directory(
             project_root
         )
-        output_path = build_next_chart_path(output_directory)
-        temporary_path = output_path.with_suffix(".tmp")
-        temporary_path.write_bytes(image_bytes)
-        temporary_path.replace(output_path)
-        charts = _saved_charts(project_root)
+
+        def companions(chart_path: Path):
+            yield (
+                metadata_path_for(chart_path),
+                json.dumps(
+                    _chart_metadata(chart_path, image_bytes),
+                    indent=2,
+                    ensure_ascii=False,
+                ).encode("utf-8"),
+            )
+
+        output_path = write_new_chart(
+            output_directory,
+            OUTPUT_FILE_PREFIX,
+            image_bytes,
+            companions=companions,
+            companion_suffixes=(METADATA_SUFFIX,),
+        )
+        inventory = inventory_fields(project_root)
     except Exception as error:
         raise _build_save_error(project_root, error) from error
-    finally:
-        if temporary_path is not None and temporary_path.exists():
-            temporary_path.unlink()
 
     return SimpatiChartSaveResponse(
         success=True,
         test_root=str(project_root),
         chart_path=str(output_path.resolve()),
         chart_name=output_path.name,
-        charts_count=len(charts),
-        charts=charts,
+        relative_path=relative_asset_path(output_path.name),
         errors=[],
+        **inventory,
     )
 
 

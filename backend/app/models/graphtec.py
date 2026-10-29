@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from .common import ApiError
+from .rendered_assets import RenderedAssetResult, RenderedAssetWarning
 
 
 class GraphtecFileRequest(BaseModel):
@@ -45,13 +46,6 @@ class GraphtecChartRequest(GraphtecFileRequest):
     """Graphtec file and chart settings."""
 
     chart: GraphtecChartSettings
-
-
-class GraphtecChartDeleteRequest(BaseModel):
-    """Saved Graphtec chart to delete."""
-
-    test_root: str = Field(min_length=1)
-    chart_name: str = Field(min_length=1, max_length=255)
 
 
 class GraphtecRecordResult(BaseModel):
@@ -178,44 +172,22 @@ class GraphtecChartPreviewResponse(BaseModel):
     errors: list[ApiError] = Field(default_factory=list)
 
 
-class GraphtecSavedChart(BaseModel):
-    """Saved Graphtec chart and its metadata."""
-
-    chart_name: str
-    chart_path: str
-    size_bytes: int
-    metadata_name: str | None = None
-    source_relative_path: str | None = None
-    test_type: str | None = None
-    series: list[str] = Field(default_factory=list)
-    time_start: float | None = None
-    time_end: float | None = None
-    created_at: str | None = None
-
-
-class GraphtecChartListResponse(BaseModel):
-    success: bool
-    test_root: str
-    charts_count: int = 0
-    charts: list[GraphtecSavedChart] = Field(default_factory=list)
-    errors: list[ApiError] = Field(default_factory=list)
-
-
 class GraphtecChartSaveResponse(BaseModel):
+    """Result of saving a Graphtec chart.
+
+    The saved image becomes a generic rendered asset. The response returns
+    the refreshed inventory of ``04_Report/_RenderedAssets`` so the client
+    can add the new image to the report selection.
+    """
+
     success: bool
     test_root: str
     chart_name: str | None = None
     chart_path: str | None = None
+    relative_path: str | None = None
     metadata_name: str | None = None
-    charts_count: int = 0
-    charts: list[GraphtecSavedChart] = Field(default_factory=list)
-    errors: list[ApiError] = Field(default_factory=list)
-
-
-class GraphtecChartDeleteResponse(BaseModel):
-    success: bool
-    test_root: str
-    deleted_chart_name: str | None = None
-    charts_count: int = 0
-    charts: list[GraphtecSavedChart] = Field(default_factory=list)
+    directory_found: bool = False
+    assets_count: int = 0
+    assets: list[RenderedAssetResult] = Field(default_factory=list)
+    warnings: list[RenderedAssetWarning] = Field(default_factory=list)
     errors: list[ApiError] = Field(default_factory=list)

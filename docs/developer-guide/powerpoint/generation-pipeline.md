@@ -54,11 +54,13 @@ El archivo terminado se guarda en:
 04_Report
 ```
 
-Las gráficas SIMPATI persistentes utilizadas por `Test Results` se almacenan en:
+Las imágenes de resultados que el usuario puede seleccionar para `Test Results` se almacenan en:
 
 ```text
 04_Report/_RenderedAssets
 ```
+
+El motor recibe la selección validada como argumento explícito y no explora esta carpeta por su cuenta.
 
 ## Principio funcional
 

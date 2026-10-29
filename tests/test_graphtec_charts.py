@@ -20,14 +20,14 @@ from project_fixtures import build_test_folder
 from backend.app.models.graphtec import GraphtecChartSettings
 from backend.app.services.graphtec_inspection import (
     GraphtecServiceError,
-    delete_project_graphtec_chart,
-    list_project_graphtec_charts,
     save_project_graphtec_chart,
 )
-from backend.app.services.simpati_inspection import (
-    list_project_simpati_charts,
-    save_project_simpati_chart,
+from backend.app.services.rendered_assets import (
+    RenderedAssetServiceError,
+    delete_project_rendered_asset,
+    list_project_rendered_assets,
 )
+from backend.app.services.simpati_inspection import save_project_simpati_chart
 from src.report_generator.graphtec import (
     GraphtecChartConfig,
     GraphtecChartConfigError,
@@ -38,7 +38,7 @@ from src.report_generator.graphtec import (
     render_graphtec_chart,
 )
 from src.report_generator.graphtec.charts import build_graphtec_figure
-from src.report_generator.powerpoint.images import find_test_result_charts
+from src.report_generator.rendered_assets import list_rendered_assets
 
 
 def acquisition(text):
@@ -294,7 +294,10 @@ class GraphtecSavedChartTests(unittest.TestCase):
         self.assertEqual(metadata["units"], {"voltage": "kV", "resistance": "Mohm", "elapsed_time_seconds": "s"})
         self.assertEqual(metadata["time_range"]["start"], 1.0)
         self.assertEqual(metadata["time_range"]["end"], 9.0)
-        self.assertFalse(metadata["included_in_powerpoint"])
+        self.assertNotIn("included_in_powerpoint", metadata)
+        self.assertEqual(
+            response.relative_path, "04_Report/_RenderedAssets/graphtec_chart_01.png"
+        )
         self.assertEqual(self.source.read_bytes(), original)
 
     def test_chart_name_does_not_use_the_source_name(self):
@@ -315,7 +318,7 @@ class GraphtecSavedChartTests(unittest.TestCase):
 
         self.assertEqual(second.chart_name, "graphtec_chart_02.png")
         self.assertEqual(Path(first.chart_path).read_bytes(), first_bytes)
-        self.assertEqual(second.charts_count, 2)
+        self.assertEqual(second.assets_count, 2)
 
     def test_existing_unrelated_files_are_not_overwritten(self):
         self.assets.mkdir(parents=True)
@@ -332,54 +335,63 @@ class GraphtecSavedChartTests(unittest.TestCase):
         self.save()
         self.save(series=["voltage"])
 
-        listing = list_project_graphtec_charts(self.test_root)
+        listing = list_project_rendered_assets(self.test_root)
         self.assertEqual(
-            [(c.chart_name, c.series, c.test_type, c.source_relative_path) for c in listing.charts],
+            [(a.name, a.source, a.metadata_name) for a in listing.assets],
             [
-                ("graphtec_chart_01.png", ["voltage", "resistance"], "IR", self.relative_path),
-                ("graphtec_chart_02.png", ["voltage"], "IR", self.relative_path),
+                ("graphtec_chart_01.png", "graphtec", "graphtec_chart_01.json"),
+                ("graphtec_chart_02.png", "graphtec", "graphtec_chart_02.json"),
             ],
         )
 
-        response = delete_project_graphtec_chart(self.test_root, "graphtec_chart_01.png")
-        self.assertEqual(response.charts_count, 1)
+        response = delete_project_rendered_asset(
+            self.test_root, "04_Report/_RenderedAssets/graphtec_chart_01.png"
+        )
+        self.assertEqual(response.assets_count, 1)
         self.assertFalse((self.assets / "graphtec_chart_01.png").exists())
         self.assertFalse((self.assets / "graphtec_chart_01.json").exists())
 
-    def test_delete_rejects_other_files(self):
+    def test_delete_rejects_invalid_paths(self):
         self.assets.mkdir(parents=True)
         (self.assets / "chart03_simpati_acquisition_01.png").write_bytes(b"x")
-        for name in ("chart03_simpati_acquisition_01.png", "../test_metadata.json", "missing.png"):
-            with self.assertRaises(GraphtecServiceError):
-                delete_project_graphtec_chart(self.test_root, name)
+        for path in (
+            "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",  # not an image
+            "04_Report/_RenderedAssets/../test_metadata.json",
+            "04_Report/_RenderedAssets/missing.png",
+            "04_Report/test_metadata.json",
+        ):
+            with self.assertRaises(RenderedAssetServiceError, msg=path):
+                delete_project_rendered_asset(self.test_root, path)
         self.assertTrue((self.assets / "chart03_simpati_acquisition_01.png").exists())
+        self.assertTrue((self.test_root / "04_Report" / "test_metadata.json").exists())
 
-    def test_powerpoint_does_not_pick_up_graphtec_charts(self):
+    def test_graphtec_charts_are_selectable_for_the_powerpoint(self):
         self.save()
 
-        self.assertEqual(find_test_result_charts(self.test_root), [])
+        assets = list_rendered_assets(self.test_root).assets
+        self.assertEqual([(a.name, a.source) for a in assets], [("graphtec_chart_01.png", "graphtec")])
 
-    def test_simpati_charts_keep_working_next_to_graphtec_charts(self):
+    def test_simpati_and_graphtec_charts_share_the_inventory(self):
         buffer = BytesIO()
         Image.new("RGB", (8, 6), "white").save(buffer, format="PNG")
         image = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
         self.save()
         simpati = save_project_simpati_chart(self.test_root, image)
-        self.save(series=["voltage"])
+        graphtec = self.save(series=["voltage"])
 
         self.assertEqual(simpati.chart_name, "chart03_simpati_acquisition_01.png")
         self.assertEqual(
-            [c.chart_name for c in list_project_simpati_charts(self.test_root).charts],
-            ["chart03_simpati_acquisition_01.png"],
+            [(a.name, a.source) for a in graphtec.assets],
+            [
+                ("chart03_simpati_acquisition_01.png", "simpati"),
+                ("graphtec_chart_01.png", "graphtec"),
+                ("graphtec_chart_02.png", "graphtec"),
+            ],
         )
         self.assertEqual(
-            [c.chart_name for c in list_project_graphtec_charts(self.test_root).charts],
-            ["graphtec_chart_01.png", "graphtec_chart_02.png"],
-        )
-        self.assertEqual(
-            [p.name for p in find_test_result_charts(self.test_root)],
-            ["chart03_simpati_acquisition_01.png"],
+            [a.name for a in list_project_rendered_assets(self.test_root).assets],
+            [a.name for a in graphtec.assets],
         )
 
     def test_saving_requires_04_report(self):

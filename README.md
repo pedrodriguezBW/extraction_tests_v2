@@ -11,8 +11,10 @@ Flujo principal:
 3. Revisar las evidencias, las fuentes de datos y la plantilla detectadas.
 4. Seleccionar una fuente de datos (SIMPATI, Graphtec o CANoe) y uno de
    sus archivos.
-5. Analizar y guardar opcionalmente las gráficas SIMPATI.
-6. Generar el PowerPoint editable dentro de `04_Report`.
+5. Analizar y guardar opcionalmente gráficas SIMPATI o Graphtec.
+6. Elegir en **Report images** qué imágenes de `04_Report/_RenderedAssets`
+   se incluyen en *Test Results*.
+7. Generar el PowerPoint editable dentro de `04_Report`.
 
 ## Estructura del ensayo
 
@@ -45,8 +47,10 @@ La carpeta seleccionada debe ser la carpeta individual del ensayo, no `04_Report
   de archivo, no una fuente independiente.
 - El PowerPoint final se guarda directamente en `04_Report`. Se monta en
   `04_Report/_Working` y se mueve a `04_Report` cuando está completo.
-- Las gráficas SIMPATI guardadas se almacenan en
-  `04_Report/_RenderedAssets` y se incluyen en *Test Results*.
+- `04_Report/_RenderedAssets` es el repositorio genérico de imágenes del
+  informe: gráficas SIMPATI y Graphtec guardadas desde la aplicación e
+  imágenes PNG, JPG o JPEG copiadas a mano. El usuario marca cuáles se
+  incluyen en *Test Results*; la procedencia es solo informativa.
 
 Todas las rutas se definen en `src/report_generator/paths.py`.
 
@@ -95,8 +99,24 @@ Después de inspeccionar el ensayo, la interfaz muestra los selectores
 - Los valores limitados como `>50Gohm` se dibujan en el umbral (50000 Mohm)
   con un marcador distinto y una nota; no se presentan como medidas exactas.
 - Las gráficas se previsualizan y se guardan en `04_Report/_RenderedAssets`
-  como `graphtec_chart_NN.png`, junto con un JSON de metadatos. **Todavía no
-  se incorporan al PowerPoint.**
+  como `graphtec_chart_NN.png`, junto con un JSON de metadatos. Una vez
+  guardadas aparecen en **Report images** y pueden incluirse en el PowerPoint
+  como cualquier otra imagen.
+
+## Imágenes del informe
+
+- `POST /projects/rendered-assets` lista las imágenes compatibles de
+  `_RenderedAssets` (PNG, JPG y JPEG, contenido validado, orden estable) con
+  su procedencia (`simpati`, `graphtec`, `manual`...). Los archivos no
+  compatibles se devuelven como advertencias.
+- La interfaz muestra una casilla por imagen (marcadas por defecto),
+  **Select all**, **Clear selection**, un contador, **Open image** y
+  **Delete**.
+- `POST /projects/generate-report` recibe `selected_rendered_assets`, la
+  lista ordenada de rutas relativas seleccionadas. El PowerPoint incluye
+  exactamente esas imágenes en ese orden; una lista vacía genera el informe
+  sin imágenes de resultados. Toda ruta se valida en el servidor y se
+  confina a `04_Report/_RenderedAssets`.
 
 ### Evidencias
 
@@ -156,14 +176,16 @@ fotografías utilizadas en la sección `Test Assembly`.
 - `POST /projects/inspect`: estructura, `test_metadata.json`, evidencias,
   fuentes de datos con el inventario de sus archivos, plantilla, errores y
   advertencias.
-- `POST /projects/generate-report`: genera el PowerPoint en `04_Report`.
-- `POST /projects/simpati/inspect`, `POST /projects/simpati/save-chart`,
-  `POST /projects/simpati/charts`, `GET /projects/simpati/chart` y
-  `POST /projects/simpati/delete-chart`: flujo de gráficas SIMPATI.
-- `POST /projects/graphtec/inspect`, `POST /projects/graphtec/preview-chart`,
-  `POST /projects/graphtec/save-chart`, `POST /projects/graphtec/charts`,
-  `GET /projects/graphtec/chart` y `POST /projects/graphtec/delete-chart`:
-  flujo de gráficas Graphtec.
+- `POST /projects/generate-report`: genera el PowerPoint en `04_Report` con
+  las imágenes indicadas en `selected_rendered_assets`.
+- `POST /projects/rendered-assets`, `GET /projects/rendered-asset` y
+  `POST /projects/rendered-assets/delete`: inventario, apertura y eliminación
+  de las imágenes de `04_Report/_RenderedAssets`.
+- `POST /projects/simpati/inspect` y `POST /projects/simpati/save-chart`:
+  análisis y guardado de gráficas SIMPATI.
+- `POST /projects/graphtec/inspect`, `POST /projects/graphtec/preview-chart`
+  y `POST /projects/graphtec/save-chart`: análisis, previsualización y
+  guardado de gráficas Graphtec.
 
 ## Pruebas
 

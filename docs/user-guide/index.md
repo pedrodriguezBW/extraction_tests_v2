@@ -14,6 +14,7 @@ preparing-test-folder
 application-workflow
 simpati-charts
 graphtec-charts
+report-images
 generated-files
 troubleshooting
 ```
@@ -26,5 +27,6 @@ troubleshooting
 4. Inspeccionar su estructura y sus archivos.
 5. Revisar los metadatos, las evidencias y las fuentes de adquisición.
 6. Analizar y guardar gráficas SIMPATI o Graphtec cuando sea necesario.
-7. Generar el informe PowerPoint.
-8. Revisar el informe generado en `04_Report`.
+7. Elegir en **Report images** qué imágenes de `_RenderedAssets` se incluyen.
+8. Generar el informe PowerPoint.
+9. Revisar el informe generado en `04_Report`.

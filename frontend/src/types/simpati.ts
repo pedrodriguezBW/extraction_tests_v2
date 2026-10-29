@@ -1,4 +1,5 @@
 import type { ApiError } from "./common";
+import type { RenderedAsset, RenderedAssetWarning } from "./renderedAssets";
 
 /**
  * Canal disponible en la vista previa de una adquisición SIMPATI.
@@ -32,52 +33,11 @@ export interface SimpatiChartSaveRequest {
 }
 
 /**
- * Petición utilizada para eliminar una gráfica SIMPATI guardada.
- */
-export interface SimpatiChartDeleteRequest {
-  /** Ruta de la carpeta raíz del ensayo. */
-  test_root: string;
-
-  /** Nombre del archivo de la gráfica que se debe eliminar. */
-  chart_name: string;
-}
-
-/**
- * Información de una gráfica SIMPATI almacenada para el ensayo.
- */
-export interface SimpatiSavedChart {
-  /** Nombre del archivo de la gráfica. */
-  chart_name: string;
-
-  /** Ruta completa del archivo guardado. */
-  chart_path: string;
-
-  /** Tamaño del archivo en bytes. */
-  size_bytes: number;
-}
-
-/**
- * Respuesta del backend al consultar las gráficas SIMPATI guardadas.
- */
-export interface SimpatiChartListResponse {
-  /** Indica si la consulta se ha completado correctamente. */
-  success: boolean;
-
-  /** Ruta de la carpeta raíz del ensayo consultado. */
-  test_root: string;
-
-  /** Número total de gráficas guardadas. */
-  charts_count: number;
-
-  /** Gráficas guardadas en el orden devuelto por el backend. */
-  charts: SimpatiSavedChart[];
-
-  /** Errores devueltos durante la consulta. */
-  errors: ApiError[];
-}
-
-/**
  * Respuesta del backend después de intentar guardar una gráfica SIMPATI.
+ *
+ * La gráfica guardada pasa a ser un recurso genérico de
+ * `04_Report/_RenderedAssets`; la respuesta incluye el inventario
+ * actualizado para añadirla a la selección del informe.
  */
 export interface SimpatiChartSaveResponse {
   /** Indica si la gráfica se ha guardado correctamente. */
@@ -92,36 +52,22 @@ export interface SimpatiChartSaveResponse {
   /** Nombre del archivo guardado, cuando la operación tiene éxito. */
   chart_name: string | null;
 
-  /** Número total de gráficas después de la operación. */
-  charts_count: number;
+  /** Ruta relativa del recurso guardado, cuando la operación tiene éxito. */
+  relative_path: string | null;
 
-  /** Lista actualizada de gráficas guardadas. */
-  charts: SimpatiSavedChart[];
+  /** Indica si la carpeta `_RenderedAssets` existe. */
+  directory_found: boolean;
+
+  /** Número de imágenes del inventario después de la operación. */
+  assets_count: number;
+
+  /** Inventario actualizado de imágenes seleccionables. */
+  assets: RenderedAsset[];
+
+  /** Archivos del inventario que no son imágenes seleccionables. */
+  warnings: RenderedAssetWarning[];
 
   /** Errores devueltos durante el guardado. */
-  errors: ApiError[];
-}
-
-/**
- * Respuesta del backend después de intentar eliminar una gráfica SIMPATI.
- */
-export interface SimpatiChartDeleteResponse {
-  /** Indica si la gráfica se ha eliminado correctamente. */
-  success: boolean;
-
-  /** Ruta de la carpeta raíz del ensayo procesado. */
-  test_root: string;
-
-  /** Nombre de la gráfica eliminada, cuando la operación tiene éxito. */
-  deleted_chart_name: string | null;
-
-  /** Número total de gráficas después de la operación. */
-  charts_count: number;
-
-  /** Lista actualizada de gráficas guardadas. */
-  charts: SimpatiSavedChart[];
-
-  /** Errores devueltos durante la eliminación. */
   errors: ApiError[];
 }
 

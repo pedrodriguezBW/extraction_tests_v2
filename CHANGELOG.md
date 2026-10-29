@@ -6,6 +6,11 @@ All notable project changes are documented in this file.
 
 ### Changed
 
+- `04_Report/_RenderedAssets` is now the generic repository of report images. Every PNG, JPG or JPEG placed directly in the folder (SIMPATI chart, Graphtec chart, manual copy or a future source) can be selected for the PowerPoint; the origin is kept only as informative metadata (`source`) and never decides whether an image is valid.
+- `POST /projects/generate-report` accepts `selected_rendered_assets`, the ordered list of relative paths to insert in Test Results. The PowerPoint includes exactly those images in that order; an empty list generates the report without result images and is never replaced by the inventory. When the field is omitted every valid image is included (console scripts). The response reports `rendered_assets_count` and `rendered_assets`.
+- The PowerPoint engine no longer scans `_RenderedAssets` nor filters by the `simpati_acquisition` name: `populate_test_results` receives `result_image_paths` explicitly and `generate_climatic_report` receives `selected_rendered_assets`. `find_test_result_charts` was removed.
+- `POST /projects/simpati/save-chart` and `POST /projects/graphtec/save-chart` now return the refreshed generic inventory (`assets`, `assets_count`, `warnings`) and the `relative_path` of the saved image. SIMPATI charts are saved with a JSON metadata file (`source: simpati`) like Graphtec charts.
+- The frontend replaces the SIMPATI-only saved chart list with a single **Report images** section (`RenderedAssets.tsx`, `services/renderedAssetSelection.ts`): one row per image with an accessible checkbox (checked by default), thumbnail, name, source, size, state, **Open image** and **Delete**, plus **Select all**, **Clear selection** and a `N of M images selected for the report.` counter. The selection survives inventory refreshes, new images are selected by default and deleted images leave the selection.
 - The `03_Data` contract now contains the data sources `01_SIMPATI`, `02_Graphtec` and `03_CANoe`. CSV is treated as a file format, not as an independent source.
 - `POST /projects/inspect` now reports `data.simpati`, `data.graphtec` and `data.canoe` (plus `data.directory` and `data.simpati_file`).
 - Each source now returns `files` as a list of objects with `name`, `relative_path` (relative to the test root, using `/`), `extension` (lower case) and `size` (bytes). Only regular files placed directly in the source folder are listed, sorted case-insensitively. Subfolders, hidden files and Office lock files are excluded, and file content is not read.
@@ -14,6 +19,9 @@ All notable project changes are documented in this file.
 
 ### Added
 
+- `POST /projects/rendered-assets` (inventory with structured warnings for unsupported files), `GET /projects/rendered-asset` and `POST /projects/rendered-assets/delete`. Every client path is validated on the server: relative, without `.`/`..`, confined to `04_Report/_RenderedAssets`, existing regular file, accepted extension (case-insensitive) and valid image content.
+- Engine helpers in `rendered_assets.py`: `list_rendered_assets`, `resolve_rendered_asset`, `select_rendered_assets`, `delete_rendered_asset`.
+- Backend tests for the inventory, path security, selection validation and end-to-end insertion of selected images; frontend tests for the selection reducer and the **Report images** component; user guide page `report-images.md`.
 - `Data source` and `File` selectors in `3. Review project resources`, shown after a project inspection.
 - A neutral notice for CANoe indicating that reading this source will be added in a later increment.
 - `canoe_directory()` and `CANOE_FOLDER_NAME` in `paths.py`, and `list_data_source_files()` in `data_sources.py`.
@@ -24,7 +32,7 @@ All notable project changes are documented in this file.
 - Limited measurements such as `>50Gohm` keep their operator and are drawn at the normalized threshold with a distinct marker and a note; they are never shown as exact values.
 - `Analyze Graphtec`, a Graphtec summary, chart configuration (series, title, legend, phase separators and elapsed time range), `Preview chart` and `Save chart` in the desktop interface.
 - `POST /projects/graphtec/inspect`, `/preview-chart`, `/save-chart`, `/charts`, `/delete-chart` and `GET /projects/graphtec/chart`. The server confines every file to `03_Data/02_Graphtec`.
-- Graphtec charts saved in `04_Report/_RenderedAssets` as `graphtec_chart_NN.png` with a JSON metadata file (source, relative path, test type, series, time range and units). They are not added to the PowerPoint yet.
+- Graphtec charts saved in `04_Report/_RenderedAssets` as `graphtec_chart_NN.png` with a JSON metadata file (source, relative path, test type, series, time range and units). Once saved they are regular report images that the user can select for the PowerPoint.
 - Shared `rendered_assets.py` helpers for folder creation, PNG validation, non-overwriting chart names, listing and safe resolution, now also used by SIMPATI.
 
 ### Notes
@@ -34,6 +42,7 @@ All notable project changes are documented in this file.
 
 ### Removed
 
+- `POST /projects/simpati/charts`, `GET /projects/simpati/chart`, `POST /projects/simpati/delete-chart`, `POST /projects/graphtec/charts`, `GET /projects/graphtec/chart` and `POST /projects/graphtec/delete-chart`, replaced by the generic rendered-assets endpoints. `SavedSimpatiCharts.tsx` and the `listSimpatiCharts`/`fetchSimpatiChart`/`deleteSimpatiChart`/`listGraphtecCharts`/`fetchGraphtecChart`/`deleteGraphtecChart` API functions were replaced by `listRenderedAssets`, `fetchRenderedAsset` and `deleteRenderedAsset`.
 - The obsolete `02_CSV`, `03_Datalogger` and `04_Graphtec` folders from the active contract, together with `csv_directory()`, `datalogger_directory()`, `CSV_FOLDER_NAME`, `DATALOGGER_FOLDER_NAME` and the `csv` and `datalogger` inspection entries.
 
 ## [0.5.0] - 2026-10-08

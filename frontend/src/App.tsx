@@ -3,22 +3,18 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import { DataSourceSelector } from "./components/DataSourceSelector";
 import { GraphtecAnalysis } from "./components/GraphtecAnalysis";
-import { SavedSimpatiCharts } from "./components/SavedSimpatiCharts";
+import { RenderedAssets } from "./components/RenderedAssets";
 import { SimpatiChart } from "./components/SimpatiChart";
 import {
   checkHealth,
-  deleteGraphtecChart,
-  deleteSimpatiChart,
-  fetchGraphtecChart,
-  fetchSimpatiChart,
+  deleteRenderedAsset,
+  fetchRenderedAsset,
   generateReport,
-  getGraphtecChartUrl,
-  getSimpatiChartUrl,
+  getRenderedAssetUrl,
   inspectGraphtec,
   inspectProject,
   inspectSimpati,
-  listGraphtecCharts,
-  listSimpatiCharts,
+  listRenderedAssets,
   previewGraphtecChart,
   saveGraphtecChart,
   saveSimpatiChart,
@@ -43,6 +39,13 @@ import {
   metadataStatus,
   type ResultStatus,
 } from "./services/projectStatus";
+import {
+  INITIAL_RENDERED_ASSET_SELECTION,
+  renderedAssetSelectionReducer,
+  renderedAssetSelectionSummary,
+  selectedRenderedAssetCount,
+  selectedRenderedAssetPaths,
+} from "./services/renderedAssetSelection";
 import type {
   DataSourceKey,
   ProjectInspectionResponse,
@@ -50,13 +53,9 @@ import type {
 import type {
   GraphtecChartSaveResponse,
   GraphtecChartSettings,
-  GraphtecSavedChart,
 } from "./types/graphtec";
 import type { ReportGenerationResponse } from "./types/report";
-import type {
-  SimpatiChartSaveResponse,
-  SimpatiSavedChart,
-} from "./types/simpati";
+import type { SimpatiChartSaveResponse } from "./types/simpati";
 
 type BackendStatus = "checking" | "connected" | "unavailable";
 
@@ -107,8 +106,10 @@ function StatusMark({ status }: { status: ResultStatus }) {
  *
  * El componente comprueba la conexión con el backend, abre el selector nativo
  * de carpetas, solicita la inspección del ensayo, presenta los recursos
- * detectados, gestiona el flujo opcional de SIMPATI e inicia la generación
- * del informe PowerPoint.
+ * detectados, gestiona los flujos opcionales de SIMPATI y Graphtec, mantiene
+ * el inventario genérico de imágenes de `04_Report/_RenderedAssets` con la
+ * selección del usuario e inicia la generación del informe PowerPoint con
+ * la lista ordenada de imágenes seleccionadas.
  *
  * Las operaciones de dominio se delegan en el servicio de API y las reglas
  * reutilizables de inspección y disponibilidad se obtienen del servicio de
@@ -134,18 +135,14 @@ function App() {
   const graphtec = dataSelection.graphtec;
   const [graphtecLoading, setGraphtecLoading] = useState(false);
   const [graphtecSaving, setGraphtecSaving] = useState(false);
-  const [savedGraphtecCharts, setSavedGraphtecCharts] =
-    useState<GraphtecSavedChart[]>([]);
-  const [graphtecChartsLoading, setGraphtecChartsLoading] = useState(false);
-  const [deletingGraphtecChartName, setDeletingGraphtecChartName] =
-    useState<string | null>(null);
   const [simpatiChartSaving, setSimpatiChartSaving] = useState(false);
-  const [savedSimpatiCharts, setSavedSimpatiCharts] =
-    useState<SimpatiSavedChart[]>([]);
-  const [savedChartsLoading, setSavedChartsLoading] = useState(false);
-  const [deletingChartName, setDeletingChartName] =
+  const [renderedAssets, dispatchRenderedAssets] = useReducer(
+    renderedAssetSelectionReducer,
+    INITIAL_RENDERED_ASSET_SELECTION,
+  );
+  const [renderedAssetsLoading, setRenderedAssetsLoading] = useState(false);
+  const [deletingRenderedAssetPath, setDeletingRenderedAssetPath] =
     useState<string | null>(null);
-  const [reportChartCount, setReportChartCount] = useState(0);
   const [reportLoading, setReportLoading] = useState(false);
   const [report, setReport] = useState<ReportGenerationResponse | null>(null);
   const [currentError, setCurrentError] = useState<string | null>(null);
@@ -173,9 +170,7 @@ function App() {
   const resetProjectResults = useCallback(() => {
     setInspection(null);
     dispatchDataSelection({ type: "reset" });
-    setSavedSimpatiCharts([]);
-    setSavedGraphtecCharts([]);
-    setReportChartCount(0);
+    dispatchRenderedAssets({ type: "reset" });
     setReport(null);
     setCurrentError(null);
     setOperationMessage(null);
@@ -212,42 +207,31 @@ function App() {
     resetProjectResults();
   }, [resetProjectResults]);
 
-  const graphtecOperationActive =
-    graphtecLoading ||
-    graphtecSaving ||
-    graphtecChartsLoading ||
-    deletingGraphtecChartName !== null;
+  const graphtecOperationActive = graphtecLoading || graphtecSaving;
+  const renderedAssetsBusy =
+    renderedAssetsLoading || deletingRenderedAssetPath !== null;
 
-  const refreshSavedGraphtecCharts = useCallback(
-    async (testRoot: string): Promise<void> => {
-      setGraphtecChartsLoading(true);
-      try {
-        const response = await listGraphtecCharts(testRoot);
-        setSavedGraphtecCharts(response.charts);
-      } finally {
-        setGraphtecChartsLoading(false);
-      }
-    },
-    [],
-  );
-
-  const refreshSavedSimpatiCharts = useCallback(
-    async (
-      testRoot: string,
-      showLoading = true,
-    ): Promise<SimpatiSavedChart[]> => {
+  /**
+   * Refresca el inventario genérico de `_RenderedAssets`. La selección de
+   * las imágenes que siguen existiendo se conserva; las nuevas se
+   * seleccionan por defecto y las eliminadas desaparecen.
+   */
+  const refreshRenderedAssets = useCallback(
+    async (testRoot: string, showLoading = true): Promise<void> => {
       if (showLoading) {
-        setSavedChartsLoading(true);
+        setRenderedAssetsLoading(true);
       }
 
       try {
-        const response = await listSimpatiCharts(testRoot);
-        setSavedSimpatiCharts(response.charts);
-        setReportChartCount(response.charts_count);
-        return response.charts;
+        const response = await listRenderedAssets(testRoot);
+        dispatchRenderedAssets({
+          type: "inventoryLoaded",
+          assets: response.assets,
+          warnings: response.warnings,
+        });
       } finally {
         if (showLoading) {
-          setSavedChartsLoading(false);
+          setRenderedAssetsLoading(false);
         }
       }
     },
@@ -261,8 +245,7 @@ function App() {
       inspectionLoading ||
       simpatiLoading ||
       simpatiChartSaving ||
-      savedChartsLoading ||
-      deletingChartName !== null ||
+      renderedAssetsBusy ||
       graphtecOperationActive ||
       reportLoading
     ) {
@@ -279,8 +262,7 @@ function App() {
     try {
       const response = await inspectProject(selectedPath);
       setInspection(response);
-      await refreshSavedSimpatiCharts(selectedPath);
-      await refreshSavedGraphtecCharts(selectedPath);
+      await refreshRenderedAssets(selectedPath);
       setOperationMessage(
         canGenerateReport(response)
           ? "The project is ready. Review its resources and generate the report."
@@ -296,12 +278,10 @@ function App() {
     inspectionLoading,
     simpatiLoading,
     simpatiChartSaving,
-    savedChartsLoading,
-    deletingChartName,
+    renderedAssetsBusy,
     graphtecOperationActive,
     reportLoading,
-    refreshSavedGraphtecCharts,
-    refreshSavedSimpatiCharts,
+    refreshRenderedAssets,
     selectedPath,
   ]);
 
@@ -313,8 +293,7 @@ function App() {
       inspectionLoading ||
       simpatiLoading ||
       simpatiChartSaving ||
-      savedChartsLoading ||
-      deletingChartName !== null ||
+      renderedAssetsBusy ||
       graphtecOperationActive ||
       reportLoading
     ) {
@@ -327,25 +306,25 @@ function App() {
     setReport(null);
 
     try {
-      const currentCharts = await refreshSavedSimpatiCharts(
-        selectedPath,
-        false,
-      );
-      const chartCount = currentCharts.length;
+      // The explicit, ordered selection is what the backend receives. An
+      // empty list deliberately generates the report without result images.
+      const selectedAssets = selectedRenderedAssetPaths(renderedAssets);
+      const imageCount = selectedAssets.length;
       setOperationMessage(
-        chartCount === 0
-          ? "No saved SIMPATI charts will be included. Generating report..."
-          : `${chartCount} saved SIMPATI chart${
-              chartCount === 1 ? "" : "s"
+        imageCount === 0
+          ? "No rendered images are selected. Generating report without them..."
+          : `${imageCount} selected image${
+              imageCount === 1 ? "" : "s"
             } will be included. Generating report...`,
       );
-      const response = await generateReport(selectedPath);
+      const response = await generateReport(selectedPath, selectedAssets);
       setReport(response);
+      const usedCount = response.rendered_assets_count;
       setOperationMessage(
-        chartCount === 0
-          ? "The PowerPoint report was generated without SIMPATI charts."
-          : `The PowerPoint report was generated with ${chartCount} SIMPATI chart${
-              chartCount === 1 ? "" : "s"
+        usedCount === 0
+          ? "The PowerPoint report was generated without result images."
+          : `The PowerPoint report was generated with ${usedCount} result image${
+              usedCount === 1 ? "" : "s"
             }.`,
       );
     } catch (error) {
@@ -359,12 +338,10 @@ function App() {
     inspectionLoading,
     simpatiLoading,
     simpatiChartSaving,
-    savedChartsLoading,
-    deletingChartName,
+    renderedAssetsBusy,
     graphtecOperationActive,
     reportLoading,
-    refreshSavedGraphtecCharts,
-    refreshSavedSimpatiCharts,
+    renderedAssets,
     selectedPath,
   ]);
 
@@ -381,8 +358,7 @@ function App() {
           inspectionLoading ||
           simpatiLoading ||
           simpatiChartSaving ||
-          savedChartsLoading ||
-          deletingChartName !== null ||
+          renderedAssetsBusy ||
           graphtecOperationActive ||
           reportLoading,
       })
@@ -418,8 +394,7 @@ function App() {
     inspection,
     inspectionLoading,
     simpatiChartSaving,
-    savedChartsLoading,
-    deletingChartName,
+    renderedAssetsBusy,
     graphtecOperationActive,
     reportLoading,
     selectedPath,
@@ -439,8 +414,7 @@ function App() {
           inspectionLoading ||
           simpatiLoading ||
           simpatiChartSaving ||
-          savedChartsLoading ||
-          deletingChartName !== null ||
+          renderedAssetsBusy ||
           graphtecOperationActive ||
           reportLoading,
       })
@@ -469,12 +443,11 @@ function App() {
   }, [
     backendStatus,
     dataSelection,
-    deletingChartName,
+    renderedAssetsBusy,
     graphtecOperationActive,
     inspection,
     inspectionLoading,
     reportLoading,
-    savedChartsLoading,
     selectedPath,
     simpatiChartSaving,
     simpatiLoading,
@@ -510,7 +483,13 @@ function App() {
           relativePath,
           settings,
         );
-        setSavedGraphtecCharts(response.charts);
+        // The saved chart joins the generic inventory and is selected by
+        // default for the report.
+        dispatchRenderedAssets({
+          type: "inventoryLoaded",
+          assets: response.assets,
+          warnings: response.warnings,
+        });
         setOperationMessage(
           `Graphtec chart saved as ${response.chart_name ?? "PNG image"}.`,
         );
@@ -522,40 +501,65 @@ function App() {
     [dataSelection.graphtec?.relative_path, selectedPath],
   );
 
-  const deleteSavedGraphtecChart = useCallback(
-    async (chartName: string) => {
+  const deleteSelectedRenderedAsset = useCallback(
+    async (relativePath: string) => {
       if (!selectedPath) {
         return;
       }
-      const confirmed = window.confirm(`Delete ${chartName}?`);
+      const asset = renderedAssets.assets.find(
+        (candidate) => candidate.relative_path === relativePath,
+      );
+      const name = asset?.name ?? relativePath;
+      const confirmed = window.confirm(
+        `Delete ${name}? This removes it from 04_Report/_RenderedAssets and from the report.`,
+      );
       if (!confirmed) {
         return;
       }
-      setDeletingGraphtecChartName(chartName);
+      setDeletingRenderedAssetPath(relativePath);
       setCurrentError(null);
       setOperationMessage(null);
       try {
-        const response = await deleteGraphtecChart(selectedPath, chartName);
-        setSavedGraphtecCharts(response.charts);
-        setOperationMessage(`${chartName} was deleted.`);
+        const response = await deleteRenderedAsset(selectedPath, relativePath);
+        // Remove it from the inventory and the selection, then adopt the
+        // refreshed inventory returned by the backend.
+        dispatchRenderedAssets({ type: "removed", relativePath });
+        dispatchRenderedAssets({
+          type: "inventoryLoaded",
+          assets: response.assets,
+          warnings: response.warnings,
+        });
+        setOperationMessage(`${name} was deleted.`);
       } catch (error) {
         setCurrentError(errorMessage(error));
       } finally {
-        setDeletingGraphtecChartName(null);
+        setDeletingRenderedAssetPath(null);
       }
+    },
+    [renderedAssets.assets, selectedPath],
+  );
+
+  const openSelectedRenderedAsset = useCallback(
+    async (relativePath: string): Promise<Blob> => {
+      if (!selectedPath) {
+        throw new Error("Select a test folder before opening the image.");
+      }
+      return fetchRenderedAsset(selectedPath, relativePath);
     },
     [selectedPath],
   );
 
-  const openSavedGraphtecChart = useCallback(
-    async (chartName: string): Promise<Blob> => {
-      if (!selectedPath) {
-        throw new Error("Select a test folder before opening the image.");
-      }
-      return fetchGraphtecChart(selectedPath, chartName);
-    },
-    [selectedPath],
-  );
+  const toggleRenderedAsset = useCallback((relativePath: string) => {
+    dispatchRenderedAssets({ type: "toggled", relativePath });
+  }, []);
+
+  const selectAllRenderedAssets = useCallback(() => {
+    dispatchRenderedAssets({ type: "selectAll" });
+  }, []);
+
+  const clearRenderedAssetSelection = useCallback(() => {
+    dispatchRenderedAssets({ type: "clearSelection" });
+  }, []);
 
   const changeDataSource = useCallback(
     (sourceKey: DataSourceKey | null) => {
@@ -596,8 +600,13 @@ function App() {
           selectedPath,
           imageBase64,
         );
-        setSavedSimpatiCharts(response.charts);
-        setReportChartCount(response.charts_count);
+        // The saved chart joins the generic inventory and is selected by
+        // default for the report.
+        dispatchRenderedAssets({
+          type: "inventoryLoaded",
+          assets: response.assets,
+          warnings: response.warnings,
+        });
 
         setOperationMessage(
           `Chart saved as ${response.chart_name ?? "PNG image"}.`,
@@ -609,50 +618,6 @@ function App() {
       } finally {
         setSimpatiChartSaving(false);
       }
-    },
-    [selectedPath],
-  );
-
-  const deleteSavedSimpatiChart = useCallback(
-    async (chartName: string) => {
-      if (!selectedPath) {
-        return;
-      }
-
-      const confirmed = window.confirm(
-        `Delete ${chartName}? This removes it from Test Results.`,
-      );
-      if (!confirmed) {
-        return;
-      }
-
-      setDeletingChartName(chartName);
-      setCurrentError(null);
-      setOperationMessage(null);
-
-      try {
-        const response = await deleteSimpatiChart(
-          selectedPath,
-          chartName,
-        );
-        setSavedSimpatiCharts(response.charts);
-        setReportChartCount(response.charts_count);
-        setOperationMessage(`${chartName} was deleted.`);
-      } catch (error) {
-        setCurrentError(errorMessage(error));
-      } finally {
-        setDeletingChartName(null);
-      }
-    },
-    [selectedPath],
-  );
-
-  const openSavedSimpatiChart = useCallback(
-    async (chartName: string): Promise<Blob> => {
-      if (!selectedPath) {
-        throw new Error("Select a test folder before opening the image.");
-      }
-      return fetchSimpatiChart(selectedPath, chartName);
     },
     [selectedPath],
   );
@@ -734,8 +699,7 @@ function App() {
     inspectionLoading ||
     simpatiLoading ||
     simpatiChartSaving ||
-    savedChartsLoading ||
-    deletingChartName !== null ||
+    renderedAssetsBusy ||
     graphtecOperationActive ||
     reportLoading;
   const canInspect =
@@ -1087,24 +1051,6 @@ function App() {
             />
           )}
 
-          {graphtecSelected && inspection !== null && (
-            <SavedSimpatiCharts
-              heading="Saved Graphtec charts"
-              description="Saved in 04_Report/_RenderedAssets. They are not added to the PowerPoint automatically yet."
-              emptyText="No saved Graphtec charts."
-              charts={savedGraphtecCharts}
-              loading={graphtecChartsLoading}
-              deletingChartName={deletingGraphtecChartName}
-              getImageUrl={(chartName) =>
-                getGraphtecChartUrl(selectedPath, chartName)
-              }
-              onOpen={openSavedGraphtecChart}
-              onDelete={(chartName) =>
-                void deleteSavedGraphtecChart(chartName)
-              }
-            />
-          )}
-
           {simpati && !simpati.available && (
             <div className="empty-state simpati-empty-state">
               No SIMPATI acquisition file was found in 03_Data/01_SIMPATI.
@@ -1157,38 +1103,29 @@ function App() {
               <SimpatiChart
                 data={simpati}
                 saving={simpatiChartSaving}
-                savedChartNames={savedSimpatiCharts.map(
-                  (chart) => chart.chart_name,
+                savedChartNames={renderedAssets.assets.map(
+                  (asset) => asset.name,
                 )}
                 onSave={saveCurrentSimpatiChart}
-              />
-
-              <SavedSimpatiCharts
-                charts={savedSimpatiCharts}
-                loading={savedChartsLoading}
-                deletingChartName={deletingChartName}
-                getImageUrl={(chartName) =>
-                  getSimpatiChartUrl(selectedPath, chartName)
-                }
-                onOpen={openSavedSimpatiChart}
-                onDelete={(chartName) =>
-                  void deleteSavedSimpatiChart(chartName)
-                }
               />
             </div>
           )}
 
-          {inspection !== null && !graphtecSelected && !simpati?.available && (
-            <SavedSimpatiCharts
-              charts={savedSimpatiCharts}
-              loading={savedChartsLoading}
-              deletingChartName={deletingChartName}
-              getImageUrl={(chartName) =>
-                getSimpatiChartUrl(selectedPath, chartName)
+          {inspection !== null && (
+            <RenderedAssets
+              state={renderedAssets}
+              loading={renderedAssetsLoading}
+              deletingRelativePath={deletingRenderedAssetPath}
+              disabled={busy && !renderedAssetsBusy}
+              getImageUrl={(relativePath) =>
+                getRenderedAssetUrl(selectedPath, relativePath)
               }
-              onOpen={openSavedSimpatiChart}
-              onDelete={(chartName) =>
-                void deleteSavedSimpatiChart(chartName)
+              onToggle={toggleRenderedAsset}
+              onSelectAll={selectAllRenderedAssets}
+              onClearSelection={clearRenderedAssetSelection}
+              onOpen={openSelectedRenderedAsset}
+              onDelete={(relativePath) =>
+                void deleteSelectedRenderedAsset(relativePath)
               }
             />
           )}
@@ -1230,17 +1167,13 @@ function App() {
 
           <div
             className={`report-chart-status ${
-              reportChartCount === 0
+              selectedRenderedAssetCount(renderedAssets) === 0
                 ? "report-chart-status--neutral"
                 : "report-chart-status--ready"
             }`}
             aria-live="polite"
           >
-            {reportChartCount === 0
-              ? "No saved SIMPATI charts will be included. The report can still be generated."
-              : `${reportChartCount} saved SIMPATI chart${
-                  reportChartCount === 1 ? "" : "s"
-                } will be included in Test Results.`}
+            {renderedAssetSelectionSummary(renderedAssets)}
           </div>
 
           {report?.success && (
@@ -1261,6 +1194,14 @@ function App() {
                   {report.report_path}
                 </code>
               </div>
+
+              <p className="report-images-used">
+                {report.rendered_assets_count === 0
+                  ? "No result images were included."
+                  : `${report.rendered_assets_count} result image${
+                      report.rendered_assets_count === 1 ? "" : "s"
+                    } included in Test Results.`}
+              </p>
             </div>
           )}
         </section>
