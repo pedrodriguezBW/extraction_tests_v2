@@ -21,10 +21,24 @@ import math
 from dataclasses import dataclass, field
 from io import BytesIO
 
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 
+from ..chart_export import (
+    EXPORT_DESIGN_HEIGHT_IN,
+    EXPORT_DESIGN_WIDTH_IN,
+    EXPORT_DPI,
+    FONT_SIZE_ANNOTATION_PT,
+    GRID_LINE_WIDTH_PT,
+    LINE_WIDTH_PT,
+    MARKER_SIZE_PT,
+    add_report_legend,
+    limit_numeric_ticks,
+    new_report_figure,
+    report_chart_style,
+    save_report_png,
+    wrap_title,
+)
 from .models import STATUS_TEST, GraphtecAcquisition, GraphtecRecord
 
 X_AXIS_FIELD = "elapsed_time_seconds"
@@ -32,8 +46,9 @@ X_AXIS_LABEL = "Elapsed time"
 X_AXIS_UNIT = "s"
 
 MAX_TITLE_LENGTH = 200
-FIGURE_SIZE_INCHES = (11.0, 5.6)
-FIGURE_DPI = 150
+# Tamaño común de exportación (1800 × 1125 px, proporción 1,6:1).
+FIGURE_SIZE_INCHES = (EXPORT_DESIGN_WIDTH_IN, EXPORT_DESIGN_HEIGHT_IN)
+FIGURE_DPI = EXPORT_DPI
 
 LIMIT_NOTES = {
     ">": "Limit marker indicates a value greater than the displayed threshold.",
@@ -220,6 +235,15 @@ def build_graphtec_figure(
     config: GraphtecChartConfig,
 ) -> tuple[Figure, GraphtecChartRender]:
     """Build the Matplotlib figure and its description (without PNG)."""
+    # El estilo común de exportación se aplica mientras se crea la figura.
+    with report_chart_style():
+        return _build_graphtec_figure(acquisition, config)
+
+
+def _build_graphtec_figure(
+    acquisition: GraphtecAcquisition,
+    config: GraphtecChartConfig,
+) -> tuple[Figure, GraphtecChartRender]:
     config = validate_chart_config(acquisition, config)
     series_by_id = {s.id: s for s in available_series(acquisition)}
     selected = [series_by_id[s] for s in config.series]
@@ -234,8 +258,7 @@ def build_graphtec_figure(
         )
     visible = [r for r in acquisition.records if start <= r.elapsed_time_seconds <= end]
 
-    figure = Figure(figsize=FIGURE_SIZE_INCHES, dpi=FIGURE_DPI)
-    FigureCanvasAgg(figure)
+    figure = new_report_figure()
     primary = figure.add_subplot(111)
 
     axes_for_series = {}
@@ -279,7 +302,8 @@ def build_graphtec_figure(
                 xs.append(record.elapsed_time_seconds)
                 ys.append(value)
         (line,) = axis.plot(
-            xs, ys, color=color, linewidth=1.6, marker="o", markersize=2.5,
+            xs, ys, color=color, linewidth=LINE_WIDTH_PT, marker="o",
+            markersize=MARKER_SIZE_PT,
             label=f"{series.label} [{series.unit}]",
         )
         handles.append(line)
@@ -299,6 +323,8 @@ def build_graphtec_figure(
             limited_points += len(limit_x)
         axis.set_ylabel(f"{series.label} [{series.unit}]", color=color)
         axis.tick_params(axis="y", colors=color)
+        # Marcas limitadas y valores completos también en rangos estrechos.
+        limit_numeric_ticks(axis)
 
     result_records = [r for r in visible if r.status != STATUS_TEST]
     for status in sorted({r.status for r in result_records}):
@@ -325,7 +351,7 @@ def build_graphtec_figure(
             if index > 0 or marker.elapsed_time_seconds > start:
                 primary.axvline(
                     marker.elapsed_time_seconds, color="#8a99a6",
-                    linestyle=":", linewidth=0.9, zorder=0,
+                    linestyle=":", linewidth=1.0, zorder=0,
                 )
             # Stagger letters of phases that start very close to each other.
             if previous_x is not None and marker.elapsed_time_seconds - previous_x < span * 0.04:
@@ -336,22 +362,26 @@ def build_graphtec_figure(
             primary.text(
                 marker.elapsed_time_seconds, label_y, f" {marker.phase}",
                 transform=primary.get_xaxis_transform(),
-                ha="left", va="top", fontsize=9, color="#5b6b78",
+                ha="left", va="top", fontsize=FONT_SIZE_ANNOTATION_PT,
+                color="#5b6b78",
             )
 
     # A small margin keeps the first and last markers fully visible.
     primary.set_xlim(start - span * 0.015, end + span * 0.015)
     primary.set_xlabel(f"{X_AXIS_LABEL} [{X_AXIS_UNIT}]")
-    primary.grid(True, color="#e3e8ec", linewidth=0.7)
-    primary.set_title(config.title, fontsize=13, loc="left")
+    primary.grid(True, color="#e3e8ec", linewidth=GRID_LINE_WIDTH_PT)
+    # Título completo: los títulos largos se reparten en varias líneas.
+    primary.set_title(wrap_title(config.title), loc="left")
 
     notes = [LIMIT_NOTES[o] for o in sorted(operators)]
-    if config.show_legend:
-        primary.legend(handles=handles, loc="upper left", bbox_to_anchor=(0.0, -0.13),
-                       ncol=3, fontsize=8, frameon=False)
-    if notes:
-        figure.text(0.01, 0.01, "  ".join(notes), fontsize=8, color="#405566")
-    figure.tight_layout(rect=(0, 0.04 if notes else 0, 1, 1))
+    # Leyenda y notas debajo de la gráfica, con su espacio reservado.
+    legend_handles = handles if config.show_legend else []
+    add_report_legend(
+        figure,
+        legend_handles,
+        [handle.get_label() for handle in legend_handles],
+        notes,
+    )
 
     width, height = figure.canvas.get_width_height()
     render = GraphtecChartRender(
@@ -380,6 +410,7 @@ def render_graphtec_chart(
     """Render the chart as a PNG image."""
     figure, render = build_graphtec_figure(acquisition, config)
     buffer = BytesIO()
-    figure.savefig(buffer, format="png", dpi=FIGURE_DPI, facecolor="white")
+    with report_chart_style():
+        save_report_png(figure, buffer)
     render.png = buffer.getvalue()
     return render

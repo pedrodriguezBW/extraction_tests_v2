@@ -67,7 +67,11 @@ Los contratos recibidos desde el backend se representan mediante tipos TypeScrip
 
 ## Componentes SIMPATI
 
-`SimpatiChart.tsx` presenta y guarda la gráfica actual. Las gráficas guardadas no tienen una lista propia: se muestran en la sección genérica de imágenes del informe.
+`SimpatiAcquisitions.tsx` muestra todas las adquisiciones analizadas (índice `xNN`, archivo, codificación, registros, intervalo, canales, canales térmicos, estado y error) y permite abrir cualquiera de ellas con **Open**. `SimpatiChart.tsx` presenta y guarda la gráfica de la adquisición abierta; asigna los estilos por papel térmico (`role`) y dibuja un título con el índice y el archivo de origen. `App.tsx` lo monta con `key` igual a la adquisición, de modo que cambiar de adquisición reinicia el editor. Las gráficas guardadas no tienen una lista propia: se muestran en la sección genérica de imágenes del informe.
+
+El zoom del visor se basa en `src/services/chartZoom.ts`, un módulo de funciones puras en coordenadas del `viewBox` del SVG: `classifyZoomSelection` decide si un arrastre ajusta el eje X, el Y o ambos; `applyZoomSelection` calcula la nueva vista (`ChartViewport`: intervalo de índices y rango Y, `null` = rango por defecto) y `fullViewport` la vista completa. El rango Y por defecto (`defaultValueRange`) se calcula con todos los datos de los canales activos, no con el intervalo visible, por lo que ampliar el eje X nunca reajusta el eje Y. `SimpatiChart.tsx` guarda la vista en su estado, recorta las series al área de trazado (`clipPath`) y restablece la vista con **Reset view** o con doble clic. **Save current chart** serializa el SVG visible, por lo que la imagen conserva los ejes ampliados. Cualquier visor SVG nuevo debe reutilizar este módulo en lugar de duplicar la lógica.
+
+`isSimpatiAnalysisFile` acepta cualquier adquisición de `data.simpati_acquisitions`; `simpatiAnalysisSummary` y `simpatiStatusLabel` producen los textos del resumen y de los estados.
 
 ## Imágenes del informe (`Report images`)
 

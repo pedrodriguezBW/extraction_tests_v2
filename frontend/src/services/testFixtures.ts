@@ -9,6 +9,10 @@ import type {
   ProjectInspectionResponse,
 } from "../types/project";
 import type { RenderedAsset } from "../types/renderedAssets";
+import type {
+  SimpatiAcquisitionSummary,
+  SimpatiInspectionResponse,
+} from "../types/simpati";
 
 export const TEST_ROOT = "C:\\Tests\\TEST - 001";
 
@@ -143,6 +147,15 @@ export function buildInspection(
         name: "acquisition.x03",
         path: `${TEST_ROOT}\\03_Data\\01_SIMPATI\\acquisition.x03`,
       },
+      simpati_acquisitions: [
+        {
+          index: 3,
+          label: "x03",
+          name: "acquisition.x03",
+          relative_path: "03_Data/01_SIMPATI/acquisition.x03",
+          size: 1024,
+        },
+      ],
     },
     report_directory: {
       found: true,
@@ -279,5 +292,86 @@ export function buildRenderedAsset(
     source,
     metadata_name: source === "manual" ? null : `${name.slice(0, name.lastIndexOf("."))}.json`,
     ...overrides,
+  };
+}
+
+/**
+ * Resumen de una adquisición SIMPATI analizada.
+ *
+ * @param index Número de la extensión `.xNN`.
+ * @param overrides Campos que se sustituyen.
+ */
+export function buildSimpatiAcquisition(
+  index: number,
+  overrides: Partial<SimpatiAcquisitionSummary> = {},
+): SimpatiAcquisitionSummary {
+  const label = `x${String(index).padStart(2, "0")}`;
+  return {
+    index,
+    label,
+    file_name: `ensayo.${label}`,
+    relative_path: `03_Data/01_SIMPATI/ensayo.${label}`,
+    size: 2048,
+    status: "ready",
+    encoding: "cp1252",
+    records_count: 120,
+    acquisition_start: "2024-03-27T17:25:30",
+    acquisition_end: "2024-04-09T20:00:13",
+    device: "VOSTCH TS",
+    program: null,
+    channels_count: 86,
+    channels: [],
+    thermal_channels: ["Basket temperature", "Basket setpoint"],
+    rejected_rows: 0,
+    rejected_rows_examples: [],
+    error: null,
+    ...overrides,
+  };
+}
+
+/**
+ * Resultado del análisis SIMPATI con varias adquisiciones.
+ *
+ * @param acquisitions Adquisiciones analizadas, en orden numérico.
+ * @param selectedIndex Índice de la adquisición previsualizada.
+ */
+export function buildSimpatiInspection(
+  acquisitions: SimpatiAcquisitionSummary[],
+  selectedIndex: number | null = acquisitions[0]?.index ?? null,
+): SimpatiInspectionResponse {
+  const selected =
+    acquisitions.find((acquisition) => acquisition.index === selectedIndex) ??
+    null;
+  const processed = acquisitions.filter(
+    (acquisition) =>
+      acquisition.status === "ready" ||
+      acquisition.status === "no_thermal_channels",
+  );
+  return {
+    success: true,
+    test_root: TEST_ROOT,
+    available: acquisitions.length > 0,
+    acquisitions,
+    found_count: acquisitions.length,
+    processed_count: processed.length,
+    ready_count: acquisitions.filter((item) => item.status === "ready").length,
+    without_thermal_count: acquisitions.filter(
+      (item) => item.status === "no_thermal_channels",
+    ).length,
+    incompatible_count: acquisitions.length - processed.length,
+    selected_relative_path: selected?.relative_path ?? null,
+    selected_index: selected?.index ?? null,
+    selected_status: selected?.status ?? null,
+    file_name: selected?.file_name ?? null,
+    file_path: selected ? `${TEST_ROOT}\\03_Data\\01_SIMPATI\\${selected.file_name}` : null,
+    encoding: selected?.encoding ?? null,
+    records_count: selected?.records_count ?? 0,
+    acquisition_start: selected?.acquisition_start ?? null,
+    acquisition_end: selected?.acquisition_end ?? null,
+    channels: [],
+    preview_timestamps: [],
+    thermal_channels: [],
+    advanced_channels: [],
+    errors: [],
   };
 }

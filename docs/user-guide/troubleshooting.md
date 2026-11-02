@@ -52,13 +52,21 @@ Después, vuelve a inspeccionar el proyecto.
 
 ## No se encuentra una adquisición SIMPATI
 
-Comprueba que el archivo esté en:
+Comprueba que los archivos `.x01`-`.x99` originales estén directamente en:
 
 ```text
 03_Data/01_SIMPATI
 ```
 
+Los archivos convertidos a `.txt` o `.csv` y las extensiones `.x00` no se consideran adquisiciones.
+
 Si el ensayo no necesita SIMPATI, puedes continuar y generar el informe sin gráficas guardadas.
+
+## Una adquisición SIMPATI aparece como incompatible
+
+La tabla de adquisiciones muestra el motivo. Suele indicar que el archivo no tiene la estructura de una exportación SIMPATI (cabecera de canales, fila de unidades y registros con fecha `dd.mm.aaaa hh:mm:ss`) o que está dañado. Las demás adquisiciones pueden analizarse y representarse con normalidad.
+
+Si el estado es **No representable channels**, el archivo es válido pero ningún perfil reconoce sus canales térmicos; sus canales siguen disponibles como canales avanzados.
 
 ## Generate PowerPoint sigue deshabilitado
 

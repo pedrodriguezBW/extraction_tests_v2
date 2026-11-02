@@ -52,6 +52,38 @@ la limpieza de la presentación y la publicación del PowerPoint final.
    :show-inheritance:
 ```
 
+## Adquisiciones SIMPATI
+
+```{eval-rst}
+.. automodule:: src.report_generator.simpati.files
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.simpati.decoding
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.simpati.structure
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.simpati.parser
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.simpati.channels
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.simpati.analysis
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.report_generator.simpati.outputs
+   :members:
+   :show-inheritance:
+```
+
 ## Recursos renderizados
 
 ```{eval-rst}

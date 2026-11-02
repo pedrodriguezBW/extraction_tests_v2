@@ -229,6 +229,33 @@ describe("API service", () => {
         }),
       }),
     );
+
+    const selectedFetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        success: true,
+        test_root: "C:\\Tests\\Climate",
+        available: true,
+        acquisitions: [],
+        errors: [],
+      }),
+    );
+    vi.stubGlobal("fetch", selectedFetchMock);
+
+    await inspectSimpati(
+      "C:\\Tests\\Climate",
+      "03_Data/01_SIMPATI/ensayo.x04",
+    );
+
+    expect(selectedFetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/simpati/inspect"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          test_root: "C:\\Tests\\Climate",
+          relative_path: "03_Data/01_SIMPATI/ensayo.x04",
+        }),
+      }),
+    );
   });
 
   it("sends PNG data when saving the current SIMPATI chart", async () => {
@@ -237,21 +264,23 @@ describe("API service", () => {
         success: true,
         test_root: "C:\\Tests\\Climate",
         chart_path:
-          "C:\\Tests\\Climate\\04_Report\\_RenderedAssets\\chart03_simpati_acquisition_01.png",
-        chart_name: "chart03_simpati_acquisition_01.png",
+          "C:\\Tests\\Climate\\04_Report\\_RenderedAssets\\chart_simpati_x04_01.png",
+        chart_name: "chart_simpati_x04_01.png",
         relative_path:
-          "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+          "04_Report/_RenderedAssets/chart_simpati_x04_01.png",
+        source_relative_path: "03_Data/01_SIMPATI/ensayo.x04",
+        acquisition_index: 4,
         directory_found: true,
         assets_count: 1,
         assets: [
           {
-            name: "chart03_simpati_acquisition_01.png",
+            name: "chart_simpati_x04_01.png",
             relative_path:
-              "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
+              "04_Report/_RenderedAssets/chart_simpati_x04_01.png",
             extension: ".png",
             size: 1200,
             source: "simpati",
-            metadata_name: "chart03_simpati_acquisition_01.json",
+            metadata_name: "chart_simpati_x04_01.json",
           },
         ],
         warnings: [],
@@ -262,6 +291,7 @@ describe("API service", () => {
 
     const saved = await saveSimpatiChart(
       "C:\\Tests\\Climate",
+      "03_Data/01_SIMPATI/ensayo.x04",
       "data:image/png;base64,AAAA",
     );
 
@@ -272,6 +302,7 @@ describe("API service", () => {
         method: "POST",
         body: JSON.stringify({
           test_root: "C:\\Tests\\Climate",
+          relative_path: "03_Data/01_SIMPATI/ensayo.x04",
           image_base64: "data:image/png;base64,AAAA",
         }),
       }),

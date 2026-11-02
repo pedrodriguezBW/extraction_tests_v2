@@ -51,6 +51,63 @@ def add_contained_image(
         Cm(fitted_height_cm),
     )
 
+def fit_image_size(
+    image_width_px: int,
+    image_height_px: int,
+    box_width_cm: float,
+    box_height_cm: float,
+) -> tuple[float, float]:
+    """
+    Calcula el mayor tamaño de la imagen que cabe en el área sin deformarla.
+
+    La imagen queda limitada por el ancho o por el alto del área según su
+    relación de aspecto, nunca por ambos a la vez.
+    """
+    if image_width_px <= 0 or image_height_px <= 0:
+        raise ValueError("The image has no valid size.")
+
+    image_ratio = image_width_px / image_height_px
+
+    if image_ratio >= box_width_cm / box_height_cm:
+        return box_width_cm, box_width_cm / image_ratio
+
+    return box_height_cm * image_ratio, box_height_cm
+
+
+def add_centered_image(
+    slide,
+    image_path: Path,
+    left_cm: float,
+    top_cm: float,
+    width_cm: float,
+    height_cm: float,
+):
+    """
+    Inserta la imagen con el mayor tamaño posible dentro del área indicada,
+    conservando su relación de aspecto y centrada en ambos ejes.
+
+    Se usa para las gráficas de ``Test Results``. Las fotografías siguen
+    usando ``add_contained_image`` (alineación superior).
+    """
+    with Image.open(image_path) as image:
+        image_width_px, image_height_px = image.size
+
+    fitted_width_cm, fitted_height_cm = fit_image_size(
+        image_width_px,
+        image_height_px,
+        width_cm,
+        height_cm,
+    )
+
+    return slide.shapes.add_picture(
+        str(image_path),
+        Cm(left_cm + (width_cm - fitted_width_cm) / 2),
+        Cm(top_cm + (height_cm - fitted_height_cm) / 2),
+        Cm(fitted_width_cm),
+        Cm(fitted_height_cm),
+    )
+
+
 def extract_natural_sort_key(file_path):
     """
     Genera una clave de ordenación natural para nombres

@@ -2,12 +2,9 @@ import base64
 import json
 import tempfile
 import unittest
-from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import patch
 
-import pandas as pd
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -15,111 +12,134 @@ from backend.app.main import app
 from backend.app.services.simpati_inspection import (
     SimpatiChartSaveError,
     SimpatiInspectionError,
+    clear_analysis_cache,
     inspect_project_simpati,
     save_project_simpati_chart,
 )
+from simpati_fixtures import (
+    X01_FIXTURE,
+    X04_FIXTURE,
+    copy_fixture,
+    write_incompatible,
+    write_without_thermal,
+    write_x03,
+)
 from src.report_generator.assets.simpati_extractor import (
-    SimpatiError,
-    SimpatiFileNotFoundError,
-    SimpatiFormatError,
-    find_simpati_file,
+    find_simpati_files,
     prepare_rendered_assets_directory,
 )
 from src.report_generator.rendered_assets import list_rendered_assets
 
-
-def build_dataframe() -> pd.DataFrame:
-    dataframe = pd.DataFrame(
-        {
-            "Timestamp": [
-                datetime(2026, 9, 23, 8, 0, 0),
-                datetime(2026, 9, 23, 10, 30, 0),
-            ],
-            "A:Temp canast [°C]": [21.5, 22.0],
-            "N:Temp canast [°C]": [22.0, 22.0],
-            "A:Cam calient [°C]": [80.0, 81.0],
-            "N:Cam calient [°C]": [82.0, 82.0],
-            "A:Cam fria [°C]": [-35.0, -34.0],
-            "N:Cam fria [°C]": [-36.0, -36.0],
-            "A:Pos canasta [%]": [0.0, 100.0],
-        }
-    )
-    dataframe.attrs["encoding"] = "cp1252"
-    return dataframe
+SIMPATI = "03_Data/01_SIMPATI"
+ASSETS = "04_Report/_RenderedAssets"
 
 
 def build_png_data_url() -> str:
     image_buffer = BytesIO()
-    Image.new("RGB", (8, 6), "white").save(
-        image_buffer,
-        format="PNG",
-    )
-    encoded_image = base64.b64encode(
-        image_buffer.getvalue()
-    ).decode("ascii")
+    Image.new("RGB", (8, 6), "white").save(image_buffer, format="PNG")
+    encoded_image = base64.b64encode(image_buffer.getvalue()).decode("ascii")
     return f"data:image/png;base64,{encoded_image}"
 
 
-class SimpatiInspectionServiceTests(unittest.TestCase):
+class SimpatiTestFolder(unittest.TestCase):
     def setUp(self):
+        clear_analysis_cache()
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.test_root = Path(self.temporary_directory.name)
         (self.test_root / "04_Report").mkdir()
-        self.simpati_file = (
-            self.test_root
-            / "03_Data"
-            / "01_SIMPATI"
-            / "acquisition.x03"
-        )
+        self.folder = self.test_root / "03_Data" / "01_SIMPATI"
+        self.folder.mkdir(parents=True)
 
     def tearDown(self):
         self.temporary_directory.cleanup()
+        clear_analysis_cache()
 
-    @patch(
-        "backend.app.services.simpati_inspection.read_simpati"
-    )
-    @patch(
-        "backend.app.services.simpati_inspection.find_simpati_file"
-    )
-    def test_inspection_returns_acquisition_summary(
-        self,
-        find_simpati_mock,
-        read_simpati_mock,
-    ):
-        find_simpati_mock.return_value = self.simpati_file
-        read_simpati_mock.return_value = build_dataframe()
 
+class SimpatiInspectionServiceTests(SimpatiTestFolder):
+    def setUp(self):
+        super().setUp()
+        copy_fixture(X01_FIXTURE, self.folder, "ensayo.x01")
+        write_x03(self.folder / "ensayo.x03")
+        copy_fixture(X04_FIXTURE, self.folder, "ensayo.x04")
+
+    def test_every_acquisition_is_listed_in_numeric_order(self):
         result = inspect_project_simpati(self.test_root)
 
         self.assertTrue(result.success)
         self.assertTrue(result.available)
-        self.assertEqual(result.file_name, "acquisition.x03")
         self.assertEqual(
-            result.file_path,
-            str(self.simpati_file.resolve()),
-        )
-        self.assertEqual(result.encoding, "cp1252")
-        self.assertEqual(result.records_count, 2)
-        self.assertEqual(
-            result.acquisition_start,
-            "2026-09-23T08:00:00",
-        )
-        self.assertEqual(
-            result.acquisition_end,
-            "2026-09-23T10:30:00",
-        )
-        self.assertEqual(
-            result.channels,
+            [(item.label, item.file_name, item.status) for item in result.acquisitions],
             [
-                "A:Temp canast [°C]",
-                "N:Temp canast [°C]",
-                "A:Cam calient [°C]",
-                "N:Cam calient [°C]",
-                "A:Cam fria [°C]",
-                "N:Cam fria [°C]",
-                "A:Pos canasta [%]",
+                ("x01", "ensayo.x01", "ready"),
+                ("x03", "ensayo.x03", "ready"),
+                ("x04", "ensayo.x04", "ready"),
             ],
         )
+        self.assertEqual(result.found_count, 3)
+        self.assertEqual(result.processed_count, 3)
+        self.assertEqual(result.ready_count, 3)
+        self.assertEqual(result.incompatible_count, 0)
+        x01 = result.acquisitions[0]
+        self.assertEqual(x01.relative_path, f"{SIMPATI}/ensayo.x01")
+        self.assertEqual(x01.encoding, "cp1252")
+        self.assertEqual(x01.records_count, 9593)
+        self.assertEqual(x01.acquisition_start, "2024-02-22T14:54:19")
+        self.assertEqual(x01.acquisition_end, "2024-02-29T06:53:42")
+        self.assertEqual(x01.device, "Weiss 748")
+        self.assertEqual(x01.channels_count, 59)
+        self.assertEqual(
+            x01.thermal_channels,
+            [
+                "Chamber temperature",
+                "Chamber setpoint",
+                "Supply air temperature",
+                "Return air temperature",
+            ],
+        )
+        self.assertIsNone(x01.error)
+
+    def test_first_ready_acquisition_is_previewed_by_default(self):
+        result = inspect_project_simpati(self.test_root)
+
+        self.assertEqual(result.selected_relative_path, f"{SIMPATI}/ensayo.x01")
+        self.assertEqual(result.selected_index, 1)
+        self.assertEqual(result.file_name, "ensayo.x01")
+        self.assertEqual(result.records_count, 9593)
+        self.assertEqual(len(result.preview_timestamps), 1200)
+        self.assertTrue(all(len(c.values) == 1200 for c in result.thermal_channels))
+
+    def test_selected_acquisition_is_previewed(self):
+        result = inspect_project_simpati(self.test_root, f"{SIMPATI}/ensayo.x04")
+
+        self.assertEqual(result.selected_index, 4)
+        self.assertEqual(result.selected_status, "ready")
+        self.assertEqual(result.file_name, "ensayo.x04")
+        self.assertEqual(
+            result.file_path,
+            str((self.folder / "ensayo.x04").resolve()),
+        )
+        self.assertEqual(
+            [channel.label for channel in result.thermal_channels],
+            [
+                "Basket temperature",
+                "Basket setpoint",
+                "Hot chamber temperature",
+                "Hot chamber setpoint",
+                "Cold chamber temperature",
+                "Cold chamber setpoint",
+                "Specimen temperature",
+            ],
+        )
+        self.assertEqual(result.thermal_channels[0].source_column, "A:Temp. Basket [°C]")
+        self.assertEqual(result.thermal_channels[0].role, "basket_temperature")
+        advanced = [channel.source_column for channel in result.advanced_channels]
+        self.assertIn("A:Cycles", advanced)
+        self.assertNotIn("A:Temp. Basket [°C]", advanced)
+        self.assertEqual(len(result.channels), 86)
+
+    def test_x03_preview_keeps_the_historical_channels(self):
+        result = inspect_project_simpati(self.test_root, f"{SIMPATI}/ensayo.x03")
+
         self.assertEqual(
             [channel.label for channel in result.thermal_channels],
             [
@@ -131,282 +151,255 @@ class SimpatiInspectionServiceTests(unittest.TestCase):
                 "Cold chamber setpoint",
             ],
         )
+        basket = result.thermal_channels[0]
+        self.assertEqual(basket.source_column, "A:Temp canast [°C]")
+        self.assertEqual(basket.values, [21.5, 40.5])
+        self.assertEqual(result.preview_timestamps, ["2024-08-27T15:06:03", "2024-08-27T15:07:03"])
+        self.assertIn("A:Pos canasta [Pos]", [c.label for c in result.advanced_channels])
+
+    def test_incompatible_acquisition_is_isolated(self):
+        write_incompatible(self.folder / "ensayo.x07")
+        write_without_thermal(self.folder / "ensayo.x09")
+
+        result = inspect_project_simpati(self.test_root)
+
         self.assertEqual(
-            [channel.label for channel in result.advanced_channels],
-            ["A:Pos canasta [%]"],
+            [(item.label, item.status) for item in result.acquisitions],
+            [
+                ("x01", "ready"),
+                ("x03", "ready"),
+                ("x04", "ready"),
+                ("x07", "incompatible"),
+                ("x09", "no_thermal_channels"),
+            ],
         )
-        self.assertEqual(len(result.preview_timestamps), 2)
-        find_simpati_mock.assert_called_once_with(
-            self.test_root.resolve()
-        )
-        read_simpati_mock.assert_called_once_with(self.simpati_file)
+        incompatible = result.acquisitions[3]
+        self.assertEqual(incompatible.error.code, "simpati_acquisition_incompatible")
+        self.assertIn("ensayo.x07", incompatible.error.message)
+        self.assertEqual(incompatible.records_count, 0)
+        self.assertEqual(result.found_count, 5)
+        self.assertEqual(result.processed_count, 4)
+        self.assertEqual(result.without_thermal_count, 1)
+        self.assertEqual(result.incompatible_count, 1)
+        self.assertEqual(result.selected_index, 1)
+        self.assertEqual(result.errors, [])
 
-    @patch(
-        "backend.app.services.simpati_inspection.read_simpati"
-    )
-    @patch(
-        "backend.app.services.simpati_inspection.find_simpati_file"
-    )
-    def test_missing_simpati_is_optional(
-        self,
-        find_simpati_mock,
-        read_simpati_mock,
-    ):
-        find_simpati_mock.side_effect = SimpatiFileNotFoundError(
-            "No .x03 file was found."
+    def test_selecting_an_incompatible_acquisition_reports_its_error(self):
+        write_incompatible(self.folder / "ensayo.x07")
+
+        result = inspect_project_simpati(self.test_root, f"{SIMPATI}/ensayo.x07")
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.selected_status, "incompatible")
+        self.assertEqual(result.thermal_channels, [])
+        self.assertEqual(result.preview_timestamps, [])
+        self.assertEqual(len(result.errors), 1)
+        self.assertEqual(result.errors[0].code, "simpati_acquisition_incompatible")
+        self.assertEqual(len(result.acquisitions), 4)
+
+    def test_acquisition_without_thermal_channels_is_previewed(self):
+        write_without_thermal(self.folder / "ensayo.x09")
+
+        result = inspect_project_simpati(self.test_root, f"{SIMPATI}/ensayo.x09")
+
+        self.assertEqual(result.selected_status, "no_thermal_channels")
+        self.assertEqual(result.thermal_channels, [])
+        self.assertEqual(
+            [c.source_column for c in result.advanced_channels],
+            ["A:Basketpositi", "N:Basketpositi", "Start"],
         )
 
+    def test_invalid_selection_is_structured(self):
+        (self.test_root / "03_Data" / "02_Graphtec").mkdir()
+        (self.test_root / "03_Data" / "02_Graphtec" / "a.x01").write_text("x")
+        (self.folder / "notes.txt").write_text("x")
+
+        for relative_path in (
+            "03_Data/02_Graphtec/a.x01",
+            f"{SIMPATI}/notes.txt",
+            f"{SIMPATI}/../02_Graphtec/a.x01",
+        ):
+            with self.subTest(relative_path=relative_path):
+                with self.assertRaises(SimpatiInspectionError) as context:
+                    inspect_project_simpati(self.test_root, relative_path)
+                self.assertEqual(context.exception.status_code, 400)
+                self.assertEqual(
+                    context.exception.error.code,
+                    "simpati_inspection_invalid_path",
+                )
+
+
+class SimpatiOptionalTests(SimpatiTestFolder):
+    def test_missing_simpati_is_optional(self):
         result = inspect_project_simpati(self.test_root)
 
         self.assertTrue(result.success)
         self.assertFalse(result.available)
-        self.assertEqual(result.records_count, 0)
-        self.assertEqual(result.channels, [])
-        self.assertEqual(result.preview_timestamps, [])
-        self.assertEqual(result.thermal_channels, [])
-        self.assertEqual(result.advanced_channels, [])
+        self.assertEqual(result.acquisitions, [])
         self.assertEqual(result.errors, [])
-        read_simpati_mock.assert_not_called()
 
-    @patch(
-        "backend.app.services.simpati_inspection.read_simpati"
-    )
-    @patch(
-        "backend.app.services.simpati_inspection.find_simpati_file"
-    )
-    def test_invalid_simpati_error_is_structured(
-        self,
-        find_simpati_mock,
-        read_simpati_mock,
-    ):
-        find_simpati_mock.return_value = self.simpati_file
-        read_simpati_mock.side_effect = SimpatiFormatError(
-            "The SIMPATI channel header could not be identified."
-        )
+    def test_missing_folder_is_optional(self):
+        self.folder.rmdir()
+        result = inspect_project_simpati(self.test_root)
+        self.assertFalse(result.available)
 
+    def test_missing_test_folder_is_structured(self):
         with self.assertRaises(SimpatiInspectionError) as context:
-            inspect_project_simpati(self.test_root)
+            inspect_project_simpati(self.test_root / "missing")
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertEqual(context.exception.error.code, "simpati_inspection_invalid_file")
 
-        error = context.exception
-        self.assertEqual(error.status_code, 400)
+    def test_compatibility_helper_lists_every_acquisition(self):
+        write_x03(self.folder / "b.x03")
+        write_x03(self.folder / "a.x12")
+        (self.folder / "readme.txt").write_text("x")
         self.assertEqual(
-            error.error.code,
-            "simpati_inspection_invalid_file",
+            [path.name for path in find_simpati_files(self.test_root)],
+            ["b.x03", "a.x12"],
         )
-        self.assertEqual(
-            error.error.message,
-            "The SIMPATI channel header could not be identified.",
-        )
-        self.assertEqual(error.error.exception_type, "SimpatiFormatError")
 
-    def test_chart_is_saved_as_a_rendered_asset(self):
-        result = save_project_simpati_chart(
+
+class SimpatiChartSaveTests(SimpatiTestFolder):
+    def setUp(self):
+        super().setUp()
+        write_x03(self.folder / "ensayo.x01")
+        write_x03(self.folder / "ensayo.x04")
+
+    def save(self, name="ensayo.x04"):
+        return save_project_simpati_chart(
             self.test_root,
+            f"{SIMPATI}/{name}",
             build_png_data_url(),
         )
 
-        expected_path = (
-            self.test_root
-            / "04_Report"
-            / "_RenderedAssets"
-            / "chart03_simpati_acquisition_01.png"
-        )
+    def test_chart_is_saved_with_its_acquisition_index(self):
+        result = self.save()
+
+        expected_path = self.test_root / ASSETS / "chart_simpati_x04_01.png"
         self.assertTrue(result.success)
-        self.assertEqual(result.chart_name, expected_path.name)
-        self.assertEqual(
-            result.chart_path,
-            str(expected_path.resolve()),
-        )
-        self.assertEqual(
-            result.relative_path,
-            "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
-        )
-        self.assertTrue(expected_path.is_file())
-        metadata = json.loads(
-            expected_path.with_suffix(".json").read_text(encoding="utf-8")
-        )
+        self.assertEqual(result.chart_name, "chart_simpati_x04_01.png")
+        self.assertEqual(result.chart_path, str(expected_path.resolve()))
+        self.assertEqual(result.relative_path, f"{ASSETS}/chart_simpati_x04_01.png")
+        self.assertEqual(result.source_relative_path, f"{SIMPATI}/ensayo.x04")
+        self.assertEqual(result.acquisition_index, 4)
+        metadata = json.loads(expected_path.with_suffix(".json").read_text(encoding="utf-8"))
         self.assertEqual(metadata["source"], "simpati")
-        # The saved chart is part of the generic inventory.
-        self.assertEqual(
-            [(a.name, a.source) for a in list_rendered_assets(self.test_root).assets],
-            [("chart03_simpati_acquisition_01.png", "simpati")],
-        )
-        self.assertEqual(result.assets_count, 1)
+        self.assertEqual(metadata["source_file"], "ensayo.x04")
+        self.assertEqual(metadata["source_relative_path"], f"{SIMPATI}/ensayo.x04")
+        self.assertEqual(metadata["acquisition_index"], 4)
+        self.assertEqual(metadata["acquisition_label"], "x04")
         self.assertEqual(
             [(a.name, a.source, a.relative_path) for a in result.assets],
-            [(
+            [("chart_simpati_x04_01.png", "simpati", f"{ASSETS}/chart_simpati_x04_01.png")],
+        )
+
+    def test_charts_of_different_acquisitions_never_collide(self):
+        names = [
+            self.save("ensayo.x04").chart_name,
+            self.save("ensayo.x01").chart_name,
+            self.save("ensayo.x04").chart_name,
+            self.save("ensayo.x01").chart_name,
+        ]
+
+        self.assertEqual(
+            names,
+            [
+                "chart_simpati_x04_01.png",
+                "chart_simpati_x01_01.png",
+                "chart_simpati_x04_02.png",
+                "chart_simpati_x01_02.png",
+            ],
+        )
+        self.assertEqual(
+            [a.name for a in list_rendered_assets(self.test_root).assets],
+            [
+                "chart_simpati_x01_01.png",
+                "chart_simpati_x01_02.png",
+                "chart_simpati_x04_01.png",
+                "chart_simpati_x04_02.png",
+            ],
+        )
+
+    def test_saved_charts_never_overwrite_and_keep_natural_order(self):
+        assets_directory = self.test_root / ASSETS
+        assets_directory.mkdir()
+        for chart_number in (10, 2):
+            Image.new("RGB", (8, 6), "white").save(
+                assets_directory / f"chart_simpati_x04_{chart_number:02d}.png"
+            )
+        legacy = assets_directory / "chart03_simpati_acquisition_01.png"
+        Image.new("RGB", (8, 6), "white").save(legacy)
+
+        result = self.save()
+
+        self.assertEqual(result.chart_name, "chart_simpati_x04_01.png")
+        self.assertEqual(
+            [a.name for a in result.assets],
+            [
                 "chart03_simpati_acquisition_01.png",
-                "simpati",
-                "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
-            )],
+                "chart_simpati_x04_01.png",
+                "chart_simpati_x04_02.png",
+                "chart_simpati_x04_10.png",
+            ],
         )
 
     def test_chart_is_not_saved_without_report_folder(self):
         (self.test_root / "04_Report").rmdir()
 
         with self.assertRaises(SimpatiChartSaveError) as context:
-            save_project_simpati_chart(
-                self.test_root,
-                build_png_data_url(),
-            )
+            self.save()
 
         self.assertEqual(context.exception.status_code, 400)
         self.assertIn("04_Report", context.exception.error.message)
         self.assertFalse((self.test_root / "04_Report").exists())
 
     def test_invalid_chart_image_is_structured(self):
-        invalid_image = base64.b64encode(b"not a png").decode("ascii")
-
         with self.assertRaises(SimpatiChartSaveError) as context:
             save_project_simpati_chart(
                 self.test_root,
-                invalid_image,
+                f"{SIMPATI}/ensayo.x04",
+                base64.b64encode(b"not a png").decode("ascii"),
             )
 
-        error = context.exception
-        self.assertEqual(error.status_code, 400)
-        self.assertEqual(
-            error.error.code,
-            "simpati_chart_invalid_image",
-        )
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertEqual(context.exception.error.code, "simpati_chart_invalid_image")
 
-    def test_saved_charts_never_overwrite_and_keep_natural_order(self):
-        assets_directory = (
-            self.test_root
-            / "04_Report"
-            / "_RenderedAssets"
-        )
-        assets_directory.mkdir()
-        for chart_number in (10, 2):
-            chart_path = assets_directory / (
-                f"chart03_simpati_acquisition_{chart_number:02d}.png"
-            )
-            Image.new("RGB", (8, 6), "white").save(chart_path)
-
-        result = save_project_simpati_chart(
-            self.test_root,
-            build_png_data_url(),
-        )
-
-        self.assertEqual(result.chart_name, "chart03_simpati_acquisition_01.png")
-        self.assertEqual(
-            [a.name for a in result.assets],
-            [
-                "chart03_simpati_acquisition_01.png",
-                "chart03_simpati_acquisition_02.png",
-                "chart03_simpati_acquisition_10.png",
-            ],
-        )
+    def test_invalid_source_acquisition_is_structured(self):
+        for relative_path in (f"{SIMPATI}/missing.x02", "03_Data/other.x04", f"{SIMPATI}/a.txt"):
+            with self.subTest(relative_path=relative_path):
+                with self.assertRaises(SimpatiChartSaveError) as context:
+                    save_project_simpati_chart(self.test_root, relative_path, build_png_data_url())
+                self.assertEqual(context.exception.status_code, 400)
+                self.assertEqual(context.exception.error.code, "simpati_chart_invalid_source")
+        self.assertFalse((self.test_root / ASSETS).exists())
 
     def test_saved_chart_is_deleted_through_the_generic_inventory(self):
-        first = save_project_simpati_chart(
-            self.test_root,
-            build_png_data_url(),
-        )
-        second = save_project_simpati_chart(
-            self.test_root,
-            build_png_data_url(),
-        )
+        first = self.save()
+        second = self.save()
 
-        from backend.app.services.rendered_assets import (
-            delete_project_rendered_asset,
-        )
+        from backend.app.services.rendered_assets import delete_project_rendered_asset
 
-        result = delete_project_rendered_asset(
-            self.test_root,
-            first.relative_path,
-        )
+        result = delete_project_rendered_asset(self.test_root, first.relative_path)
 
         self.assertFalse(Path(first.chart_path).exists())
         self.assertFalse(Path(first.chart_path).with_suffix(".json").exists())
-        self.assertEqual(result.assets_count, 1)
-        self.assertEqual(
-            [a.relative_path for a in result.assets],
-            [second.relative_path],
-        )
-
-
-class SimpatiFolderTests(unittest.TestCase):
-    def setUp(self):
-        self.temporary_directory = tempfile.TemporaryDirectory()
-        self.test_root = Path(self.temporary_directory.name)
-        self.simpati_directory = self.test_root / "03_Data" / "01_SIMPATI"
-
-    def tearDown(self):
-        self.temporary_directory.cleanup()
-
-    def test_acquisition_is_found_in_03_data(self):
-        self.simpati_directory.mkdir(parents=True)
-        acquisition = self.simpati_directory / "acquisition.x03"
-        acquisition.write_text("data", encoding="utf-8")
-
-        self.assertEqual(
-            find_simpati_file(self.test_root),
-            acquisition.resolve(),
-        )
-
-    def test_missing_simpati_folder_is_optional(self):
-        with self.assertRaises(SimpatiFileNotFoundError) as context:
-            find_simpati_file(self.test_root)
-
-        self.assertIn("01_SIMPATI", str(context.exception))
-
-    def test_several_acquisitions_are_ambiguous(self):
-        self.simpati_directory.mkdir(parents=True)
-        (self.simpati_directory / "a.x03").write_text("a", encoding="utf-8")
-        (self.simpati_directory / "b.x03").write_text("b", encoding="utf-8")
-
-        with self.assertRaises(SimpatiError):
-            find_simpati_file(self.test_root)
+        self.assertEqual([a.relative_path for a in result.assets], [second.relative_path])
 
     def test_rendered_assets_folder_is_created_inside_04_report(self):
-        (self.test_root / "04_Report").mkdir()
-
-        assets_directory = prepare_rendered_assets_directory(self.test_root)
-
-        self.assertEqual(
-            assets_directory,
-            self.test_root.resolve() / "04_Report" / "_RenderedAssets",
-        )
-        self.assertTrue(assets_directory.is_dir())
-
-    def test_rendered_assets_require_04_report(self):
-        with self.assertRaises(FileNotFoundError):
-            prepare_rendered_assets_directory(self.test_root)
-
-        self.assertFalse((self.test_root / "04_Report").exists())
+        assets = prepare_rendered_assets_directory(self.test_root)
+        self.assertEqual(assets, (self.test_root / ASSETS).resolve())
+        self.assertTrue(assets.is_dir())
 
 
-class SimpatiInspectionEndpointTests(unittest.TestCase):
+class SimpatiEndpointTests(SimpatiTestFolder):
     def setUp(self):
+        super().setUp()
         self.client = TestClient(app)
-        self.temporary_directory = tempfile.TemporaryDirectory()
-        self.test_root = Path(self.temporary_directory.name)
-        (self.test_root / "04_Report").mkdir()
-        self.simpati_file = (
-            self.test_root
-            / "03_Data"
-            / "01_SIMPATI"
-            / "acquisition.x03"
-        )
+        copy_fixture(X01_FIXTURE, self.folder, "ensayo.x01")
+        write_incompatible(self.folder / "ensayo.x02")
+        copy_fixture(X04_FIXTURE, self.folder, "ensayo.x04")
 
-    def tearDown(self):
-        self.temporary_directory.cleanup()
-
-    @patch(
-        "backend.app.services.simpati_inspection.read_simpati"
-    )
-    @patch(
-        "backend.app.services.simpati_inspection.find_simpati_file"
-    )
-    def test_endpoint_returns_acquisition_summary(
-        self,
-        find_simpati_mock,
-        read_simpati_mock,
-    ):
-        find_simpati_mock.return_value = self.simpati_file
-        read_simpati_mock.return_value = build_dataframe()
-
+    def test_endpoint_lists_every_acquisition(self):
         response = self.client.post(
             "/projects/simpati/inspect",
             json={"test_root": str(self.test_root)},
@@ -414,145 +407,104 @@ class SimpatiInspectionEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertTrue(body["success"])
         self.assertTrue(body["available"])
-        self.assertEqual(body["file_name"], "acquisition.x03")
-        self.assertEqual(body["encoding"], "cp1252")
-        self.assertEqual(body["records_count"], 2)
         self.assertEqual(
-            [channel["label"] for channel in body["thermal_channels"]],
-            [
-                "Basket temperature",
-                "Basket setpoint",
-                "Hot chamber temperature",
-                "Hot chamber setpoint",
-                "Cold chamber temperature",
-                "Cold chamber setpoint",
-            ],
+            [(item["label"], item["status"]) for item in body["acquisitions"]],
+            [("x01", "ready"), ("x02", "incompatible"), ("x04", "ready")],
         )
-        self.assertEqual(len(body["preview_timestamps"]), 2)
+        self.assertEqual(body["acquisitions"][1]["error"]["code"], "simpati_acquisition_incompatible")
+        self.assertEqual(body["selected_relative_path"], f"{SIMPATI}/ensayo.x01")
+        self.assertEqual(body["file_name"], "ensayo.x01")
 
-    @patch(
-        "backend.app.services.simpati_inspection.read_simpati"
-    )
-    @patch(
-        "backend.app.services.simpati_inspection.find_simpati_file"
-    )
-    def test_endpoint_treats_missing_simpati_as_optional(
-        self,
-        find_simpati_mock,
-        read_simpati_mock,
-    ):
-        find_simpati_mock.side_effect = SimpatiFileNotFoundError(
-            "No .x03 file was found."
-        )
-
+    def test_endpoint_previews_the_requested_acquisition(self):
         response = self.client.post(
             "/projects/simpati/inspect",
-            json={"test_root": str(self.test_root)},
+            json={"test_root": str(self.test_root), "relative_path": f"{SIMPATI}/ensayo.x04"},
         )
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertTrue(body["success"])
-        self.assertFalse(body["available"])
-        self.assertEqual(body["records_count"], 0)
-        self.assertEqual(body["channels"], [])
-        self.assertEqual(body["errors"], [])
-        read_simpati_mock.assert_not_called()
+        self.assertEqual(body["selected_index"], 4)
+        self.assertEqual(body["thermal_channels"][0]["label"], "Basket temperature")
 
-    @patch(
-        "backend.app.services.simpati_inspection.read_simpati"
-    )
-    @patch(
-        "backend.app.services.simpati_inspection.find_simpati_file"
-    )
-    def test_endpoint_returns_structured_format_error(
-        self,
-        find_simpati_mock,
-        read_simpati_mock,
-    ):
-        find_simpati_mock.return_value = self.simpati_file
-        read_simpati_mock.side_effect = SimpatiFormatError(
-            "The SIMPATI file is invalid."
-        )
-
+    def test_endpoint_returns_structured_path_error(self):
         response = self.client.post(
             "/projects/simpati/inspect",
-            json={"test_root": str(self.test_root)},
+            json={"test_root": str(self.test_root), "relative_path": "../outside.x01"},
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.json()["errors"],
-            [
-                {
-                    "code": "simpati_inspection_invalid_file",
-                    "message": "The SIMPATI file is invalid.",
-                    "exception_type": "SimpatiFormatError",
-                }
-            ],
+        body = response.json()
+        self.assertFalse(body["success"])
+        self.assertEqual(body["errors"][0]["code"], "simpati_inspection_invalid_path")
+
+    def test_endpoint_treats_missing_simpati_as_optional(self):
+        for path in self.folder.iterdir():
+            path.unlink()
+
+        response = self.client.post(
+            "/projects/simpati/inspect",
+            json={"test_root": str(self.test_root)},
         )
 
-    def test_save_chart_endpoint_returns_saved_path(self):
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["available"])
+        self.assertEqual(response.json()["errors"], [])
+
+    def test_save_chart_endpoint_names_the_chart_after_its_acquisition(self):
         response = self.client.post(
             "/projects/simpati/save-chart",
             json={
                 "test_root": str(self.test_root),
+                "relative_path": f"{SIMPATI}/ensayo.x04",
                 "image_base64": build_png_data_url(),
             },
         )
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
-        self.assertTrue(body["success"])
-        self.assertEqual(
-            body["chart_name"],
-            "chart03_simpati_acquisition_01.png",
+        self.assertEqual(body["chart_name"], "chart_simpati_x04_01.png")
+        self.assertEqual(body["acquisition_index"], 4)
+
+    def test_save_chart_endpoint_requires_the_source_acquisition(self):
+        response = self.client.post(
+            "/projects/simpati/save-chart",
+            json={"test_root": str(self.test_root), "image_base64": build_png_data_url()},
         )
-        self.assertTrue(Path(body["chart_path"]).is_file())
-        self.assertEqual(body["assets_count"], 1)
-        self.assertEqual(body["assets"][0]["source"], "simpati")
+        self.assertEqual(response.status_code, 422)
 
     def test_saved_chart_is_served_by_the_generic_endpoints(self):
-        save_response = self.client.post(
+        save = self.client.post(
             "/projects/simpati/save-chart",
             json={
                 "test_root": str(self.test_root),
+                "relative_path": f"{SIMPATI}/ensayo.x01",
                 "image_base64": build_png_data_url(),
             },
-        )
-        relative_path = save_response.json()["relative_path"]
+        ).json()
 
         list_response = self.client.post(
             "/projects/rendered-assets",
             json={"test_root": str(self.test_root)},
         )
         self.assertEqual(list_response.status_code, 200)
-        self.assertEqual(list_response.json()["assets_count"], 1)
         self.assertEqual(
-            list_response.json()["assets"][0]["relative_path"], relative_path
+            [asset["relative_path"] for asset in list_response.json()["assets"]],
+            [save["relative_path"]],
         )
 
         open_response = self.client.get(
             "/projects/rendered-asset",
-            params={
-                "test_root": str(self.test_root),
-                "relative_path": relative_path,
-            },
+            params={"test_root": str(self.test_root), "relative_path": save["relative_path"]},
         )
         self.assertEqual(open_response.status_code, 200)
-        self.assertEqual(open_response.headers["content-type"], "image/png")
 
         delete_response = self.client.post(
             "/projects/rendered-assets/delete",
-            json={
-                "test_root": str(self.test_root),
-                "relative_path": relative_path,
-            },
+            json={"test_root": str(self.test_root), "relative_path": save["relative_path"]},
         )
         self.assertEqual(delete_response.status_code, 200)
-        self.assertEqual(delete_response.json()["assets_count"], 0)
+        self.assertEqual(delete_response.json()["assets"], [])
 
 
 if __name__ == "__main__":

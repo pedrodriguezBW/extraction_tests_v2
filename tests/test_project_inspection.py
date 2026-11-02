@@ -154,7 +154,7 @@ class ProjectInspectionTests(unittest.TestCase):
         self.assertFalse(result.data.simpati_file.found)
         self.assertTrue(
             any(
-                "No .x03 file was found" in warning
+                "No SIMPATI acquisition (.x01 to .x99) was found" in warning
                 for warning in result.warnings
             )
         )
@@ -514,6 +514,32 @@ class DataSourceFileInventoryTests(unittest.TestCase):
         self.assertEqual(
             [f.name for f in result.data.simpati.files],
             ["acquisition.x03", "readme.txt"],
+        )
+
+    def test_every_simpati_acquisition_is_listed_in_numeric_order(self):
+        for name in ("run.x10", "run.x07", "run.x01", "run.x03", "run.x00", "run.xABC", "run.csv"):
+            self._write(f"03_Data/01_SIMPATI/{name}", b"data")
+
+        result = inspect_project(self.test_root)
+
+        self.assertTrue(result.valid)
+        self.assertEqual(
+            [(item.label, item.name, item.index) for item in result.data.simpati_acquisitions],
+            [
+                ("x01", "run.x01", 1),
+                ("x03", "run.x03", 3),
+                ("x07", "run.x07", 7),
+                ("x10", "run.x10", 10),
+            ],
+        )
+        self.assertEqual(
+            result.data.simpati_acquisitions[0].relative_path,
+            "03_Data/01_SIMPATI/run.x01",
+        )
+        # The compatibility field points to the first acquisition.
+        self.assertEqual(result.data.simpati_file.name, "run.x01")
+        self.assertFalse(
+            any("SIMPATI" in warning for warning in result.warnings)
         )
 
     def test_inspection_does_not_read_source_files(self):

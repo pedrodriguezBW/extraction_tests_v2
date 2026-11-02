@@ -284,6 +284,27 @@ export interface DataSourceInspectionResult {
 }
 
 /**
+ * Adquisición SIMPATI original (`.x01` a `.x99`). La inspección no lee su
+ * contenido.
+ */
+export interface SimpatiAcquisitionFileResult {
+  /** Número de la extensión `.xNN`. */
+  index: number;
+
+  /** Identificador visible, por ejemplo `x04`. */
+  label: string;
+
+  /** Nombre del archivo. */
+  name: string;
+
+  /** Ruta relativa a la carpeta raíz del ensayo con separadores `/`. */
+  relative_path: string;
+
+  /** Tamaño en bytes. */
+  size: number;
+}
+
+/**
  * Resultado agregado de la inspección de `03_Data` y sus fuentes.
  */
 export interface DataSourcesInspectionResult {
@@ -299,8 +320,14 @@ export interface DataSourcesInspectionResult {
   /** Resultado de la inspección de `03_Data/03_CANoe`. */
   canoe: DataSourceInspectionResult;
 
-  /** Archivo SIMPATI que utiliza el análisis SIMPATI, cuando existe. */
+  /**
+   * Primera adquisición SIMPATI en orden numérico. Se mantiene por
+   * compatibilidad; utiliza `simpati_acquisitions`.
+   */
   simpati_file: FileInspectionResult;
+
+  /** Todas las adquisiciones `.x01`-`.x99`, ordenadas por su número. */
+  simpati_acquisitions: SimpatiAcquisitionFileResult[];
 }
 
 /**

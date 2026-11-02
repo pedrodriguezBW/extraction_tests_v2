@@ -93,7 +93,7 @@ Modelo de respuesta o error HTTP
 
 `POST /projects/inspect` recibe la carpeta del ensayo y devuelve el estado de la estructura, metadata, evidencias, fuentes de datos y plantilla.
 
-`data` contiene `directory`, una entrada por fuente (`simpati`, `graphtec`, `canoe`) y `simpati_file`. Cada fuente incluye `files`, con `name`, `relative_path` (relativa a la raíz del ensayo, con `/`), `extension` (en minúsculas) y `size` (bytes). Solo se listan archivos regulares situados directamente en la carpeta de la fuente, ordenados sin distinguir mayúsculas; las subcarpetas, los archivos ocultos y los archivos de bloqueo de Office se excluyen. La inspección no lee el contenido de los archivos.
+`data` contiene `directory`, una entrada por fuente (`simpati`, `graphtec`, `canoe`), `simpati_acquisitions` (todas las adquisiciones `.x01`-`.x99` con `index`, `label`, `name`, `relative_path` y `size`, ordenadas por su número) y `simpati_file` (primera adquisición, solo por compatibilidad). Cada fuente incluye `files`, con `name`, `relative_path` (relativa a la raíz del ensayo, con `/`), `extension` (en minúsculas) y `size` (bytes). Solo se listan archivos regulares situados directamente en la carpeta de la fuente, ordenados sin distinguir mayúsculas; las subcarpetas, los archivos ocultos y los archivos de bloqueo de Office se excluyen. La inspección no lee el contenido de los archivos.
 
 ## Generación
 
@@ -101,7 +101,24 @@ Modelo de respuesta o error HTTP
 
 ## SIMPATI
 
-Los endpoints SIMPATI permiten inspeccionar la adquisición opcional, guardar una gráfica, listar las gráficas persistidas, abrir una imagen validada y eliminar una gráfica.
+El motor está en `src/report_generator/simpati/` y separa las responsabilidades:
+
+- `files.py`: descubrimiento de todas las adquisiciones `.x01`-`.x99` de `03_Data/01_SIMPATI`, ordenadas por el número de la extensión, y resolución segura de una ruta recibida del cliente.
+- `decoding.py`: prueba UTF-16 (con BOM o detectado por los bytes nulos), `utf-8-sig`, `cp1252` y `latin-1`. Una codificación solo se acepta si el texto tiene una estructura SIMPATI válida y no contiene caracteres de control, de modo que `latin-1` no produce falsos positivos.
+- `structure.py`: detección dinámica de la fila de cabecera, la fila de unidades `[...]`, el preámbulo (equipo, programa, inicio y fin) y validación de los registros (marca temporal `%d.%m.%Y %H:%M:%S`, número de campos coherente y valores numéricos).
+- `parser.py`: construcción del `DataFrame`. Conserva todos los canales con nombres únicos y estables (`_2`, `Unnamed_NN`), ignora los campos vacíos finales, rellena solo campos finales ausentes, rechaza (sin desplazar valores) los registros con más campos que canales, convierte la coma decimal, ordena por fecha y elimina las fechas duplicadas conservando la última. `attrs` incluye `source_file`, `encoding`, `acquisition_index`, `rejected_rows` y `preamble`.
+- `channels.py`: clasificación semántica mediante perfiles de alias ampliables (`CHANNEL_PROFILES`): temperatura y consigna de cámara, aire de impulsión y de retorno, cesta, cámara caliente, cámara fría y probeta. Exige unidad de temperatura y datos numéricos. Los canales no reconocidos se conservan con `role = None`.
+- `analysis.py`: análisis aislado de cada adquisición con estado `ready`, `no_thermal_channels`, `incompatible` o `error`.
+- `outputs.py`: nombres `chart_simpati_xNN_MM.png` y metadatos de las gráficas (`source_file`, `source_relative_path`, `acquisition_index`, `acquisition_label`).
+
+`src/report_generator/assets/simpati_extractor.py` mantiene la ruta de importación histórica y la herramienta de consola, que abre el editor Matplotlib para cada adquisición representable.
+
+| Método | Ruta | Descripción |
+| --- | --- | --- |
+| POST | `/projects/simpati/inspect` | Analiza todas las adquisiciones (`acquisitions`, con su estado y error) y devuelve la vista previa de `relative_path` o, sin él, de la primera adquisición con canales representables. Incluye `found_count`, `processed_count`, `ready_count`, `without_thermal_count` e `incompatible_count`. Una adquisición incompatible no produce un error HTTP. |
+| POST | `/projects/simpati/save-chart` | Recibe `relative_path` de la adquisición de origen y guarda `chart_simpati_xNN_MM.png` y su JSON sin sobrescribir nada. |
+
+El servicio guarda en memoria el análisis de cada archivo mientras no cambian su fecha de modificación ni su tamaño.
 
 ## Graphtec
 

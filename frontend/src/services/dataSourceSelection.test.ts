@@ -12,6 +12,9 @@ import {
   isFileSelectorDisabled,
   pendingSourceMessage,
   simpatiAnalysisHint,
+  simpatiAnalysisSummary,
+  simpatiStatusLabel,
+  isSimpatiAcquisitionName,
   sourceFiles,
   type DataSelectionState,
 } from "./dataSourceSelection";
@@ -30,6 +33,15 @@ function simpatiResult(): SimpatiInspectionResponse {
     success: true,
     test_root: "C:\\Tests\\TEST - 001",
     available: true,
+    acquisitions: [],
+    found_count: 1,
+    processed_count: 1,
+    ready_count: 1,
+    without_thermal_count: 0,
+    incompatible_count: 0,
+    selected_relative_path: SIMPATI_FILE,
+    selected_index: 3,
+    selected_status: "ready",
     file_name: "acquisition.x03",
     file_path: "C:\\Tests\\TEST - 001\\03_Data\\01_SIMPATI\\acquisition.x03",
     encoding: "cp1252",
@@ -352,7 +364,7 @@ describe("SIMPATI analysis gating", () => {
     ).toBe(false);
   });
 
-  it("only analyzes the acquisition file used by the SIMPATI flow", () => {
+  it("only analyzes SIMPATI acquisitions (.x01 to .x99)", () => {
     const inspection = buildInspection();
     inspection.data.simpati = dataSource("simpati", "SIMPATI", "01_SIMPATI", [
       "acquisition.x03",
@@ -365,7 +377,59 @@ describe("SIMPATI analysis gating", () => {
 
     expect(canAnalyzeSimpati({ inspection, selection, ...ready })).toBe(false);
     expect(simpatiAnalysisHint(inspection, selection)).toBe(
-      "SIMPATI analysis currently supports the detected acquisition file acquisition.x03.",
+      "Select a SIMPATI acquisition (.x01 to .x99) to enable the analysis.",
+    );
+
+    inspection.data.simpati_acquisitions = [];
+    expect(simpatiAnalysisHint(inspection, selection)).toBe(
+      "No SIMPATI acquisition (.x01 to .x99) was detected. Review the inspection warnings.",
+    );
+  });
+
+  it("analyzes any detected acquisition, not only .x03", () => {
+    const inspection = buildInspection();
+    inspection.data.simpati = dataSource("simpati", "SIMPATI", "01_SIMPATI", [
+      "ensayo.x01",
+      "ensayo.x04",
+      "ensayo.x10",
+    ]);
+    inspection.data.simpati_acquisitions = [1, 4, 10].map((index) => ({
+      index,
+      label: `x${String(index).padStart(2, "0")}`,
+      name: `ensayo.x${String(index).padStart(2, "0")}`,
+      relative_path: `03_Data/01_SIMPATI/ensayo.x${String(index).padStart(2, "0")}`,
+      size: 10,
+    }));
+
+    for (const name of ["ensayo.x01", "ensayo.x04", "ensayo.x10"]) {
+      const selection = {
+        sourceKey: "simpati" as const,
+        fileRelativePath: `03_Data/01_SIMPATI/${name}`,
+      };
+      expect(canAnalyzeSimpati({ inspection, selection, ...ready })).toBe(true);
+      expect(simpatiAnalysisHint(inspection, selection)).toBeNull();
+    }
+    expect(isSimpatiAcquisitionName("ensayo.x04")).toBe(true);
+    expect(isSimpatiAcquisitionName("ensayo.x00")).toBe(false);
+    expect(isSimpatiAcquisitionName("ensayo.xABC")).toBe(false);
+    expect(isSimpatiAcquisitionName("ensayo.csv")).toBe(false);
+  });
+
+  it("summarizes the analysis of every acquisition", () => {
+    const result = simpatiResult();
+    result.found_count = 4;
+    result.processed_count = 3;
+    result.without_thermal_count = 1;
+    result.incompatible_count = 1;
+
+    expect(simpatiAnalysisSummary(result)).toBe(
+      "4 SIMPATI acquisitions found, 3 processed, 1 without representable channels, 1 incompatible.",
+    );
+    expect(simpatiAnalysisSummary({ ...result, available: false })).toBe(
+      "No SIMPATI acquisition file was found. Report generation can continue.",
+    );
+    expect(simpatiStatusLabel("no_thermal_channels")).toBe(
+      "No representable channels",
     );
   });
 

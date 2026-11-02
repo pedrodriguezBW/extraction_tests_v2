@@ -25,6 +25,7 @@ from ..models.report_generation import (
 from ..models.simpati_inspection import (
     SimpatiChartSaveRequest,
     SimpatiChartSaveResponse,
+    SimpatiInspectionRequest,
     SimpatiInspectionResponse,
 )
 from ..services.graphtec_inspection import (
@@ -112,11 +113,19 @@ def generate_project_report_endpoint(
     },
 )
 def inspect_project_simpati_endpoint(
-    request: ProjectInspectionRequest,
+    request: SimpatiInspectionRequest,
 ) -> SimpatiInspectionResponse | JSONResponse:
-    """Inspect an optional SIMPATI acquisition file."""
+    """Analyze every SIMPATI acquisition (.x01 to .x99) of the test.
+
+    Each acquisition is analyzed independently and reported with its own
+    status. The acquisition given in ``relative_path`` (or, without it, the
+    first one with representable channels) is returned with preview data.
+    """
     try:
-        return inspect_project_simpati(request.test_root)
+        return inspect_project_simpati(
+            request.test_root,
+            request.relative_path,
+        )
     except SimpatiInspectionError as error:
         return JSONResponse(
             status_code=error.status_code,
@@ -136,10 +145,15 @@ def inspect_project_simpati_endpoint(
 def save_project_simpati_chart_endpoint(
     request: SimpatiChartSaveRequest,
 ) -> SimpatiChartSaveResponse | JSONResponse:
-    """Save a SIMPATI chart in 04_Report/_RenderedAssets."""
+    """Save a chart of one SIMPATI acquisition in 04_Report/_RenderedAssets.
+
+    The chart is named ``chart_simpati_xNN_MM.png`` after its source
+    acquisition, so charts of different acquisitions never collide.
+    """
     try:
         return save_project_simpati_chart(
             request.test_root,
+            request.relative_path,
             request.image_base64,
         )
     except SimpatiChartSaveError as error:

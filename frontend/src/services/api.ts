@@ -23,6 +23,7 @@ import type {
 import type {
   SimpatiChartSaveRequest,
   SimpatiChartSaveResponse,
+  SimpatiInspectionRequest,
   SimpatiInspectionResponse,
 } from "../types/simpati";
 
@@ -220,18 +221,27 @@ export function generateReport(
 }
 
 /**
- * Solicita el análisis de la adquisición SIMPATI del ensayo.
+ * Solicita el análisis de todas las adquisiciones SIMPATI del ensayo.
+ *
+ * Cada adquisición `.xNN` se analiza de forma independiente; la respuesta
+ * incluye su estado y la vista previa de la adquisición indicada.
  *
  * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param relativePath Adquisición que se previsualiza. Sin ella se usa la
+ * primera con canales representables.
  * @returns El resultado del análisis y los datos de vista previa disponibles.
- * @throws {@link ApiClientError} Si la adquisición no puede analizarse.
+ * @throws {@link ApiClientError} Si el análisis no puede realizarse.
  */
 export function inspectSimpati(
   testRoot: string,
+  relativePath?: string | null,
 ): Promise<SimpatiInspectionResponse> {
-  const request: ProjectInspectionRequest = {
+  const request: SimpatiInspectionRequest = {
     test_root: testRoot,
   };
+  if (relativePath) {
+    request.relative_path = relativePath;
+  }
 
   return requestJson<SimpatiInspectionResponse>(
     "/projects/simpati/inspect",
@@ -246,19 +256,26 @@ export function inspectSimpati(
 }
 
 /**
- * Guarda una gráfica SIMPATI como imagen para incluirla en el informe.
+ * Guarda una gráfica de una adquisición SIMPATI para incluirla en el
+ * informe.
+ *
+ * El nombre `chart_simpati_xNN_MM.png` identifica la adquisición de origen,
+ * de modo que las gráficas de adquisiciones distintas nunca colisionan.
  *
  * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param relativePath Adquisición de origen de la gráfica.
  * @param imageBase64 Imagen PNG codificada como una URL de datos.
  * @returns El resultado del guardado y la lista actualizada de gráficas.
  * @throws {@link ApiClientError} Si la imagen no puede guardarse.
  */
 export function saveSimpatiChart(
   testRoot: string,
+  relativePath: string,
   imageBase64: string,
 ): Promise<SimpatiChartSaveResponse> {
   const request: SimpatiChartSaveRequest = {
     test_root: testRoot,
+    relative_path: relativePath,
     image_base64: imageBase64,
   };
 

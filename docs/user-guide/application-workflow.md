@@ -62,7 +62,7 @@ Para CANoe se muestra un aviso indicando que su lectura se añadirá en un incre
 
 ### Analyze SIMPATI
 
-**Analyze SIMPATI** se habilita cuando la fuente seleccionada es SIMPATI y el archivo seleccionado es la adquisición SIMPATI detectada en la inspección. Este paso es opcional y no bloquea por sí solo la generación del PowerPoint.
+**Analyze SIMPATI** se habilita cuando la fuente seleccionada es SIMPATI y el archivo seleccionado es una adquisición `.x01`-`.x99` detectada en la inspección. Se analizan todas las adquisiciones de la carpeta y la seleccionada se abre en el editor de gráficas; consulta [Gráficas SIMPATI](simpati-charts.md). Este paso es opcional y no bloquea por sí solo la generación del PowerPoint.
 
 ## 4. Generate report
 

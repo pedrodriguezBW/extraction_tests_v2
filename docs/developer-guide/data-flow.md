@@ -30,7 +30,7 @@ El frontend transforma esa respuesta en filas de inspección, métricas y condic
 
 ## 4. SIMPATI
 
-Si el usuario analiza SIMPATI, el frontend solicita la inspección de la adquisición. Las gráficas guardadas se escriben en `04_Report/_RenderedAssets` con un JSON de metadatos y el backend devuelve el inventario genérico actualizado.
+Si el usuario analiza SIMPATI, el frontend envía `test_root` y la adquisición seleccionada (`relative_path`) a `POST /projects/simpati/inspect`. El backend analiza todas las adquisiciones `.xNN` de forma independiente y devuelve su lista con el estado de cada una, junto con la vista previa de la seleccionada. Al guardar, el frontend envía la adquisición de origen; la gráfica se escribe en `04_Report/_RenderedAssets` como `chart_simpati_xNN_MM.png` con un JSON de metadatos y el backend devuelve el inventario genérico actualizado.
 
 ### Graphtec
 

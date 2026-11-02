@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { DataSourceSelector } from "./components/DataSourceSelector";
 import { GraphtecAnalysis } from "./components/GraphtecAnalysis";
 import { RenderedAssets } from "./components/RenderedAssets";
+import { SimpatiAcquisitions } from "./components/SimpatiAcquisitions";
 import { SimpatiChart } from "./components/SimpatiChart";
 import {
   checkHealth,
@@ -30,6 +31,8 @@ import {
   isFileSelectorDisabled,
   pendingSourceMessage,
   simpatiAnalysisHint,
+  simpatiAnalysisSummary,
+  simpatiStatusLabel,
   sourceFiles,
 } from "./services/dataSourceSelection";
 import {
@@ -345,14 +348,22 @@ function App() {
     selectedPath,
   ]);
 
-  const inspectSelectedSimpati = useCallback(async () => {
-    const fileRelativePath = dataSelection.fileRelativePath;
+  const inspectSelectedSimpati = useCallback(async (
+    targetRelativePath?: string,
+  ) => {
+    // Every acquisition is analyzed; the selected one (or the one opened
+    // from the acquisitions list) is previewed in the chart editor.
+    const fileRelativePath =
+      targetRelativePath ?? dataSelection.fileRelativePath;
     if (
       !selectedPath ||
       fileRelativePath === null ||
       !canAnalyzeSimpati({
         inspection,
-        selection: dataSelection,
+        selection: {
+          sourceKey: dataSelection.sourceKey,
+          fileRelativePath,
+        },
         backendConnected: backendStatus === "connected",
         busy:
           inspectionLoading ||
@@ -369,20 +380,19 @@ function App() {
     setSimpatiLoading(true);
     setCurrentError(null);
     setOperationMessage(null);
+    if (fileRelativePath !== dataSelection.fileRelativePath) {
+      dispatchDataSelection({ type: "fileSelected", fileRelativePath });
+    }
     dispatchDataSelection({ type: "simpatiCleared" });
 
     try {
-      const response = await inspectSimpati(selectedPath);
+      const response = await inspectSimpati(selectedPath, fileRelativePath);
       dispatchDataSelection({
         type: "simpatiInspected",
         fileRelativePath,
         result: response,
       });
-      setOperationMessage(
-        response.available
-          ? "The SIMPATI acquisition was inspected successfully."
-          : "No SIMPATI acquisition file was found. Report generation can continue.",
-      );
+      setOperationMessage(simpatiAnalysisSummary(response));
     } catch (error) {
       setCurrentError(errorMessage(error));
     } finally {
@@ -585,10 +595,15 @@ function App() {
     [dataSelection.fileRelativePath],
   );
 
+  const simpatiSourcePath = dataSelection.simpati?.selected_relative_path ?? null;
+
   const saveCurrentSimpatiChart = useCallback(
     async (imageBase64: string): Promise<SimpatiChartSaveResponse> => {
       if (!selectedPath) {
         throw new Error("Select a test folder before saving the chart.");
+      }
+      if (!simpatiSourcePath) {
+        throw new Error("Analyze a SIMPATI acquisition before saving the chart.");
       }
 
       setSimpatiChartSaving(true);
@@ -598,6 +613,7 @@ function App() {
       try {
         const response = await saveSimpatiChart(
           selectedPath,
+          simpatiSourcePath,
           imageBase64,
         );
         // The saved chart joins the generic inventory and is selected by
@@ -619,7 +635,7 @@ function App() {
         setSimpatiChartSaving(false);
       }
     },
-    [selectedPath],
+    [selectedPath, simpatiSourcePath],
   );
 
   const inspectionRows = useMemo<InspectionRow[]>(() => {
@@ -1062,12 +1078,56 @@ function App() {
             <div className="result-panel">
               <div className="result-panel__header">
                 <div>
-                  <span>Acquisition file</span>
-                  <h3>{simpati.file_name ?? "SIMPATI acquisition"}</h3>
+                  <span>SIMPATI acquisitions</span>
+                  <h3>
+                    {simpati.found_count} acquisition
+                    {simpati.found_count === 1 ? "" : "s"} in 03_Data/01_SIMPATI
+                  </h3>
                 </div>
-                <span className="overall-status overall-status--success">
+                <span
+                  className={`overall-status ${
+                    simpati.incompatible_count > 0
+                      ? "overall-status--error"
+                      : "overall-status--success"
+                  }`}
+                >
                   SIMPATI analyzed
                 </span>
+              </div>
+
+              <SimpatiAcquisitions
+                result={simpati}
+                disabled={busy}
+                onSelect={(relativePath) =>
+                  void inspectSelectedSimpati(relativePath)
+                }
+              />
+            </div>
+          )}
+
+          {simpati?.available && simpati.selected_relative_path && (
+            <div className="result-panel">
+              <div className="result-panel__header">
+                <div>
+                  <span>
+                    Acquisition{" "}
+                    {simpati.selected_index !== null
+                      ? `x${String(simpati.selected_index).padStart(2, "0")}`
+                      : ""}
+                  </span>
+                  <h3>{simpati.file_name ?? "SIMPATI acquisition"}</h3>
+                </div>
+                {simpati.selected_status && (
+                  <span
+                    className={`overall-status ${
+                      simpati.selected_status === "ready"
+                        ? "overall-status--success"
+                        : "overall-status--error"
+                    }`}
+                  >
+                    {simpatiStatusLabel(simpati.selected_status)}
+                  </span>
+                )}
               </div>
 
               <dl className="metrics-grid simpati-metrics">
@@ -1091,6 +1151,14 @@ function App() {
                     {simpati.acquisition_end ?? "Not available"}
                   </dd>
                 </div>
+                <div>
+                  <dt>Channels</dt>
+                  <dd>{simpati.channels.length}</dd>
+                </div>
+                <div>
+                  <dt>Thermal channels</dt>
+                  <dd>{simpati.thermal_channels.length}</dd>
+                </div>
               </dl>
 
               <div className="metadata-path">
@@ -1100,14 +1168,39 @@ function App() {
                 </code>
               </div>
 
-              <SimpatiChart
-                data={simpati}
-                saving={simpatiChartSaving}
-                savedChartNames={renderedAssets.assets.map(
-                  (asset) => asset.name,
-                )}
-                onSave={saveCurrentSimpatiChart}
-              />
+              {simpati.errors.map((error) => (
+                <div
+                  key={`${error.code}-${error.message}`}
+                  className="simpati-save-status simpati-save-status--error"
+                  role="alert"
+                >
+                  {error.message}
+                </div>
+              ))}
+
+              {simpati.selected_status === "no_thermal_channels" && (
+                <p className="action-hint">
+                  No thermal channel of this acquisition is recognized. Its
+                  channels remain available as advanced channels.
+                </p>
+              )}
+
+              {simpati.records_count > 0 && (
+                <SimpatiChart
+                  key={simpati.selected_relative_path}
+                  data={simpati}
+                  title={`SIMPATI ${
+                    simpati.selected_index !== null
+                      ? `x${String(simpati.selected_index).padStart(2, "0")} · `
+                      : ""
+                  }${simpati.file_name ?? ""}`}
+                  saving={simpatiChartSaving}
+                  savedChartNames={renderedAssets.assets.map(
+                    (asset) => asset.name,
+                  )}
+                  onSave={saveCurrentSimpatiChart}
+                />
+              )}
             </div>
           )}
 

@@ -2,9 +2,13 @@ import type {
   DataSourceFileResult,
   DataSourceKey,
   ProjectInspectionResponse,
+  SimpatiAcquisitionFileResult,
 } from "../types/project";
 import type { GraphtecInspectionResponse } from "../types/graphtec";
-import type { SimpatiInspectionResponse } from "../types/simpati";
+import type {
+  SimpatiAcquisitionStatus,
+  SimpatiInspectionResponse,
+} from "../types/simpati";
 import { DATA_SOURCE_KEYS } from "./projectStatus";
 
 /**
@@ -255,23 +259,48 @@ export function pendingSourceMessage(
   return `Reading ${label} files will be added in a later increment.`;
 }
 
+/** Extensiones de adquisición SIMPATI admitidas: `.x01` a `.x99`. */
+const SIMPATI_ACQUISITION_PATTERN = /\.x(0[1-9]|[1-9][0-9])$/i;
+
 /**
- * Indica si el archivo seleccionado es la adquisición SIMPATI que analiza el
- * flujo SIMPATI existente.
+ * Indica si un nombre de archivo corresponde a una adquisición SIMPATI
+ * original (`.x01` a `.x99`).
+ */
+export function isSimpatiAcquisitionName(name: string): boolean {
+  return SIMPATI_ACQUISITION_PATTERN.test(name);
+}
+
+/**
+ * Busca la adquisición SIMPATI detectada que corresponde al archivo.
  *
- * El análisis SIMPATI actual procesa el archivo `.x03` detectado durante la
- * inspección (`data.simpati_file`). Exigir que coincida con la selección
- * evita mostrar resultados de un archivo distinto al elegido.
+ * @returns La adquisición o `null` cuando el archivo no es una `.xNN`.
+ */
+export function simpatiAcquisitionFor(
+  inspection: ProjectInspectionResponse | null,
+  file: DataSourceFileResult | null,
+): SimpatiAcquisitionFileResult | null {
+  if (inspection === null || file === null) {
+    return null;
+  }
+  return (
+    (inspection.data.simpati_acquisitions ?? []).find(
+      (acquisition) => acquisition.relative_path === file.relative_path,
+    ) ?? null
+  );
+}
+
+/**
+ * Indica si el archivo seleccionado es una adquisición SIMPATI analizable.
+ *
+ * Cualquier adquisición `.x01`-`.x99` detectada durante la inspección se
+ * puede analizar; la extensión solo identifica la adquisición y nunca
+ * decide cómo se interpreta su contenido.
  */
 export function isSimpatiAnalysisFile(
   inspection: ProjectInspectionResponse | null,
   file: DataSourceFileResult | null,
 ): boolean {
-  if (inspection === null || file === null) {
-    return false;
-  }
-  const simpatiFile = inspection.data.simpati_file;
-  return simpatiFile.found && simpatiFile.name === file.name;
+  return simpatiAcquisitionFor(inspection, file) !== null;
 }
 
 /**
@@ -295,8 +324,8 @@ export interface SimpatiAnalysisContext {
  * Determina si el análisis SIMPATI puede iniciarse.
  *
  * Requiere un proyecto inspeccionado, el backend conectado, ninguna
- * operación en curso, SIMPATI como fuente seleccionada y un archivo SIMPATI
- * seleccionado que coincida con la adquisición detectada.
+ * operación en curso, SIMPATI como fuente seleccionada y una adquisición
+ * `.xNN` seleccionada.
  */
 export function canAnalyzeSimpati({
   inspection,
@@ -341,12 +370,54 @@ export function simpatiAnalysisHint(
     return "Select a SIMPATI file to enable the analysis.";
   }
   if (!isSimpatiAnalysisFile(inspection, file)) {
-    const simpatiFile = inspection.data.simpati_file;
-    return simpatiFile.found && simpatiFile.name
-      ? `SIMPATI analysis currently supports the detected acquisition file ${simpatiFile.name}.`
-      : "No single SIMPATI acquisition file (.x03) was detected. Review the inspection warnings.";
+    return (inspection.data.simpati_acquisitions ?? []).length > 0
+      ? "Select a SIMPATI acquisition (.x01 to .x99) to enable the analysis."
+      : "No SIMPATI acquisition (.x01 to .x99) was detected. Review the inspection warnings.";
   }
   return null;
+}
+
+/**
+ * Texto visible del estado de una adquisición SIMPATI.
+ */
+export function simpatiStatusLabel(status: SimpatiAcquisitionStatus): string {
+  switch (status) {
+    case "ready":
+      return "Ready";
+    case "no_thermal_channels":
+      return "No representable channels";
+    case "incompatible":
+      return "Incompatible";
+    case "error":
+      return "Read error";
+    default:
+      return status;
+  }
+}
+
+/**
+ * Resume el resultado del análisis de todas las adquisiciones SIMPATI.
+ *
+ * @returns Un mensaje en inglés con las adquisiciones encontradas,
+ * procesadas, sin canales representables e incompatibles.
+ */
+export function simpatiAnalysisSummary(
+  result: SimpatiInspectionResponse,
+): string {
+  if (!result.available) {
+    return "No SIMPATI acquisition file was found. Report generation can continue.";
+  }
+  const parts = [
+    `${result.found_count} SIMPATI acquisition${result.found_count === 1 ? "" : "s"} found`,
+    `${result.processed_count} processed`,
+  ];
+  if (result.without_thermal_count > 0) {
+    parts.push(`${result.without_thermal_count} without representable channels`);
+  }
+  if (result.incompatible_count > 0) {
+    parts.push(`${result.incompatible_count} incompatible`);
+  }
+  return `${parts.join(", ")}.`;
 }
 
 /**

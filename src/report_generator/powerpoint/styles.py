@@ -93,6 +93,24 @@ SINGLE_CHART_WIDTH_CM = 20.00
 SINGLE_CHART_HEIGHT_CM = 10.00
 
 # -----------------------------------------------------------------------------
+# Test Results: gráficas de _RenderedAssets
+# -----------------------------------------------------------------------------
+
+# Encabezado secundario ("FINAL CHARTS") y subtítulo con la procedencia.
+RESULT_HEADER_TOP_CM = 4.05
+RESULT_SUBTITLE_TOP_CM = 4.85
+RESULT_SUBTITLE_HEIGHT_CM = 0.55
+
+# Separación entre el subtítulo y las gráficas.
+RESULT_CHARTS_TOP_GAP_CM = 0.20
+
+# Separación mínima entre las gráficas y el pie (número, texto y logotipo).
+RESULT_CHARTS_FOOTER_GAP_CM = 0.45
+
+# Máximo de gráficas por diapositiva (dos columnas, nunca apiladas).
+RESULT_CHARTS_PER_SLIDE = 2
+
+# -----------------------------------------------------------------------------
 # Test Inputs
 # -----------------------------------------------------------------------------
 

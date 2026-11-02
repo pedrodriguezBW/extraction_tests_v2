@@ -89,6 +89,7 @@ class ProjectInspectionEndpointTests(unittest.TestCase):
                 "graphtec",
                 "canoe",
                 "simpati_file",
+                "simpati_acquisitions",
             },
         )
         self.assertEqual(

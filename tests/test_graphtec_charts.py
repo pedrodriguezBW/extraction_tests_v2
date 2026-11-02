@@ -194,10 +194,11 @@ class GraphtecChartTests(unittest.TestCase):
         self.assertNotIn(20000.0, ys)
         self.assertTrue(any(y != y for y in ys))  # NaN breaks the measured line
 
-        texts = [t.get_text() for t in figure.texts]
+        # La nota se muestra con la leyenda, debajo de la gráfica.
+        notes = figure.legends[0].get_title().get_text()
         self.assertIn(
             "Limit marker indicates a value greater than the displayed threshold.",
-            texts,
+            notes.replace("\n", " "),
         )
 
     def test_limit_note_only_when_resistance_is_drawn(self):
@@ -237,14 +238,16 @@ class GraphtecChartTests(unittest.TestCase):
         self.assertEqual(len(figure.axes[0].texts), 0)
 
     def test_legend_toggle_and_title(self):
+        # La leyenda es de la figura (debajo de la gráfica) para que el
+        # diseño ajustado reserve su espacio y se vea completa.
         figure, _ = build_graphtec_figure(self.dcw, config(series=("voltage",), title="My chart"))
-        self.assertIsNotNone(figure.axes[0].get_legend())
+        self.assertEqual(len(figure.legends), 1)
         self.assertEqual(figure.axes[0].get_title(loc="left"), "My chart")
 
         figure, _ = build_graphtec_figure(
             self.dcw, config(series=("voltage",), show_legend=False)
         )
-        self.assertIsNone(figure.axes[0].get_legend())
+        self.assertEqual(figure.legends, [])
         self.assertEqual(figure.axes[0].get_title(loc="left"), "Graphtec DCW - Channel 1")
 
     def test_png_is_valid_and_not_empty(self):
@@ -376,15 +379,20 @@ class GraphtecSavedChartTests(unittest.TestCase):
         Image.new("RGB", (8, 6), "white").save(buffer, format="PNG")
         image = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
+        acquisition = self.test_root / "03_Data" / "01_SIMPATI" / "acquisition.x03"
+        acquisition.write_text("SIMPATI", encoding="utf-8")
+
         self.save()
-        simpati = save_project_simpati_chart(self.test_root, image)
+        simpati = save_project_simpati_chart(
+            self.test_root, "03_Data/01_SIMPATI/acquisition.x03", image
+        )
         graphtec = self.save(series=["voltage"])
 
-        self.assertEqual(simpati.chart_name, "chart03_simpati_acquisition_01.png")
+        self.assertEqual(simpati.chart_name, "chart_simpati_x03_01.png")
         self.assertEqual(
             [(a.name, a.source) for a in graphtec.assets],
             [
-                ("chart03_simpati_acquisition_01.png", "simpati"),
+                ("chart_simpati_x03_01.png", "simpati"),
                 ("graphtec_chart_01.png", "graphtec"),
                 ("graphtec_chart_02.png", "graphtec"),
             ],

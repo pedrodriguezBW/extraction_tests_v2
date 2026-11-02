@@ -34,7 +34,7 @@ La ruta entregada a la aplicación debe ser la carpeta individual del ensayo. No
 - `01_Inputs/`.
 - `02_Evidences/`.
 - `03_Data/`.
-- Fuentes SIMPATI (`03_Data/01_SIMPATI`), Graphtec (`03_Data/02_Graphtec`) y CANoe (`03_Data/03_CANoe`).
+- Fuentes SIMPATI (`03_Data/01_SIMPATI`), Graphtec (`03_Data/02_Graphtec`) y CANoe (`03_Data/03_CANoe`). En `01_SIMPATI` cada exportación original `.x01`-`.x99` es una adquisición independiente.
 
 CSV es un formato de archivo y no una fuente independiente.
 

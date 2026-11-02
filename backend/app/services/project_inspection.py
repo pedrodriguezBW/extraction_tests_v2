@@ -1,10 +1,9 @@
 from pathlib import Path
 
 from config import POWERPOINT_TEMPLATE_PATH
-from src.report_generator.assets.simpati_extractor import (
-    SimpatiError,
-    SimpatiFileNotFoundError,
-    find_simpati_file,
+from src.report_generator.simpati import (
+    SimpatiAcquisitionFile,
+    discover_simpati_acquisitions,
 )
 from src.report_generator.data_sources import (
     DataSource,
@@ -47,6 +46,7 @@ from ..models.project import (
     MetadataInspectionResult,
     MissingEvidencePhotoResult,
     ProjectInspectionResponse,
+    SimpatiAcquisitionFileResult,
 )
 
 
@@ -239,6 +239,18 @@ def _source_result(source: DataSource) -> DataSourceInspectionResult:
     )
 
 
+def _simpati_acquisition_result(
+    acquisition: SimpatiAcquisitionFile,
+) -> SimpatiAcquisitionFileResult:
+    return SimpatiAcquisitionFileResult(
+        index=acquisition.index,
+        label=acquisition.label,
+        name=acquisition.name,
+        relative_path=acquisition.relative_path,
+        size=acquisition.size,
+    )
+
+
 def inspect_project(
     test_root: str | Path,
 ) -> ProjectInspectionResponse:
@@ -307,7 +319,7 @@ def inspect_project(
     # ==========================================================
     data_path = data_directory(project_root)
     sources = discover_data_sources(project_root)
-    simpati_file_path: Path | None = None
+    simpati_acquisitions: list[SimpatiAcquisitionFile] = []
 
     if root_is_valid:
         if not data_path.is_dir():
@@ -318,14 +330,17 @@ def inspect_project(
 
         if sources["simpati"].found:
             try:
-                simpati_file_path = find_simpati_file(project_root)
-            except (
-                SimpatiFileNotFoundError,
-                SimpatiError,
-                FileNotFoundError,
-                NotADirectoryError,
-            ) as error:
+                simpati_acquisitions = discover_simpati_acquisitions(
+                    project_root
+                )
+            except (FileNotFoundError, NotADirectoryError, OSError) as error:
                 warnings.append(str(error))
+            else:
+                if not simpati_acquisitions:
+                    warnings.append(
+                        "No SIMPATI acquisition (.x01 to .x99) was found in "
+                        f"{sources['simpati'].directory}."
+                    )
 
     # ==========================================================
     # 04_REPORT AND METADATA
@@ -383,7 +398,13 @@ def inspect_project(
             simpati=_source_result(sources["simpati"]),
             graphtec=_source_result(sources["graphtec"]),
             canoe=_source_result(sources["canoe"]),
-            simpati_file=_file_result(simpati_file_path),
+            simpati_file=_file_result(
+                simpati_acquisitions[0].path if simpati_acquisitions else None
+            ),
+            simpati_acquisitions=[
+                _simpati_acquisition_result(acquisition)
+                for acquisition in simpati_acquisitions
+            ],
         ),
         report_directory=_directory_result(report_path),
         metadata=metadata_result,

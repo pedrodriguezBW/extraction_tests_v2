@@ -873,30 +873,6 @@ input:focus-visible {
   font-size: 0.82rem;
 }
 
-.simpati-range-controls {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 14px;
-}
-
-.simpati-range-controls label,
-.simpati-range-controls span,
-.simpati-range-controls input {
-  display: block;
-  width: 100%;
-}
-
-.simpati-range-controls span {
-  margin-bottom: 6px;
-  color: #405566;
-  font-size: 0.8rem;
-}
-
-.simpati-range-controls input {
-  accent-color: #07577e;
-}
-
 .simpati-advanced {
   margin-top: 16px;
   padding-top: 16px;
@@ -1418,8 +1394,7 @@ input:focus-visible {
     padding: 12px;
   }
 
-  .simpati-chart__actions,
-  .simpati-range-controls {
+  .simpati-chart__actions {
     grid-template-columns: 1fr;
     flex-direction: column;
   }
@@ -1471,4 +1446,94 @@ input:focus-visible {
   .button {
     forced-color-adjust: none;
   }
+}
+
+.simpati-acquisitions {
+  margin-top: 20px;
+}
+
+.simpati-acquisitions__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0 0 12px;
+  color: #4d5f6e;
+  font-size: 0.9rem;
+}
+
+.simpati-acquisitions__scroll {
+  overflow-x: auto;
+  border: 1px solid #d5dde4;
+}
+
+.simpati-acquisitions__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.simpati-acquisitions__table th,
+.simpati-acquisitions__table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e3e9ee;
+  text-align: left;
+  vertical-align: top;
+}
+
+.simpati-acquisitions__table th {
+  color: #657685;
+  background: #f6f8fa;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.simpati-acquisitions__table tr.is-selected td {
+  background: #eaf4f8;
+}
+
+.simpati-acquisitions__table .button {
+  color: #0b4b70;
+  white-space: nowrap;
+}
+
+.simpati-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.simpati-status--ready {
+  color: #1d5e33;
+  background: #e1f2e6;
+}
+
+.simpati-status--warning {
+  color: #7a4e00;
+  background: #fff1d6;
+}
+
+.simpati-status--error {
+  color: #8f1d1d;
+  background: #fde4e4;
+}
+
+.simpati-acquisitions__error,
+.simpati-acquisitions__warning {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.82rem;
+}
+
+.simpati-acquisitions__error {
+  color: #8f1d1d;
+}
+
+.simpati-acquisitions__warning {
+  color: #7a4e00;
 }

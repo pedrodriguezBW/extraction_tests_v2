@@ -7,6 +7,25 @@ import {
 } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
+import {
+  EXPORT_HEIGHT_PX,
+  EXPORT_WIDTH_PX,
+  buildChartExportSvg,
+} from "../services/chartExport";
+import {
+  applyZoomSelection,
+  classifyZoomSelection,
+  clampToPlot,
+  clientToSvgPoint,
+  defaultValueRange,
+  fullViewport,
+  isInsidePlot,
+  selectionRectangle,
+  valueTickDecimals,
+  type ChartViewport,
+  type PlotArea,
+  type SvgPoint,
+} from "../services/chartZoom";
 import type {
   SimpatiChartSaveResponse,
   SimpatiInspectionResponse,
@@ -28,6 +47,12 @@ export interface SimpatiChartProps {
   savedChartNames: string[];
 
   /**
+   * Título dibujado en la gráfica, por ejemplo `SIMPATI x04 · ensayo.x04`.
+   * Identifica la adquisición de origen en la imagen guardada.
+   */
+  title?: string;
+
+  /**
    * Guarda la representación PNG de la vista actual.
    *
    * @param imageBase64 Imagen PNG codificada como una URL de datos.
@@ -47,19 +72,45 @@ const CHART_WIDTH = 1000;
 const CHART_HEIGHT = 470;
 const PLOT_LEFT = 72;
 const PLOT_RIGHT = 24;
-const PLOT_TOP = 80;
+const PLOT_TOP = 104;
 const PLOT_BOTTOM = 64;
 const PLOT_WIDTH = CHART_WIDTH - PLOT_LEFT - PLOT_RIGHT;
 const PLOT_HEIGHT = CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM;
 
-const THERMAL_STYLES: Record<string, SeriesStyle> = {
-  "Basket temperature": { color: "#005a9c" },
-  "Basket setpoint": { color: "#005a9c", dash: "9 6" },
-  "Hot chamber temperature": { color: "#b83b0b" },
-  "Hot chamber setpoint": { color: "#b83b0b", dash: "9 6" },
-  "Cold chamber temperature": { color: "#24733e" },
-  "Cold chamber setpoint": { color: "#24733e", dash: "9 6" },
+/** Área de trazado usada por el zoom por arrastre. */
+const PLOT_AREA: PlotArea = {
+  left: PLOT_LEFT,
+  top: PLOT_TOP,
+  width: PLOT_WIDTH,
+  height: PLOT_HEIGHT,
 };
+
+/** Número de intervalos entre las marcas del eje Y. */
+const Y_TICK_INTERVALS = 4;
+
+/**
+ * Color de cada familia de canales térmicos. Las consignas usan el mismo
+ * color que su valor real, con trazo discontinuo.
+ */
+const THERMAL_FAMILY_COLORS: Record<string, string> = {
+  chamber: "#005a9c",
+  supply_air: "#6b4c9a",
+  return_air: "#007c91",
+  basket: "#005a9c",
+  hot_chamber: "#b83b0b",
+  cold_chamber: "#24733e",
+  specimen: "#8b3a62",
+};
+
+const SETPOINT_DASH = "9 6";
+
+function thermalStyle(channel: SimpatiPreviewChannel): SeriesStyle {
+  const role = channel.role ?? "";
+  const setpoint = role.endsWith("_setpoint");
+  const family = role.replace(/_(temperature|setpoint)$/, "");
+  const color = THERMAL_FAMILY_COLORS[family] ?? "#0b4b70";
+  return setpoint ? { color, dash: SETPOINT_DASH } : { color };
+}
 
 const ADVANCED_COLORS = [
   "#6b4c9a",
@@ -69,10 +120,6 @@ const ADVANCED_COLORS = [
   "#465a65",
   "#7a4e00",
 ];
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(maximum, Math.max(minimum, value));
-}
 
 function formatTimestamp(value: string | null | undefined): string {
   if (!value) {
@@ -99,7 +146,7 @@ function styleForChannel(
   advancedIndex: number,
 ): SeriesStyle {
   if (channel.thermal) {
-    return THERMAL_STYLES[channel.label] ?? { color: "#0b4b70" };
+    return thermalStyle(channel);
   }
 
   return {
@@ -143,9 +190,10 @@ function pathSegments(
  * Muestra una vista interactiva de los canales extraídos de una adquisición
  * SIMPATI.
  *
- * El componente permite seleccionar canales térmicos y avanzados, limitar el
- * intervalo temporal visible mediante arrastre, restablecer la vista y guardar
- * la gráfica visible como una imagen PNG.
+ * El componente permite seleccionar canales térmicos y avanzados, ampliar la
+ * gráfica arrastrando sobre ella (eje X, eje Y o ambos según la forma de la
+ * selección), restablecer la vista con `Reset view` o con doble clic y
+ * guardar exactamente la vista visible como una imagen PNG.
  *
  * El componente no escribe archivos directamente. La persistencia se delega
  * en la función `onSave` proporcionada por el componente padre.
@@ -157,6 +205,7 @@ export function SimpatiChart({
   data,
   saving,
   savedChartNames,
+  title = "SIMPATI temperature profile",
   onSave,
 }: SimpatiChartProps) {
   const titleId = useId();
@@ -165,10 +214,12 @@ export function SimpatiChart({
   const lastIndex = Math.max(0, data.preview_timestamps.length - 1);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [rangeStart, setRangeStart] = useState(0);
-  const [rangeEnd, setRangeEnd] = useState(lastIndex);
-  const [dragStart, setDragStart] = useState<number | null>(null);
-  const [dragCurrent, setDragCurrent] = useState<number | null>(null);
+  // Vista visible (zoom). El eje Y es automático mientras `yRange` es null.
+  const [viewport, setViewport] = useState<ChartViewport>(() =>
+    fullViewport(lastIndex),
+  );
+  const [dragStart, setDragStart] = useState<SvgPoint | null>(null);
+  const [dragCurrent, setDragCurrent] = useState<SvgPoint | null>(null);
   const [preparingSave, setPreparingSave] = useState(false);
   const [savedChart, setSavedChart] =
     useState<SimpatiChartSaveResponse | null>(null);
@@ -179,8 +230,7 @@ export function SimpatiChart({
       data.thermal_channels.map((channel) => channel.id),
     );
     setAdvancedOpen(false);
-    setRangeStart(0);
-    setRangeEnd(Math.max(0, data.preview_timestamps.length - 1));
+    setViewport(fullViewport(data.preview_timestamps.length - 1));
     setDragStart(null);
     setDragCurrent(null);
     setSavedChart(null);
@@ -212,35 +262,19 @@ export function SimpatiChart({
     [allChannels, selectedChannelIds],
   );
 
-  const yBounds = useMemo(() => {
-    const visibleValues = selectedChannels.flatMap((channel) =>
-      channel.values
-        .slice(rangeStart, rangeEnd + 1)
-        .filter(
-          (value): value is number =>
-            value !== null && Number.isFinite(value),
-        ),
-    );
+  const rangeStart = viewport.xStart;
+  const rangeEnd = viewport.xEnd;
 
-    if (visibleValues.length === 0) {
-      return { minimum: -1, maximum: 1 };
-    }
+  // Rango Y por defecto: todos los datos de los canales activos. No depende
+  // del intervalo temporal visible, de modo que ampliar el eje X nunca
+  // reajusta el eje Y; este solo cambia cuando el usuario lo amplía.
+  const defaultYBounds = useMemo(
+    () => defaultValueRange(selectedChannels),
+    [selectedChannels],
+  );
 
-    let minimum = visibleValues[0];
-    let maximum = visibleValues[0];
-
-    for (const value of visibleValues.slice(1)) {
-      minimum = Math.min(minimum, value);
-      maximum = Math.max(maximum, value);
-    }
-    const span = maximum - minimum;
-    const padding = span === 0 ? 1 : span * 0.08;
-
-    return {
-      minimum: minimum - padding,
-      maximum: maximum + padding,
-    };
-  }, [rangeEnd, rangeStart, selectedChannels]);
+  // Rango Y mostrado: el fijado por el usuario o el rango por defecto.
+  const yBounds = viewport.yRange ?? defaultYBounds;
 
   const xScale = (index: number): number => {
     const rangeLength = Math.max(1, rangeEnd - rangeStart);
@@ -251,7 +285,10 @@ export function SimpatiChart({
   };
 
   const yScale = (value: number): number => {
-    const span = Math.max(1, yBounds.maximum - yBounds.minimum);
+    // Se usa el rango real para que los rangos ampliados menores que la
+    // unidad ocupen todo el alto del área de trazado.
+    const rawSpan = yBounds.maximum - yBounds.minimum;
+    const span = rawSpan > 0 ? rawSpan : 1;
     return (
       PLOT_TOP +
       ((yBounds.maximum - value) / span) * PLOT_HEIGHT
@@ -274,41 +311,44 @@ export function SimpatiChart({
 
   const yTicks = useMemo(
     () =>
-      Array.from({ length: 5 }, (_, position) => {
-        const ratio = position / 4;
+      Array.from({ length: Y_TICK_INTERVALS + 1 }, (_, position) => {
+        const ratio = position / Y_TICK_INTERVALS;
         return yBounds.maximum -
           ratio * (yBounds.maximum - yBounds.minimum);
       }),
     [yBounds],
   );
 
-  const indexFromPointer = (
+  const yTickDecimals = valueTickDecimals(yBounds, Y_TICK_INTERVALS);
+
+  const pointFromPointer = (
     event: ReactPointerEvent<SVGSVGElement>,
-  ): number => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const svgX =
-      ((event.clientX - bounds.left) / bounds.width) * CHART_WIDTH;
-    const ratio = clamp(
-      (svgX - PLOT_LEFT) / PLOT_WIDTH,
-      0,
-      1,
+  ): SvgPoint =>
+    clientToSvgPoint(
+      event.clientX,
+      event.clientY,
+      event.currentTarget.getBoundingClientRect(),
+      CHART_WIDTH,
+      CHART_HEIGHT,
     );
-    return Math.round(
-      rangeStart + ratio * (rangeEnd - rangeStart),
-    );
-  };
 
   const handlePointerDown = (
     event: ReactPointerEvent<SVGSVGElement>,
   ) => {
-    if (rangeEnd <= rangeStart) {
+    // Solo el botón principal inicia una selección y debe empezar dentro
+    // del área de trazado.
+    if (event.button !== 0 || selectedChannels.length === 0) {
       return;
     }
 
-    const index = indexFromPointer(event);
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDragStart(index);
-    setDragCurrent(index);
+    const point = pointFromPointer(event);
+    if (!isInsidePlot(point, PLOT_AREA)) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setDragStart(point);
+    setDragCurrent(point);
   };
 
   const handlePointerMove = (
@@ -317,20 +357,37 @@ export function SimpatiChart({
     if (dragStart === null) {
       return;
     }
-    setDragCurrent(indexFromPointer(event));
+    setDragCurrent(clampToPlot(pointFromPointer(event), PLOT_AREA));
   };
 
   const finishPointerSelection = () => {
     if (dragStart !== null && dragCurrent !== null) {
-      const nextStart = Math.min(dragStart, dragCurrent);
-      const nextEnd = Math.max(dragStart, dragCurrent);
+      const nextViewport = applyZoomSelection(
+        viewport,
+        dragStart,
+        dragCurrent,
+        PLOT_AREA,
+        yBounds,
+        lastIndex,
+      );
 
-      if (nextEnd > nextStart) {
-        setRangeStart(nextStart);
-        setRangeEnd(nextEnd);
+      if (nextViewport !== null) {
+        setViewport(nextViewport);
       }
     }
 
+    setDragStart(null);
+    setDragCurrent(null);
+  };
+
+  const cancelPointerSelection = () => {
+    setDragStart(null);
+    setDragCurrent(null);
+  };
+
+  // Restablece solo el zoom (ambos ejes); no modifica los canales.
+  const resetZoom = () => {
+    setViewport(fullViewport(lastIndex));
     setDragStart(null);
     setDragCurrent(null);
   };
@@ -347,28 +404,35 @@ export function SimpatiChart({
     setSelectedChannelIds(
       data.thermal_channels.map((channel) => channel.id),
     );
-    setRangeStart(0);
-    setRangeEnd(lastIndex);
-    setDragStart(null);
-    setDragCurrent(null);
+    resetZoom();
   };
 
   const renderPngDataUrl = (): Promise<string> => {
-    if (!svgRef.current) {
-      return Promise.reject(
-        new Error("The chart preview is not available."),
-      );
-    }
-
-    const clonedSvg = svgRef.current.cloneNode(true) as SVGSVGElement;
-    clonedSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-    clonedSvg.setAttribute("width", String(CHART_WIDTH));
-    clonedSvg.setAttribute("height", String(CHART_HEIGHT));
-    clonedSvg.setAttribute(
-      "font-family",
-      "Segoe UI, Arial, sans-serif",
-    );
-    const serialized = new XMLSerializer().serializeToString(clonedSvg);
+    // La imagen del informe se genera con el formato común de exportación
+    // (1800 × 1125 px, 1,6:1, textos y trazos legibles en PowerPoint) a
+    // partir de exactamente la vista visible: intervalo X, rango Y,
+    // canales, título y estilos. No se recalculan los límites.
+    const serialized = buildChartExportSvg({
+      title,
+      valueAxisLabel: "Value",
+      timestamps: data.preview_timestamps,
+      viewport,
+      yBounds,
+      series: selectedChannels.map((channel) => {
+        const advancedIndex = data.advanced_channels.findIndex(
+          (candidate) => candidate.id === channel.id,
+        );
+        const style = styleForChannel(channel, Math.max(0, advancedIndex));
+        return {
+          id: channel.id,
+          label: channel.label,
+          values: channel.values,
+          color: style.color,
+          dash: style.dash,
+          primary: channel.thermal,
+        };
+      }),
+    });
     const blob = new Blob([serialized], {
       type: "image/svg+xml;charset=utf-8",
     });
@@ -378,10 +442,9 @@ export function SimpatiChart({
       const image = new Image();
 
       image.onload = () => {
-        const scale = 1.6;
         const canvas = document.createElement("canvas");
-        canvas.width = Math.round(CHART_WIDTH * scale);
-        canvas.height = Math.round(CHART_HEIGHT * scale);
+        canvas.width = EXPORT_WIDTH_PX;
+        canvas.height = EXPORT_HEIGHT_PX;
         const context = canvas.getContext("2d");
 
         if (!context) {
@@ -426,14 +489,18 @@ export function SimpatiChart({
     }
   };
 
-  const selectionStart =
+  // Selección en curso: su forma indica qué ejes se van a ajustar.
+  const selectionMode =
     dragStart !== null && dragCurrent !== null
-      ? Math.min(dragStart, dragCurrent)
+      ? classifyZoomSelection(dragStart, dragCurrent)
       : null;
-  const selectionEnd =
-    dragStart !== null && dragCurrent !== null
-      ? Math.max(dragStart, dragCurrent)
+  const selection =
+    dragStart !== null && dragCurrent !== null && selectionMode !== null
+      ? selectionRectangle(dragStart, dragCurrent, selectionMode, PLOT_AREA)
       : null;
+  // Identificador válido en `url(#...)` para recortar las series al área de
+  // trazado cuando el eje Y está ampliado.
+  const clipPathId = `simpati-plot-${titleId.replace(/[^A-Za-z0-9_-]/g, "")}`;
 
   return (
     <div className="simpati-chart">
@@ -520,13 +587,26 @@ export function SimpatiChart({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={finishPointerSelection}
-          onPointerCancel={finishPointerSelection}
+          onPointerCancel={cancelPointerSelection}
+          onDoubleClick={resetZoom}
         >
-          <title id={titleId}>SIMPATI temperature profile</title>
+          <title id={titleId}>{title}</title>
           <desc id={descriptionId}>
             Interactive time-series preview of the selected SIMPATI channels.
-            Drag across the plot to select a time interval.
+            Drag across the plot to zoom: horizontally for the time interval,
+            vertically for the value range or diagonally for both.
+            Double-click to restore the full view.
           </desc>
+          <defs>
+            <clipPath id={clipPathId}>
+              <rect
+                x={PLOT_LEFT}
+                y={PLOT_TOP}
+                width={PLOT_WIDTH}
+                height={PLOT_HEIGHT}
+              />
+            </clipPath>
+          </defs>
           <rect
             x="0"
             y="0"
@@ -534,6 +614,15 @@ export function SimpatiChart({
             height={CHART_HEIGHT}
             fill="#ffffff"
           />
+          <text
+            x={PLOT_LEFT}
+            y="26"
+            fill="#102f49"
+            fontSize="15"
+            fontWeight="700"
+          >
+            {title}
+          </text>
           <rect
             x={PLOT_LEFT}
             y={PLOT_TOP}
@@ -552,7 +641,7 @@ export function SimpatiChart({
               Math.max(0, advancedIndex),
             );
             const legendX = PLOT_LEFT + (index % 4) * 220;
-            const legendY = 24 + Math.floor(index / 4) * 24;
+            const legendY = 52 + Math.floor(index / 4) * 24;
 
             return (
               <g key={`legend-${channel.id}`}>
@@ -582,7 +671,7 @@ export function SimpatiChart({
           {selectedChannels.length > 8 && (
             <text
               x={PLOT_LEFT + 3 * 220}
-              y="52"
+              y="80"
               fill="#60717f"
               fontSize="11"
             >
@@ -590,10 +679,10 @@ export function SimpatiChart({
             </text>
           )}
 
-          {yTicks.map((tick) => {
+          {yTicks.map((tick, tickIndex) => {
             const y = yScale(tick);
             return (
-              <g key={tick}>
+              <g key={`y-tick-${tickIndex}`}>
                 <line
                   x1={PLOT_LEFT}
                   x2={PLOT_LEFT + PLOT_WIDTH}
@@ -609,7 +698,7 @@ export function SimpatiChart({
                   fill="#526575"
                   fontSize="12"
                 >
-                  {tick.toFixed(1)}
+                  {tick.toFixed(yTickDecimals)}
                 </text>
               </g>
             );
@@ -652,6 +741,13 @@ export function SimpatiChart({
             Value
           </text>
 
+          {/* Recorte al área de trazado solo con rango Y fijado: en modo
+              automático los datos siempre caben y el trazo no cambia. */}
+          <g
+            clipPath={
+              viewport.yRange !== null ? `url(#${clipPathId})` : undefined
+            }
+          >
           {selectedChannels.flatMap((channel) => {
             const advancedIndex = data.advanced_channels.findIndex(
               (candidate) => candidate.id === channel.id,
@@ -679,6 +775,7 @@ export function SimpatiChart({
               />
             ));
           })}
+          </g>
 
           {selectedChannels.length === 0 && (
             <text
@@ -692,53 +789,28 @@ export function SimpatiChart({
             </text>
           )}
 
-          {selectionStart !== null && selectionEnd !== null && (
+          {selection !== null && (
             <rect
-              x={xScale(selectionStart)}
-              y={PLOT_TOP}
-              width={Math.max(
-                2,
-                xScale(selectionEnd) - xScale(selectionStart),
-              )}
-              height={PLOT_HEIGHT}
+              className="simpati-chart__selection"
+              x={selection.x}
+              y={selection.y}
+              width={Math.max(2, selection.width)}
+              height={Math.max(2, selection.height)}
               fill="#13a8c7"
               fillOpacity="0.18"
               stroke="#087b93"
               strokeDasharray="5 4"
+              pointerEvents="none"
             />
           )}
         </svg>
       </div>
 
       <p className="simpati-chart__hint">
-        Drag across the plot or use the range controls to select a time
-        interval.
+        Drag on the chart to zoom: horizontally for time, vertically for
+        values or diagonally for both. Double-click the chart or use Reset
+        view to show the full chart.
       </p>
-
-      <div className="simpati-range-controls">
-        <label>
-          <span>Start: {formatTimestamp(data.preview_timestamps[rangeStart])}</span>
-          <input
-            type="range"
-            min="0"
-            max={Math.max(0, rangeEnd - 1)}
-            value={Math.min(rangeStart, Math.max(0, rangeEnd - 1))}
-            disabled={lastIndex < 1}
-            onChange={(event) => setRangeStart(Number(event.target.value))}
-          />
-        </label>
-        <label>
-          <span>End: {formatTimestamp(data.preview_timestamps[rangeEnd])}</span>
-          <input
-            type="range"
-            min={Math.min(lastIndex, rangeStart + 1)}
-            max={lastIndex}
-            value={Math.max(rangeEnd, Math.min(lastIndex, rangeStart + 1))}
-            disabled={lastIndex < 1}
-            onChange={(event) => setRangeEnd(Number(event.target.value))}
-          />
-        </label>
-      </div>
 
       {data.advanced_channels.length > 0 && (
         <div className="simpati-advanced">

@@ -36,4 +36,4 @@ Si no hay imágenes se muestra `No rendered images were found. The report can st
 
 ## Inclusión en el PowerPoint
 
-Al pulsar **Generate PowerPoint**, la aplicación envía la lista ordenada de imágenes seleccionadas. En `4. Test Results` se insertan exactamente esas imágenes, en el orden mostrado, en grupos de cuatro por diapositiva con las continuaciones necesarias y sin deformarlas. Una imagen desmarcada nunca aparece en el informe, y el informe puede generarse sin ninguna imagen.
+Al pulsar **Generate PowerPoint**, la aplicación envía la lista ordenada de imágenes seleccionadas. En `4. Test Results` se insertan exactamente esas imágenes, en el orden mostrado, de dos en dos por diapositiva, en dos columnas, con las continuaciones necesarias y sin deformarlas. Cada imagen ocupa el mayor tamaño posible entre el subtítulo y el pie; una gráfica sola aprovecha todo el ancho útil. Una imagen desmarcada nunca aparece en el informe, y el informe puede generarse sin ninguna imagen.

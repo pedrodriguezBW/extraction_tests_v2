@@ -134,6 +134,18 @@ class DataSourceInspectionResult(BaseModel):
     files: list[DataSourceFileResult] = Field(default_factory=list)
 
 
+class SimpatiAcquisitionFileResult(BaseModel):
+    """Original SIMPATI export (.x01 to .x99). Its content is not read."""
+
+    index: int = Field(description="Number of the .xNN extension.")
+    label: str = Field(description="Acquisition identifier, e.g. x04.")
+    name: str
+    relative_path: str = Field(
+        description="Path relative to the test root, using '/' separators.",
+    )
+    size: int = Field(description="File size in bytes.")
+
+
 class DataSourcesInspectionResult(BaseModel):
     """Optional acquisition sources stored in 03_Data.
 
@@ -145,7 +157,16 @@ class DataSourcesInspectionResult(BaseModel):
     simpati: DataSourceInspectionResult
     graphtec: DataSourceInspectionResult
     canoe: DataSourceInspectionResult
-    simpati_file: FileInspectionResult
+    simpati_file: FileInspectionResult = Field(
+        description=(
+            "First SIMPATI acquisition in numeric order. Kept for "
+            "compatibility; use simpati_acquisitions."
+        ),
+    )
+    simpati_acquisitions: list[SimpatiAcquisitionFileResult] = Field(
+        default_factory=list,
+        description="Every .x01-.x99 acquisition, ordered by its number.",
+    )
 
 
 class ProjectInspectionResponse(BaseModel):
