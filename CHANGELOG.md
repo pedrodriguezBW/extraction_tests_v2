@@ -4,6 +4,8 @@ All notable project changes are documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-02
+
 ### Changed
 
 - Evidence photos: the user chooses which photos of `02_Evidences` go into the report, in two clearly separated zones. **2. Test Assembly** receives the photos of the `initial` evidences (at most 4); **4. Test Results** receives the photos of every other evidence (no limit). Both sections place **two photos per slide**: Test Assembly puts photos 3 and 4 on a `2. Test Assembly (cont.)` slide right after the main one, and Test Results creates `<title> (cont.)` slides per evidence. An evidence without selected photos keeps its slide (title, reference and notes). The order is always automatic (evidence sequence, then photo order).

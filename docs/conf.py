@@ -16,8 +16,8 @@ project = "Generador de informes climáticos"
 author = "BorgWarner"
 copyright = "2026, BorgWarner"
 
-version = "0.5.0"
-release = "0.5.0"
+version = "0.6.0"
+release = "0.6.0"
 
 
 extensions = [

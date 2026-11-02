@@ -1,6 +1,6 @@
 [package]
 name = "climatic-report-generator"
-version = "0.5.0"
+version = "0.6.0"
 description = "Desktop interface for the Climatic Report Generator"
 authors = ["Climatic Report Generator"]
 edition = "2021"
