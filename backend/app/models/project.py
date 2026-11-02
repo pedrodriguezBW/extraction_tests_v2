@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 
+from .common import ApiError
+
 
 class ProjectInspectionRequest(BaseModel):
     """Path to the test folder to inspect."""
@@ -54,6 +56,17 @@ class EvidencePhotoResult(BaseModel):
     size: int | None = None
     path: str
     found: bool
+    relative_path: str = Field(
+        default="",
+        description=(
+            "Identifier used to select the photo: path relative to the "
+            "test root, e.g. 02_Evidences/00_Initial/251028_Evidence_01.jpg."
+        ),
+    )
+    selectable: bool = Field(
+        default=False,
+        description="The file exists and is a supported image.",
+    )
 
 
 class EvidenceResult(BaseModel):
@@ -74,6 +87,14 @@ class EvidenceResult(BaseModel):
     photos: list[EvidencePhotoResult] = Field(default_factory=list)
     photos_count: int = 0
     photos_found_count: int = 0
+    report_section: str = Field(
+        default="results",
+        description=(
+            "Report section that receives the photos of this evidence: "
+            "'assembly' (type initial -> 2. Test Assembly) or 'results' "
+            "(any other type -> 4. Test Results)."
+        ),
+    )
 
 
 class InvalidEvidenceResult(BaseModel):
@@ -106,6 +127,14 @@ class EvidencesInspectionResult(BaseModel):
     )
     missing_photos: list[MissingEvidencePhotoResult] = Field(
         default_factory=list
+    )
+    assembly_max_photos: int = Field(
+        default=4,
+        description="Maximum number of photos selectable for Test Assembly.",
+    )
+    photos_per_slide: int = Field(
+        default=2,
+        description="Maximum number of evidence photos per slide.",
     )
 
 
@@ -182,3 +211,11 @@ class ProjectInspectionResponse(BaseModel):
     powerpoint_template: FileInspectionResult
     errors: list[str]
     warnings: list[str]
+
+
+class EvidencePhotoErrorResponse(BaseModel):
+    """Error returned when an evidence photo cannot be served."""
+
+    success: bool = False
+    test_root: str
+    errors: list[ApiError] = Field(default_factory=list)

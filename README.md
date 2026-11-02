@@ -137,10 +137,20 @@ Las evidencias válidas generan diapositivas cronológicas en la sección
 `Test Results` del PowerPoint. Las diapositivas incluyen el título, la
 referencia, las notas y las fotografías definidas en cada descriptor.
 
-Cuando una evidencia contiene más fotografías de las que admite una sola
-diapositiva, el generador crea automáticamente las diapositivas de
-continuación necesarias. La evidencia inicial también proporciona las
-fotografías utilizadas en la sección `Test Assembly`.
+Las fotografías se colocan de dos en dos por diapositiva. Cuando una
+evidencia tiene más de dos fotografías seleccionadas, el generador crea las
+diapositivas de continuación necesarias (`<título> (cont.)`); una evidencia
+sin fotografías seleccionadas conserva su diapositiva. Las evidencias de tipo
+`initial` proporcionan las fotografías de la sección `Test Assembly` (como
+máximo 4: dos en la diapositiva principal y dos en `2. Test Assembly
+(cont.)`).
+
+En **Evidence photos** la interfaz muestra dos paneles separados,
+**2. Test Assembly** (evidencias `initial`, máximo 4) y **4. Test Results**
+(resto de evidencias, sin límite), cada uno con su color, su contador y sus
+botones. `POST /projects/generate-report` recibe la selección en
+`selected_assembly_photos` y `selected_result_photos`
+(`02_Evidences/<carpeta>/<savedName>`); el orden es siempre el automático.
 
 ## Uso por consola
 
@@ -177,7 +187,10 @@ fotografías utilizadas en la sección `Test Assembly`.
   fuentes de datos con el inventario de sus archivos, plantilla, errores y
   advertencias.
 - `POST /projects/generate-report`: genera el PowerPoint en `04_Report` con
-  las imágenes indicadas en `selected_rendered_assets`.
+  las imágenes indicadas en `selected_rendered_assets` y las fotografías de
+  evidencia de `selected_assembly_photos` y `selected_result_photos`.
+- `GET /projects/evidence-photo`: sirve una fotografía declarada por una
+  evidencia válida (miniaturas de **Evidence photos**).
 - `POST /projects/rendered-assets`, `GET /projects/rendered-asset` y
   `POST /projects/rendered-assets/delete`: inventario, apertura y eliminación
   de las imágenes de `04_Report/_RenderedAssets`.

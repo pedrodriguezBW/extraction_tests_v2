@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import { DataSourceSelector } from "./components/DataSourceSelector";
 import { GraphtecAnalysis } from "./components/GraphtecAnalysis";
+import { EvidencePhotos } from "./components/EvidencePhotos";
 import { RenderedAssets } from "./components/RenderedAssets";
 import { SimpatiAcquisitions } from "./components/SimpatiAcquisitions";
 import { SimpatiChart } from "./components/SimpatiChart";
@@ -11,6 +12,7 @@ import {
   deleteRenderedAsset,
   fetchRenderedAsset,
   generateReport,
+  getEvidencePhotoUrl,
   getRenderedAssetUrl,
   inspectGraphtec,
   inspectProject,
@@ -49,6 +51,12 @@ import {
   selectedRenderedAssetCount,
   selectedRenderedAssetPaths,
 } from "./services/renderedAssetSelection";
+import {
+  INITIAL_EVIDENCE_PHOTO_SELECTION,
+  evidencePhotoReportSummary,
+  evidencePhotoSelectionReducer,
+  selectedEvidencePhotoPaths,
+} from "./services/evidencePhotoSelection";
 import type {
   DataSourceKey,
   ProjectInspectionResponse,
@@ -144,6 +152,10 @@ function App() {
     INITIAL_RENDERED_ASSET_SELECTION,
   );
   const [renderedAssetsLoading, setRenderedAssetsLoading] = useState(false);
+  const [evidencePhotos, dispatchEvidencePhotos] = useReducer(
+    evidencePhotoSelectionReducer,
+    INITIAL_EVIDENCE_PHOTO_SELECTION,
+  );
   const [deletingRenderedAssetPath, setDeletingRenderedAssetPath] =
     useState<string | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
@@ -174,6 +186,7 @@ function App() {
     setInspection(null);
     dispatchDataSelection({ type: "reset" });
     dispatchRenderedAssets({ type: "reset" });
+    dispatchEvidencePhotos({ type: "reset" });
     setReport(null);
     setCurrentError(null);
     setOperationMessage(null);
@@ -265,6 +278,11 @@ function App() {
     try {
       const response = await inspectProject(selectedPath);
       setInspection(response);
+      // Same test folder: the photo selection survives a new inspection.
+      dispatchEvidencePhotos({
+        type: "inspectionLoaded",
+        evidences: response.evidences,
+      });
       await refreshRenderedAssets(selectedPath);
       setOperationMessage(
         canGenerateReport(response)
@@ -320,7 +338,10 @@ function App() {
               imageCount === 1 ? "" : "s"
             } will be included. Generating report...`,
       );
-      const response = await generateReport(selectedPath, selectedAssets);
+      const response = await generateReport(selectedPath, selectedAssets, {
+        assembly: selectedEvidencePhotoPaths(evidencePhotos, "assembly"),
+        results: selectedEvidencePhotoPaths(evidencePhotos, "results"),
+      });
       setReport(response);
       const usedCount = response.rendered_assets_count;
       setOperationMessage(
@@ -345,6 +366,7 @@ function App() {
     graphtecOperationActive,
     reportLoading,
     renderedAssets,
+    evidencePhotos,
     selectedPath,
   ]);
 
@@ -993,6 +1015,41 @@ function App() {
                   ))}
                 </ol>
               )}
+
+              <EvidencePhotos
+                state={evidencePhotos}
+                disabled={busy}
+                getImageUrl={(relativePath) =>
+                  getEvidencePhotoUrl(selectedPath, relativePath)
+                }
+                onToggle={(section, relativePath) =>
+                  dispatchEvidencePhotos({
+                    type: "toggled",
+                    section,
+                    relativePath,
+                  })
+                }
+                onSelectAll={(section) =>
+                  dispatchEvidencePhotos({ type: "selectAll", section })
+                }
+                onClearSelection={(section) =>
+                  dispatchEvidencePhotos({ type: "clearSelection", section })
+                }
+                onSelectEvidence={(section, evidenceKey) =>
+                  dispatchEvidencePhotos({
+                    type: "selectEvidence",
+                    section,
+                    evidenceKey,
+                  })
+                }
+                onClearEvidence={(section, evidenceKey) =>
+                  dispatchEvidencePhotos({
+                    type: "clearEvidence",
+                    section,
+                    evidenceKey,
+                  })
+                }
+              />
             </>
           )}
 
@@ -1269,6 +1326,15 @@ function App() {
             {renderedAssetSelectionSummary(renderedAssets)}
           </div>
 
+          {inspection !== null && (
+            <div
+              className="report-chart-status report-chart-status--neutral report-photo-status"
+              aria-live="polite"
+            >
+              {evidencePhotoReportSummary(evidencePhotos)}
+            </div>
+          )}
+
           {report?.success && (
             <div className="result-panel">
               <div className="result-panel__header">
@@ -1294,6 +1360,11 @@ function App() {
                   : `${report.rendered_assets_count} result image${
                       report.rendered_assets_count === 1 ? "" : "s"
                     } included in Test Results.`}
+              </p>
+              <p className="report-images-used">
+                {`Evidence photos: ${report.assembly_photos_count ?? 0} in Test Assembly, ${
+                  report.result_photos_count ?? 0
+                } in Test Results.`}
               </p>
             </div>
           )}

@@ -174,6 +174,7 @@ class ProjectInspectionEndpointTests(unittest.TestCase):
             project_routes,
             {
                 ("POST", "/projects/inspect"),
+                ("GET", "/projects/evidence-photo"),
                 ("POST", "/projects/generate-report"),
                 ("POST", "/projects/simpati/inspect"),
                 ("POST", "/projects/simpati/save-chart"),

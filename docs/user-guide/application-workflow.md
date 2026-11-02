@@ -49,6 +49,8 @@ Para cada evidencia se muestra:
 
 Revisa cualquier evidencia marcada con advertencia, especialmente cuando falten fotografías.
 
+Debajo de la lista, **Evidence photos** permite elegir qué fotografías se insertan en **2. Test Assembly** (evidencias `initial`, máximo 4) y en **4. Test Results** (resto de evidencias, sin límite). Consulta [Fotografías de evidencias](evidence-photos.md).
+
 ### Data source y File
 
 Después de la inspección aparecen dos selectores:

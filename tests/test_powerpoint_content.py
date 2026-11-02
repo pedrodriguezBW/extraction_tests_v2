@@ -2,7 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from pptx import Presentation
 
@@ -468,8 +468,10 @@ class TestResultsPopulationTests(unittest.TestCase):
     @patch("src.report_generator.generator.load_test_metadata")
     @patch("src.report_generator.generator.discover_evidences")
     @patch("src.report_generator.generator.select_rendered_assets")
+    @patch("src.report_generator.generator.select_evidence_photos")
     def test_generator_passes_selected_images_to_test_results(
         self,
+        select_photos_mock,
         select_assets_mock,
         discover_evidences_mock,
         load_metadata_mock,
@@ -492,7 +494,11 @@ class TestResultsPopulationTests(unittest.TestCase):
         metadata = {"test": {"test_name": "Example"}}
         load_metadata_mock.return_value = metadata
         initial_images=[test_root/"02_Evidences"/"00_Initial"/"initial_01.jpg"]
-        evidence_discovery=MagicMock();evidence_discovery.found_photo_paths_for_type.return_value=initial_images;discover_evidences_mock.return_value=evidence_discovery
+        evidence_discovery=MagicMock();discover_evidences_mock.return_value=evidence_discovery
+        assembly_photo=MagicMock(path=initial_images[0])
+        result_photo=MagicMock(path=test_root/"02_Evidences"/"01_Final"/"final_01.jpg")
+        result_photo.evidence.descriptor_path=test_root/"02_Evidences"/"01_Final"/"evidence.json"
+        select_photos_mock.side_effect=[[assembly_photo],[result_photo]]
         require_report_mock.return_value = Path("test") / "04_Report"
         prepare_directory_mock.return_value = Path("working")
         create_presentation_mock.return_value = working_path
@@ -508,12 +514,21 @@ class TestResultsPopulationTests(unittest.TestCase):
             test_root=test_root,
             template_path=template_path,
             selected_rendered_assets=selected,
+            selected_assembly_photos=["02_Evidences/00_Initial/initial_01.jpg"],
+            selected_result_photos=["02_Evidences/01_Final/final_01.jpg"],
         )
 
         self.assertEqual(result, output_path)
+        self.assertEqual(
+            select_photos_mock.call_args_list,
+            [
+                call(evidence_discovery, "assembly", ["02_Evidences/00_Initial/initial_01.jpg"]),
+                call(evidence_discovery, "results", ["02_Evidences/01_Final/final_01.jpg"]),
+            ],
+        )
         select_assets_mock.assert_called_once_with(test_root, selected)
         populate_assembly_mock.assert_called_once_with(presentation_path=working_path,metadata=metadata,image_paths=initial_images)
-        populate_results_mock.assert_called_once_with(presentation_path=working_path,test_root=test_root,evidence_discovery=evidence_discovery,result_image_paths=resolved)
+        populate_results_mock.assert_called_once_with(presentation_path=working_path,test_root=test_root,evidence_discovery=evidence_discovery,result_image_paths=resolved,evidence_photo_paths={result_photo.evidence.descriptor_path:[result_photo.path]})
         prune_slides_mock.assert_called_once_with(working_path)
         publish_report_mock.assert_called_once_with(
             working_path,

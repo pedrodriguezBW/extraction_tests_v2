@@ -118,7 +118,23 @@ export interface EvidencePhotoResult {
 
   /** Indica si el archivo físico existe. */
   found: boolean;
+
+  /**
+   * Identificador con el que se selecciona la fotografía: ruta relativa al
+   * ensayo (`02_Evidences/<carpeta>/<savedName>`).
+   */
+  relative_path: string;
+
+  /** El archivo existe y tiene un formato de imagen admitido. */
+  selectable: boolean;
 }
+
+/**
+ * Sección del informe que recibe las fotografías de una evidencia:
+ * `assembly` (tipo `initial`, 2. Test Assembly) o `results` (resto de
+ * tipos, 4. Test Results).
+ */
+export type EvidenceReportSection = "assembly" | "results";
 
 /**
  * Evidencia válida detectada durante la inspección del ensayo.
@@ -168,6 +184,9 @@ export interface EvidenceResult {
 
   /** Número de fotografías encontradas. */
   photos_found_count: number;
+
+  /** Sección del informe que recibe las fotografías de la evidencia. */
+  report_section: EvidenceReportSection;
 }
 
 /**
@@ -225,6 +244,12 @@ export interface EvidencesInspectionResult {
 
   /** Fotografías declaradas que no se han encontrado. */
   missing_photos: MissingEvidencePhotoResult[];
+
+  /** Número máximo de fotografías seleccionables para Test Assembly. */
+  assembly_max_photos: number;
+
+  /** Número máximo de fotografías de evidencia por diapositiva. */
+  photos_per_slide: number;
 }
 
 /**

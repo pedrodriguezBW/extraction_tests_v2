@@ -14,6 +14,19 @@ export interface ReportGenerationRequest {
    * imágenes de resultados; el backend nunca la sustituye por el inventario.
    */
   selected_rendered_assets: string[];
+
+  /**
+   * Fotografías de las evidencias `initial` para 2. Test Assembly
+   * (`02_Evidences/<carpeta>/<savedName>`). Máximo 4.
+   */
+  selected_assembly_photos: string[];
+
+  /**
+   * Fotografías del resto de evidencias para 4. Test Results. Sin límite.
+   * El backend siempre usa el orden automático (secuencia de la evidencia y
+   * orden de sus fotografías).
+   */
+  selected_result_photos: string[];
 }
 
 /**
@@ -38,6 +51,18 @@ export interface ReportGenerationResponse {
 
   /** Rutas relativas de las imágenes insertadas, en el orden de inserción. */
   rendered_assets: string[];
+
+  /** Número de fotografías insertadas en Test Assembly. */
+  assembly_photos_count: number;
+
+  /** Fotografías insertadas en Test Assembly, en orden. */
+  assembly_photos: string[];
+
+  /** Número de fotografías de evidencia insertadas en Test Results. */
+  result_photos_count: number;
+
+  /** Fotografías de evidencia insertadas en Test Results, en orden. */
+  result_photos: string[];
 
   /** Errores devueltos por el backend durante la generación. */
   errors: ApiError[];

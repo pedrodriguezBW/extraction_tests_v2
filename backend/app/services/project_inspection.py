@@ -10,6 +10,13 @@ from src.report_generator.data_sources import (
     discover_data_sources,
     list_source_files,
 )
+from src.report_generator.evidence_photos import (
+    ASSEMBLY_MAX_PHOTOS,
+    EVIDENCE_PHOTOS_PER_SLIDE,
+    evidence_photo_relative_path,
+    evidence_section,
+    is_selectable_photo,
+)
 from src.report_generator.evidences import (
     EvidenceDiscovery,
     discover_evidences,
@@ -180,11 +187,16 @@ def _evidences_result(
                     size=photo.size,
                     path=str(photo.path),
                     found=photo.found,
+                    relative_path=evidence_photo_relative_path(
+                        evidence, photo
+                    ),
+                    selectable=is_selectable_photo(photo),
                 )
                 for photo in evidence.photos
             ],
             photos_count=len(evidence.photos),
             photos_found_count=len(evidence.found_photos),
+            report_section=evidence_section(evidence),
         )
         for evidence in discovery.evidences
     ]
@@ -216,6 +228,8 @@ def _evidences_result(
             )
             for missing in discovery.missing_photos
         ],
+        assembly_max_photos=ASSEMBLY_MAX_PHOTOS,
+        photos_per_slide=EVIDENCE_PHOTOS_PER_SLIDE,
     )
 
 

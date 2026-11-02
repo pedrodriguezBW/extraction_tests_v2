@@ -95,10 +95,13 @@ export function buildInspection(
               size: 2580919,
               path: `${TEST_ROOT}\\02_Evidences\\00_Initial\\251028_Evidence_01.jpg`,
               found: true,
+              relative_path: "02_Evidences/00_Initial/251028_Evidence_01.jpg",
+              selectable: true,
             },
           ],
           photos_count: 1,
           photos_found_count: 1,
+          report_section: "assembly",
         },
         {
           id: "final",
@@ -116,6 +119,7 @@ export function buildInspection(
           photos: [],
           photos_count: 2,
           photos_found_count: 1,
+          report_section: "results",
         },
       ],
       invalid_evidences: [],
@@ -127,6 +131,8 @@ export function buildInspection(
           path: `${TEST_ROOT}\\02_Evidences\\99_Final\\251103_Evidence_02.jpg`,
         },
       ],
+      assembly_max_photos: 4,
+      photos_per_slide: 2,
     },
     data: {
       directory: {

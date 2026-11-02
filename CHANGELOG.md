@@ -6,6 +6,11 @@ All notable project changes are documented in this file.
 
 ### Changed
 
+- Evidence photos: the user chooses which photos of `02_Evidences` go into the report, in two clearly separated zones. **2. Test Assembly** receives the photos of the `initial` evidences (at most 4); **4. Test Results** receives the photos of every other evidence (no limit). Both sections place **two photos per slide**: Test Assembly puts photos 3 and 4 on a `2. Test Assembly (cont.)` slide right after the main one, and Test Results creates `<title> (cont.)` slides per evidence. An evidence without selected photos keeps its slide (title, reference and notes). The order is always automatic (evidence sequence, then photo order).
+- Fixed: Test Results grouped evidence photos by four but only drew the first two of each group, so photos 3 and 4 of every group were lost.
+- `POST /projects/inspect` adds `report_section` per evidence, `relative_path` and `selectable` per photo, and `assembly_max_photos` / `photos_per_slide`.
+- `POST /projects/generate-report` accepts `selected_assembly_photos` and `selected_result_photos` (`02_Evidences/<folder>/<savedName>`), validated before generating (limit of 4 in Assembly, photos of the other zone, duplicates, invalid, missing or unsupported files are structured errors); `null` keeps the previous behaviour (first 4 initial photos, every other photo). The response adds `assembly_photos(_count)` and `result_photos(_count)`.
+
 - Report charts (`_RenderedAssets`): every chart saved by the application (SIMPATI viewer, SIMPATI console tool and Graphtec) is exported as 1800 × 1125 px (1.6:1), designed for the width of one Test Results column (≈14.4 cm). Larger title (13 pt), axis labels (12 pt), tick values and legend (11 pt), thicker lines (1.8 pt), minimal margins, complete titles and legends, non-overlapping X labels (SIMPATI dates on two lines) and full values on narrow Y ranges. Shared settings in `src/report_generator/chart_export.py` and `frontend/src/services/chartExport.ts`. Evidence photos and the native Test Inputs charts are unchanged.
 - Test Results: chart size and position are computed from the real template (content placeholder, subtitle and footer/logo) instead of fixed dimensions. Up to two charts per slide in two columns, each as large as possible, centered and undistorted; a single chart uses the full useful width; more than two charts create continuation slides.
 
@@ -30,6 +35,11 @@ All notable project changes are documented in this file.
 - Changing the data source clears the selected file and the previous SIMPATI result and preview. Changing the file clears the previous SIMPATI result. No file is analyzed automatically.
 
 ### Added
+
+- `GET /projects/evidence-photo` to serve one photo declared by a valid evidence (path confined to `02_Evidences`).
+- Engine module `src/report_generator/evidence_photos.py` (`select_evidence_photos`, `resolve_evidence_photo`, `selectable_evidence_photos`, `ASSEMBLY_MAX_PHOTOS`, `EVIDENCE_PHOTOS_PER_SLIDE`).
+- Frontend **Evidence photos** section (`components/EvidencePhotos.tsx`, `services/evidencePhotoSelection.ts`): two colour-coded panels with zone badges on each thumbnail, per-zone counters (`3 / 4 selected`, `5 of 7 selected`), **Select all** / **Clear selection** per zone and **Select** / **Clear** per evidence, the 4-photo lock in Test Assembly, and a summary of the photo/slide split next to **Generate PowerPoint**. User guide page `evidence-photos.md`.
+- Tests: `tests/test_evidence_photos.py`, `tests/test_evidence_photos_api.py`, `evidencePhotoSelection.test.ts`, `EvidencePhotos.test.tsx`.
 
 - `POST /projects/rendered-assets` (inventory with structured warnings for unsupported files), `GET /projects/rendered-asset` and `POST /projects/rendered-assets/delete`. Every client path is validated on the server: relative, without `.`/`..`, confined to `04_Report/_RenderedAssets`, existing regular file, accepted extension (case-insensitive) and valid image content.
 - Engine helpers in `rendered_assets.py`: `list_rendered_assets`, `resolve_rendered_asset`, `select_rendered_assets`, `delete_rendered_asset`.

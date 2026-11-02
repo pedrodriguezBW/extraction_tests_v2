@@ -32,6 +32,14 @@
    :show-inheritance:
 ```
 
+## Fotografías de evidencias
+
+```{eval-rst}
+.. automodule:: backend.app.services.evidence_photos
+   :members:
+   :show-inheritance:
+```
+
 ## Gestión de SIMPATI
 
 ```{eval-rst}

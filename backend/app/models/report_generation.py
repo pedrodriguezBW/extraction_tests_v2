@@ -29,6 +29,25 @@ class ReportGenerationRequest(BaseModel):
             "images; null means no selection was made (all valid images)."
         ),
     )
+    selected_assembly_photos: list[str] | None = Field(
+        default=None,
+        max_length=500,
+        description=(
+            "Evidence photos (type initial) for 2. Test Assembly, as "
+            "02_Evidences/<folder>/<savedName>. At most 4 are accepted. "
+            "[] means no photos; null means the first 4 valid photos."
+        ),
+    )
+    selected_result_photos: list[str] | None = Field(
+        default=None,
+        max_length=5000,
+        description=(
+            "Evidence photos (any type except initial) for 4. Test Results, "
+            "as 02_Evidences/<folder>/<savedName>. No limit. The automatic "
+            "order (evidence sequence, then photo order) is always used. "
+            "[] means no photos (evidence slides are kept); null means all."
+        ),
+    )
 
 
 class ReportGenerationResponse(BaseModel):
@@ -42,5 +61,15 @@ class ReportGenerationResponse(BaseModel):
     rendered_assets: list[str] = Field(
         default_factory=list,
         description="Relative paths of the images inserted, in slide order.",
+    )
+    assembly_photos_count: int = 0
+    assembly_photos: list[str] = Field(
+        default_factory=list,
+        description="Evidence photos inserted in Test Assembly, in order.",
+    )
+    result_photos_count: int = 0
+    result_photos: list[str] = Field(
+        default_factory=list,
+        description="Evidence photos inserted in Test Results, in order.",
     )
     errors: list[ApiError] = Field(default_factory=list)

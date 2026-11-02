@@ -4,7 +4,14 @@
 
 Las fotografías se resuelven desde la carpeta que contiene `evidence.json` utilizando el campo `savedName` de cada elemento de `photos`.
 
-La inspección informa de las fotografías referenciadas que no existen. El generador utiliza las imágenes válidas para `Test Assembly` y `Test Results` según el tipo y la secuencia de la evidencia.
+La inspección informa de las fotografías referenciadas que no existen. Cada fotografía se identifica por su ruta relativa al ensayo (`02_Evidences/<carpeta>/<savedName>`) y pertenece a una única sección según el tipo de su evidencia (`src/report_generator/evidence_photos.py`):
+
+- `assembly`: evidencias `initial` → `2. Test Assembly`, como máximo `ASSEMBLY_MAX_PHOTOS` (4).
+- `results`: resto de evidencias → `4. Test Results`, sin límite.
+
+`select_evidence_photos(discovery, section, selection)` valida la selección (ruta relativa sin `.`/`..` dentro de `02_Evidences`, declarada por una evidencia válida, existente, formato admitido, sin duplicados, de la sección correcta y, en Assembly, sin superar 4) y la devuelve siempre en el orden automático. `None` mantiene el comportamiento sin selección: las 4 primeras de Assembly y todas las de Results.
+
+Ambas secciones colocan `EVIDENCE_PHOTOS_PER_SLIDE` (2) fotografías por diapositiva. En `Test Assembly` las fotografías 3 y 4 van en una continuación `2. Test Assembly (cont.)` insertada justo después de la diapositiva principal (antes de las continuaciones de equipamiento). En `Test Results` cada evidencia ocupa al menos una diapositiva, aunque no tenga fotografías seleccionadas; sus continuaciones repiten el título con `(cont.)` y el tipo/referencia, sin las notas.
 
 ## Inserción de imágenes
 
@@ -71,6 +78,7 @@ Cuando se modifica el tratamiento de imágenes o gráficas, debe revisarse:
 - Que la imagen no se deforme.
 - Que el encaje respete el área disponible.
 - Que las fotografías aparezcan en la evidencia correcta.
+- Que cada sección contenga exactamente las fotografías seleccionadas, dos por diapositiva, y que Test Assembly no supere 4.
 - Que las series y ejes de las gráficas nativas sean editables.
 - Que `Test Results` contenga exactamente las imágenes seleccionadas, en el orden recibido, y ninguna otra.
 - Que las gráficas no invadan el encabezado, el subtítulo ni el pie, y que haya como máximo dos por diapositiva.

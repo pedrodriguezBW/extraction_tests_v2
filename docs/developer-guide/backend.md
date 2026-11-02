@@ -51,6 +51,14 @@ Toda ruta recibida se valida en el servidor: debe ser relativa, sin componentes 
 
 `POST /projects/generate-report` acepta `selected_rendered_assets`: la lista ordenada de rutas relativas que se insertarán en `Test Results`. El backend valida cada ruta (rechaza duplicados, rutas inválidas, recursos externos o inexistentes) antes de escribir nada y pasa exactamente esa lista al motor. Una lista vacía genera el informe sin imágenes de resultados y nunca se sustituye por el inventario. Si el campo se omite (`null`), no se ha realizado ninguna selección y se incluyen todas las imágenes válidas del inventario (comportamiento de los scripts de consola). La respuesta indica `rendered_assets_count` y `rendered_assets`.
 
+### Fotografías de evidencias
+
+`POST /projects/inspect` devuelve, para cada evidencia, `report_section` (`assembly` para el tipo `initial`, `results` para el resto) y, para cada fotografía, `relative_path` (`02_Evidences/<carpeta>/<savedName>`) y `selectable` (existe y es una imagen admitida). `evidences.assembly_max_photos` (4) y `evidences.photos_per_slide` (2) informan de los límites.
+
+`GET /projects/evidence-photo?test_root=...&relative_path=...` sirve una fotografía declarada por una evidencia válida. Errores: `evidence_photo_invalid_path` (400), `evidence_photo_not_found` (404), `evidence_photo_unsupported` (415), `evidence_photo_permission_denied` (403), `evidence_photo_failed` (500).
+
+`POST /projects/generate-report` acepta `selected_assembly_photos` (máximo 4, solo evidencias `initial`) y `selected_result_photos` (sin límite, resto de evidencias). Se validan antes de escribir nada; el motor usa siempre el orden automático. `null` mantiene el comportamiento sin selección (4 primeras de Assembly, todas las de Results); `[]` no inserta ninguna. Errores: `report_generation_evidence_photo_limit` (400), `report_generation_invalid_evidence_photo` (400, incluye fotografías de la otra sección), `report_generation_evidence_photo_not_found` (404) y `report_generation_evidence_photo_unsupported` (415). La respuesta añade `assembly_photos_count`, `assembly_photos`, `result_photos_count` y `result_photos`.
+
 ## Organización interna
 
 ```text

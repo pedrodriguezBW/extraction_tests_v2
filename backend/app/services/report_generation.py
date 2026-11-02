@@ -5,7 +5,17 @@ from zipfile import BadZipFile
 from pptx.exc import PackageNotFoundError
 from config import POWERPOINT_TEMPLATE_PATH
 from src.report_generator import generate_climatic_report
-from src.report_generator.generator import resolve_result_images
+from src.report_generator.evidence_photos import (
+    EvidencePhotoLimitError,
+    EvidencePhotoNotFoundError,
+    EvidencePhotoUnsupportedError,
+    EvidencePhotoError,
+)
+from src.report_generator.evidences import discover_evidences
+from src.report_generator.generator import (
+    resolve_evidence_photo_selection,
+    resolve_result_images,
+)
 from src.report_generator.rendered_assets import (
     RenderedAssetError,
     RenderedAssetNotFoundError,
@@ -57,6 +67,18 @@ def _build_generation_error(
     elif isinstance(error, (RenderedAssetPathError, RenderedAssetError)):
         status_code = 400
         code = "report_generation_invalid_rendered_asset"
+    elif isinstance(error, EvidencePhotoNotFoundError):
+        status_code = 404
+        code = "report_generation_evidence_photo_not_found"
+    elif isinstance(error, EvidencePhotoUnsupportedError):
+        status_code = 415
+        code = "report_generation_evidence_photo_unsupported"
+    elif isinstance(error, EvidencePhotoLimitError):
+        status_code = 400
+        code = "report_generation_evidence_photo_limit"
+    elif isinstance(error, EvidencePhotoError):
+        status_code = 400
+        code = "report_generation_invalid_evidence_photo"
     elif isinstance(
         error,
         (
@@ -95,6 +117,8 @@ def _build_generation_error(
 def generate_project_report(
     test_root: str | Path,
     selected_rendered_assets: Sequence[str] | None = None,
+    selected_assembly_photos: Sequence[str] | None = None,
+    selected_result_photos: Sequence[str] | None = None,
 ) -> ReportGenerationResponse:
     """
     Generate the report with the existing PowerPoint engine.
@@ -107,6 +131,11 @@ def generate_project_report(
     before any file is written; the engine then receives exactly that list.
     An empty list generates the report without result images. ``None``
     (field omitted) includes every valid image of the inventory.
+
+    ``selected_assembly_photos`` (at most 4, evidences of type initial) and
+    ``selected_result_photos`` (no limit, the other evidences) are validated
+    the same way before generating; the engine always uses the automatic
+    order. ``None`` keeps the behaviour without selection.
     """
     project_root = Path(test_root).expanduser()
 
@@ -118,6 +147,15 @@ def generate_project_report(
             else list(selected_rendered_assets)
         )
         resolved_images = resolve_result_images(project_root, selection)
+        assembly_photos, result_photos = resolve_evidence_photo_selection(
+            discover_evidences(project_root),
+            None
+            if selected_assembly_photos is None
+            else list(selected_assembly_photos),
+            None
+            if selected_result_photos is None
+            else list(selected_result_photos),
+        )
         template_path = Path(
             POWERPOINT_TEMPLATE_PATH
         ).expanduser().resolve()
@@ -128,6 +166,12 @@ def generate_project_report(
                 selected_rendered_assets=[
                     relative_asset_path(image.name)
                     for image in resolved_images
+                ],
+                selected_assembly_photos=[
+                    photo.relative_path for photo in assembly_photos
+                ],
+                selected_result_photos=[
+                    photo.relative_path for photo in result_photos
                 ],
             )
         ).resolve()
@@ -143,5 +187,9 @@ def generate_project_report(
         rendered_assets=[
             relative_asset_path(image.name) for image in resolved_images
         ],
+        assembly_photos_count=len(assembly_photos),
+        assembly_photos=[photo.relative_path for photo in assembly_photos],
+        result_photos_count=len(result_photos),
+        result_photos=[photo.relative_path for photo in result_photos],
         errors=[],
     )

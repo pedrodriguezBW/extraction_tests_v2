@@ -3,7 +3,14 @@
 from pathlib import Path
 from typing import Sequence
 
-from .evidences import discover_evidences
+from .evidence_photos import (
+    ASSEMBLY_SECTION,
+    RESULTS_SECTION,
+    SelectableEvidencePhoto,
+    photos_by_evidence,
+    select_evidence_photos,
+)
+from .evidences import EvidenceDiscovery, discover_evidences
 from .metadata import load_test_metadata
 from .rendered_assets import list_rendered_assets, select_rendered_assets
 from .powerpoint.presentation import (
@@ -43,10 +50,38 @@ def resolve_result_images(
     return select_rendered_assets(test_root, list(selected_rendered_assets))
 
 
+def resolve_evidence_photo_selection(
+    evidence_discovery: EvidenceDiscovery,
+    selected_assembly_photos: Sequence[str] | None,
+    selected_result_photos: Sequence[str] | None,
+) -> tuple[list[SelectableEvidencePhoto], list[SelectableEvidencePhoto]]:
+    """Valida las fotografías de evidencia de ``Test Assembly`` y ``Test Results``.
+
+    Cada lista contiene rutas relativas al ensayo
+    (``02_Evidences/<carpeta>/<savedName>``). ``None`` mantiene el
+    comportamiento sin selección (Assembly: las 4 primeras fotografías de las
+    evidencias ``initial``; Results: todas las del resto de evidencias).
+    El resultado conserva siempre el orden automático.
+
+    Raises:
+        ValueError: Selección inválida (subclases de ``EvidencePhotoError``).
+    """
+    return (
+        select_evidence_photos(
+            evidence_discovery, ASSEMBLY_SECTION, selected_assembly_photos
+        ),
+        select_evidence_photos(
+            evidence_discovery, RESULTS_SECTION, selected_result_photos
+        ),
+    )
+
+
 def generate_climatic_report(
     test_root,
     template_path,
     selected_rendered_assets: Sequence[str] | None = None,
+    selected_assembly_photos: Sequence[str] | None = None,
+    selected_result_photos: Sequence[str] | None = None,
 ):
     """Genera y publica el informe PowerPoint de un ensayo climático.
 
@@ -56,8 +91,10 @@ def generate_climatic_report(
     informe climático y publica el archivo terminado en ``04_Report``.
 
     Las fotografías de montaje se obtienen de las evidencias cuyo tipo es
-    ``initial``. El resto de evidencias se incorpora a la sección de
-    resultados mediante su secuencia declarada.
+    ``initial`` (como máximo 4, dos por diapositiva). El resto de evidencias
+    se incorpora a la sección de resultados mediante su secuencia declarada;
+    cada evidencia conserva su diapositiva aunque no tenga fotografías
+    seleccionadas y sus fotografías se colocan dos por diapositiva.
 
     Las imágenes de resultados proceden de ``04_Report/_RenderedAssets`` y se
     reciben como una lista ordenada de rutas relativas al ensayo
@@ -71,6 +108,10 @@ def generate_climatic_report(
         selected_rendered_assets: Rutas relativas ordenadas de las imágenes
             seleccionadas. ``None`` (parámetro omitido) incluye todas las
             imágenes válidas del inventario; ``[]`` no incluye ninguna.
+        selected_assembly_photos: Fotografías de evidencias ``initial`` para
+            ``Test Assembly`` (máximo 4). ``None`` usa las 4 primeras.
+        selected_result_photos: Fotografías del resto de evidencias para
+            ``Test Results`` (sin límite). ``None`` usa todas.
 
     Returns:
         Path: Ruta del informe PowerPoint publicado.
@@ -88,7 +129,11 @@ def generate_climatic_report(
 
     metadata = load_test_metadata(test_root)
     evidence_discovery = discover_evidences(test_root)
-    initial_image_paths = evidence_discovery.found_photo_paths_for_type("initial")
+    assembly_photos, result_photos = resolve_evidence_photo_selection(
+        evidence_discovery,
+        selected_assembly_photos,
+        selected_result_photos,
+    )
     result_image_paths = resolve_result_images(test_root, selected_rendered_assets)
 
     report_directory = require_report_directory(test_root)
@@ -105,7 +150,7 @@ def generate_climatic_report(
     populate_test_assembly_images(
         presentation_path=working_path,
         metadata=metadata,
-        image_paths=initial_image_paths,
+        image_paths=[photo.path for photo in assembly_photos],
     )
     populate_test_inputs(working_path, metadata)
     populate_test_results(
@@ -113,6 +158,7 @@ def generate_climatic_report(
         test_root=test_root,
         evidence_discovery=evidence_discovery,
         result_image_paths=result_image_paths,
+        evidence_photo_paths=photos_by_evidence(result_photos),
     )
 
     prune_climatic_report_slides(working_path)

@@ -34,6 +34,11 @@ from ..services.graphtec_inspection import (
     preview_project_graphtec_chart,
     save_project_graphtec_chart,
 )
+from ..services.evidence_photos import (
+    EvidencePhotoServiceError,
+    evidence_photo_media_type,
+    resolve_project_evidence_photo,
+)
 from ..services.project_inspection import inspect_project
 from ..services.rendered_assets import (
     RenderedAssetServiceError,
@@ -71,6 +76,30 @@ def inspect_project_endpoint(
     return inspect_project(request.test_root)
 
 
+@router.get("/evidence-photo", response_model=None)
+def open_project_evidence_photo_endpoint(
+    test_root: str,
+    relative_path: str,
+) -> Response:
+    """Serve one photo declared by a valid evidence of 02_Evidences.
+
+    ``relative_path`` is the ``relative_path`` returned by ``/inspect`` for
+    the photo (``02_Evidences/<folder>/<savedName>``).
+    """
+    try:
+        photo_path = resolve_project_evidence_photo(test_root, relative_path)
+        return FileResponse(
+            photo_path,
+            media_type=evidence_photo_media_type(photo_path),
+            headers={"Cache-Control": "no-store"},
+        )
+    except EvidencePhotoServiceError as error:
+        return JSONResponse(
+            status_code=error.status_code,
+            content=jsonable_encoder(error.to_response()),
+        )
+
+
 @router.post(
     "/generate-report",
     response_model=ReportGenerationResponse,
@@ -90,11 +119,18 @@ def generate_project_report_endpoint(
     ``selected_rendered_assets`` lists, in order, the images of
     ``04_Report/_RenderedAssets`` to insert in Test Results. Only those
     images are inserted; an empty list generates the report without them.
+
+    ``selected_assembly_photos`` (evidences of type initial, at most 4) and
+    ``selected_result_photos`` (the other evidences, no limit) choose the
+    evidence photos of Test Assembly and Test Results. Photos are always
+    inserted in the automatic order, two per slide.
     """
     try:
         return generate_project_report(
             request.test_root,
             request.selected_rendered_assets,
+            request.selected_assembly_photos,
+            request.selected_result_photos,
         )
     except ReportGenerationError as error:
         return JSONResponse(

@@ -109,10 +109,11 @@ La aplicación resuelve la imagen utilizando la carpeta del descriptor y `savedN
 
 ## Uso en el PowerPoint
 
-- La evidencia `initial` alimenta las fotografías de `Test Assembly`.
-- Las evidencias se incorporan cronológicamente a `Test Results`.
+- La evidencia `initial` alimenta las fotografías de `Test Assembly` (máximo 4 seleccionadas).
+- El resto de evidencias se incorpora cronológicamente a `Test Results` (sin límite de fotografías).
+- El usuario elige qué fotografías se insertan en cada sección; la identificación de cada una es `02_Evidences/<carpeta>/<savedName>`.
 - Títulos, referencias, notas y fotografías pueden aparecer en las diapositivas.
-- Cuando una evidencia contiene varias fotografías, el generador puede crear diapositivas de continuación.
+- Se colocan dos fotografías por diapositiva; el generador crea diapositivas de continuación cuando hacen falta.
 
 ## Reglas de mantenimiento
 

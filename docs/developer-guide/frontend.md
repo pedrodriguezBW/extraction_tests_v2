@@ -104,3 +104,10 @@ npm run tauri dev
 - Reglas de estado del proyecto: `src/services/projectStatus.ts`.
 - Contratos de datos: `src/types/`.
 - Configuración de escritorio: `src-tauri/`.
+
+## Fotografías de evidencias (`Evidence photos`)
+
+`src/services/evidencePhotoSelection.ts` contiene el reducer puro de la selección, con un conjunto independiente por zona (`assembly`, `results`). En la primera carga marca todas las fotografías de Results y las 4 primeras de Assembly; al recibir una nueva inspección conserva la selección existente, marca las nuevas (en Assembly solo si queda hueco) y descarta las desaparecidas. `toggled`, `selectAll`, `clearSelection`, `selectEvidence` y `clearEvidence` solo modifican su zona y nunca superan `assemblyMaxPhotos`. `selectedEvidencePhotoPaths(state, section)` devuelve las rutas en orden automático y es lo que `generateReport` envía en `selected_assembly_photos` / `selected_result_photos`. `evidencePhotoReportSummary` produce el reparto mostrado junto a **Generate PowerPoint**.
+
+`src/components/EvidencePhotos.tsx` muestra dos paneles separados (`2. Test Assembly` y `4. Test Results`), cada uno con su color de acento, contador, acciones, grupos por evidencia y miniaturas con la etiqueta de su zona. Las miniaturas se cargan con `getEvidencePhotoUrl` (`GET /projects/evidence-photo`).
+

@@ -17,10 +17,16 @@ Las utilidades comunes se encuentran dentro de `src/report_generator/powerpoint/
 
 Las capacidades actuales incluyen:
 
-- Generación dinámica de `Tested Parts`.
+- Paginación dinámica de `Tested Parts`: la altura de cada fila se estima según
+  las líneas que ocupa la descripción y las continuaciones se crean al agotarse
+  el espacio disponible, antes del pie de página.
 - Tablas paginadas de perfiles climáticos y DUT.
 - Continuaciones de secciones cuando el contenido supera la capacidad.
-- Continuaciones automáticas para evidencias con varias fotografías.
+- Continuaciones automáticas para evidencias con más de dos fotografías (`<título> (cont.)`).
+- Continuación `2. Test Assembly (cont.)` para las fotografías 3 y 4 del montaje.
+
+Una descripción individual que necesite más espacio del disponible en una
+diapositiva se informa como error en lugar de generar una tabla desbordada.
 
 ## Secuencia de evidencias
 

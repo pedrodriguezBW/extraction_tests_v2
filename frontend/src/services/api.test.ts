@@ -5,6 +5,7 @@ import {
   deleteRenderedAsset,
   fetchRenderedAsset,
   generateReport,
+  getEvidencePhotoUrl,
   getRenderedAssetUrl,
   inspectGraphtec,
   inspectProject,
@@ -80,6 +81,7 @@ describe("API service", () => {
       "deleteRenderedAsset",
       "fetchRenderedAsset",
       "generateReport",
+      "getEvidencePhotoUrl",
       "getRenderedAssetUrl",
       "inspectGraphtec",
       "inspectProject",
@@ -153,8 +155,61 @@ describe("API service", () => {
             "04_Report/_RenderedAssets/graphtec_chart_01.png",
             "04_Report/_RenderedAssets/chart03_simpati_acquisition_01.png",
           ],
+          selected_assembly_photos: [],
+          selected_result_photos: [],
         }),
       }),
+    );
+  });
+
+  it("sends the evidence photos selected for each report section", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        success: true,
+        test_root: "C:\\Tests\\Climate",
+        report_path: "C:\\Tests\\Climate\\04_Report\\report.pptx",
+        report_name: "report.pptx",
+        rendered_assets_count: 0,
+        rendered_assets: [],
+        assembly_photos_count: 1,
+        assembly_photos: ["02_Evidences/00_Initial/a.jpg"],
+        result_photos_count: 2,
+        result_photos: ["02_Evidences/01_Final/b.jpg", "02_Evidences/01_Final/c.jpg"],
+        errors: [],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await generateReport("C:\\Tests\\Climate", [], {
+      assembly: ["02_Evidences/00_Initial/a.jpg"],
+      results: ["02_Evidences/01_Final/b.jpg", "02_Evidences/01_Final/c.jpg"],
+    });
+
+    expect(response.result_photos_count).toBe(2);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/projects/generate-report"),
+      expect.objectContaining({
+        body: JSON.stringify({
+          test_root: "C:\\Tests\\Climate",
+          selected_rendered_assets: [],
+          selected_assembly_photos: ["02_Evidences/00_Initial/a.jpg"],
+          selected_result_photos: [
+            "02_Evidences/01_Final/b.jpg",
+            "02_Evidences/01_Final/c.jpg",
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("builds the evidence photo URL with encoded parameters", () => {
+    const url = getEvidencePhotoUrl(
+      "C:\\Tests\\Climate",
+      "02_Evidences/00_Initial/a b.jpg",
+    );
+    expect(url).toContain("/projects/evidence-photo?");
+    expect(new URL(url).searchParams.get("relative_path")).toBe(
+      "02_Evidences/00_Initial/a b.jpg",
     );
   });
 
@@ -180,6 +235,8 @@ describe("API service", () => {
         body: JSON.stringify({
           test_root: "C:\\Tests\\Climate",
           selected_rendered_assets: [],
+          selected_assembly_photos: [],
+          selected_result_photos: [],
         }),
       }),
     );

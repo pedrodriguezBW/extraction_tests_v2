@@ -67,6 +67,8 @@ class ReportGenerationServiceTests(unittest.TestCase):
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
             selected_rendered_assets=[],
+            selected_assembly_photos=[],
+            selected_result_photos=[],
         )
 
     @patch(
@@ -101,6 +103,8 @@ class ReportGenerationServiceTests(unittest.TestCase):
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
             selected_rendered_assets=selection,
+            selected_assembly_photos=[],
+            selected_result_photos=[],
         )
 
     @patch(
@@ -126,6 +130,8 @@ class ReportGenerationServiceTests(unittest.TestCase):
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
             selected_rendered_assets=[],
+            selected_assembly_photos=[],
+            selected_result_photos=[],
         )
 
     @patch(
@@ -157,6 +163,8 @@ class ReportGenerationServiceTests(unittest.TestCase):
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
             selected_rendered_assets=expected,
+            selected_assembly_photos=[],
+            selected_result_photos=[],
         )
 
     @patch(
@@ -232,6 +240,8 @@ class ReportGenerationServiceTests(unittest.TestCase):
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
             selected_rendered_assets=[],
+            selected_assembly_photos=[],
+            selected_result_photos=[],
         )
 
 
@@ -322,6 +332,10 @@ class ReportGenerationEndpointTests(unittest.TestCase):
                 "report_name": "Thermal_cycle_report_prototype.pptx",
                 "rendered_assets_count": 0,
                 "rendered_assets": [],
+                "assembly_photos_count": 0,
+                "assembly_photos": [],
+                "result_photos_count": 0,
+                "result_photos": [],
                 "errors": [],
             },
         )
@@ -329,6 +343,8 @@ class ReportGenerationEndpointTests(unittest.TestCase):
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
             selected_rendered_assets=[],
+            selected_assembly_photos=[],
+            selected_result_photos=[],
         )
 
     @patch(
@@ -475,6 +491,10 @@ class ReportGenerationEndpointTests(unittest.TestCase):
                 "report_name": None,
                 "rendered_assets_count": 0,
                 "rendered_assets": [],
+                "assembly_photos_count": 0,
+                "assembly_photos": [],
+                "result_photos_count": 0,
+                "result_photos": [],
                 "errors": [
                     {
                         "code": "report_generation_invalid_project",
@@ -488,6 +508,8 @@ class ReportGenerationEndpointTests(unittest.TestCase):
             test_root=self.test_root.resolve(),
             template_path=self.template_path.resolve(),
             selected_rendered_assets=[],
+            selected_assembly_photos=[],
+            selected_result_photos=[],
         )
 
 

@@ -4,8 +4,14 @@ from pptx import Presentation
 from pptx.enum.text import MSO_ANCHOR
 from pptx.util import Cm, Pt
 from ..evidences import Evidence, EvidenceDiscovery, discover_evidences
+from ..evidence_photos import (
+    EVIDENCE_PHOTOS_PER_SLIDE,
+    RESULTS_SECTION,
+    evidence_section,
+    is_selectable_photo,
+)
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 from ..rendered_assets import (
     MANUAL_SOURCE,
     UNKNOWN_SOURCE,
@@ -338,28 +344,55 @@ def _reference_text(evidence):
 def _event_label(evidence):
     return (evidence.type or "").strip().replace("_"," ").title()
 
-def _add_evidence_text(slide,evidence):
-    add_section_header(slide=slide,title=(evidence.title or evidence.folder_name).strip(),left_cm=CONTENT_LEFT_CM,top_cm=4.05,width_cm=CONTENT_WIDTH_CM)
+def _add_evidence_text(slide, evidence, continuation: bool = False):
+    """Título, tipo/referencia y notas de una evidencia.
+
+    En las diapositivas de continuación se repite el título con ``(cont.)``
+    y el tipo/referencia, pero no las notas.
+    """
+    title = (evidence.title or evidence.folder_name).strip()
+    if continuation:
+        title = f"{title} (cont.)"
+    add_section_header(slide=slide,title=title,left_cm=CONTENT_LEFT_CM,top_cm=4.05,width_cm=CONTENT_WIDTH_CM)
     parts=[x for x in (_event_label(evidence),_reference_text(evidence)) if x]
     if parts:
         box=slide.shapes.add_textbox(Cm(CONTENT_LEFT_CM),Cm(4.85),Cm(CONTENT_WIDTH_CM),Cm(.55));f=box.text_frame;f.clear();f.margin_left=f.margin_right=f.margin_top=f.margin_bottom=0;p=f.paragraphs[0];p.text=" | ".join(parts);p.font.name=FONT_FAMILY;p.font.size=Pt(FONT_SIZE_LABEL_PT);p.font.bold=True;p.font.color.rgb=COLOR_GRAY
     notes=(evidence.notes or "").strip()
-    if notes:
+    if notes and not continuation:
         box=slide.shapes.add_textbox(Cm(CONTENT_LEFT_CM),Cm(5.45),Cm(CONTENT_WIDTH_CM),Cm(1.10));f=box.text_frame;f.clear();f.word_wrap=True;f.margin_left=f.margin_right=f.margin_top=f.margin_bottom=0;f.vertical_anchor=MSO_ANCHOR.TOP;p=f.paragraphs[0];p.text=notes;p.font.name=FONT_FAMILY;p.font.size=Pt(FONT_SIZE_VALUE_PT);p.font.color.rgb=COLOR_NAVY
 
-def populate_evidence_slide(slide,evidence,image_paths):
-    _add_evidence_text(slide,evidence)
+def populate_evidence_slide(slide, evidence, image_paths, continuation: bool = False):
+    """Rellena una diapositiva de evidencia con, como máximo, dos fotografías.
+
+    Una evidencia sin fotografías seleccionadas conserva su diapositiva con
+    el título, la referencia y las notas.
+    """
+    if len(image_paths) > EVIDENCE_PHOTOS_PER_SLIDE:
+        raise ValueError(
+            "An evidence slide holds at most "
+            f"{EVIDENCE_PHOTOS_PER_SLIDE} photos."
+        )
+    _add_evidence_text(slide, evidence, continuation)
     if not image_paths:return
     top=6.75;h=9.25
     if len(image_paths)==1:
         width=20.;add_test_result_image(slide,image_paths[0],CONTENT_LEFT_CM+(CONTENT_WIDTH_CM-width)/2,top,width,h);return
     width=(CONTENT_WIDTH_CM-RESULT_HORIZONTAL_GAP_CM)/2
-    for i,path in enumerate(image_paths[:2]):add_test_result_image(slide,path,CONTENT_LEFT_CM+i*(width+RESULT_HORIZONTAL_GAP_CM),top,width,h)
+    for i,path in enumerate(image_paths):add_test_result_image(slide,path,CONTENT_LEFT_CM+i*(width+RESULT_HORIZONTAL_GAP_CM),top,width,h)
 
 def _result_evidences(discovery):
-    return [e for e in discovery.evidences if (e.type or "").strip().casefold()!="initial"]
+    return [e for e in discovery.evidences if evidence_section(e) == RESULTS_SECTION]
 
-def populate_test_results(presentation_path,test_root,evidence_discovery=None,result_image_paths:Sequence[Path]|Iterable[Path]=()):
+def _evidence_photo_paths(evidence, evidence_photo_paths):
+    """Fotografías de una evidencia que se insertarán, en orden automático.
+
+    ``None`` (sin selección explícita) usa todas las fotografías válidas.
+    """
+    if evidence_photo_paths is None:
+        return [photo.path for photo in evidence.photos if is_selectable_photo(photo)]
+    return [Path(path) for path in evidence_photo_paths.get(evidence.descriptor_path, ())]
+
+def populate_test_results(presentation_path,test_root,evidence_discovery=None,result_image_paths:Sequence[Path]|Iterable[Path]=(),evidence_photo_paths:Mapping[Path,Sequence[Path]]|None=None):
     """Fill ``4. Test Results`` with the selected images and the evidences.
 
     ``result_image_paths`` is the ordered list of images chosen for the
@@ -368,6 +401,12 @@ def populate_test_results(presentation_path,test_root,evidence_discovery=None,re
     groups of two per slide, creating continuation slides when needed. It
     never scans ``_RenderedAssets`` itself and never filters by name or
     source. An empty list produces the evidence slides only.
+
+    ``evidence_photo_paths`` maps each evidence descriptor path to the
+    photos selected for it (already validated, automatic order). Every
+    non-initial evidence keeps at least one slide, even without photos;
+    photos are placed two per slide with ``(cont.)`` continuation slides.
+    ``None`` inserts every valid photo of every evidence.
     """
     presentation_path=Path(presentation_path);test_root=Path(test_root);presentation=Presentation(presentation_path)
     first=find_slide_in_section(presentation=presentation,section_title="TEST A",slide_title="4. Test Results")
@@ -377,7 +416,7 @@ def populate_test_results(presentation_path,test_root,evidence_discovery=None,re
     for group in chunk_items(items=images,chunk_size=RESULT_CHARTS_PER_SLIDE):
         slide=first if not used else create_continuation_slide(presentation=presentation,reference_slide=previous,title="4. Test Results (cont.)");used=True;populate_test_results_slide(slide = slide, image_paths = group);previous=slide
     for evidence in events:
-        groups=chunk_items(items=[p.path for p in evidence.found_photos],chunk_size=4) or [[]]
-        for group in groups:
-            slide=first if not used else create_continuation_slide(presentation=presentation,reference_slide=previous,title="4. Test Results (cont.)");used=True;populate_evidence_slide(slide = slide, evidence = evidence, image_paths = group);previous=slide
+        groups=chunk_items(items=_evidence_photo_paths(evidence, evidence_photo_paths),chunk_size=EVIDENCE_PHOTOS_PER_SLIDE) or [[]]
+        for index, group in enumerate(groups):
+            slide=first if not used else create_continuation_slide(presentation=presentation,reference_slide=previous,title="4. Test Results (cont.)");used=True;populate_evidence_slide(slide = slide, evidence = evidence, image_paths = group, continuation = index > 0);previous=slide
     presentation.save(presentation_path)

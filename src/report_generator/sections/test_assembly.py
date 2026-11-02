@@ -7,6 +7,7 @@ from pptx import Presentation
 from pptx.enum.text import MSO_ANCHOR
 from pptx.util import Cm, Pt
 
+from ..evidence_photos import ASSEMBLY_MAX_PHOTOS, EVIDENCE_PHOTOS_PER_SLIDE
 from ..powerpoint.images import add_contained_image
 from ..powerpoint.layout import (
     add_assembly_data_row,
@@ -30,6 +31,15 @@ from ..powerpoint.styles import (
     TWO_COLUMN_IMAGE_HEIGHT_CM,
     TWO_COLUMN_IMAGE_WIDTH_CM,
 )
+
+#: Parte superior de las fotografías en la diapositiva principal.
+ASSEMBLY_FIRST_PHOTOS_TOP_CM = 3.70
+
+#: Parte superior de las fotografías en la continuación (bajo su cabecera).
+ASSEMBLY_CONTINUATION_PHOTOS_TOP_CM = 5.10
+
+#: Altura máxima de las fotografías en la continuación, por encima del pie.
+ASSEMBLY_CONTINUATION_PHOTOS_HEIGHT_CM = 11.00
 
 
 def add_equipment_column_headers(
@@ -136,11 +146,68 @@ def populate_equipment_continuation_slide(
         )
 
 
+def add_assembly_photo_row(
+    slide,
+    image_paths: list[Path],
+    top_cm: float,
+    height_cm: float,
+) -> None:
+    """Coloca hasta dos fotografías en dos columnas, sin deformarlas."""
+    if len(image_paths) > EVIDENCE_PHOTOS_PER_SLIDE:
+        raise ValueError(
+            "A Test Assembly slide holds at most "
+            f"{EVIDENCE_PHOTOS_PER_SLIDE} photos."
+        )
+
+    for column, image_path in enumerate(image_paths):
+        add_contained_image(
+            slide=slide,
+            image_path=image_path,
+            left_cm=(
+                CONTENT_LEFT_CM
+                + column
+                * (TWO_COLUMN_IMAGE_WIDTH_CM + IMAGE_COLUMN_GAP_CM)
+            ),
+            top_cm=top_cm,
+            width_cm=TWO_COLUMN_IMAGE_WIDTH_CM,
+            height_cm=height_cm,
+        )
+
+
+def populate_assembly_photos_continuation_slide(
+    slide,
+    image_paths: list[Path],
+) -> None:
+    """Diapositiva de continuación con las fotografías 3 y 4 del montaje."""
+    add_section_header(
+        slide=slide,
+        title="Test assembly photos",
+        left_cm=CONTENT_LEFT_CM,
+        top_cm=4.25,
+        width_cm=CONTENT_WIDTH_CM,
+    )
+
+    add_assembly_photo_row(
+        slide=slide,
+        image_paths=image_paths,
+        top_cm=ASSEMBLY_CONTINUATION_PHOTOS_TOP_CM,
+        height_cm=ASSEMBLY_CONTINUATION_PHOTOS_HEIGHT_CM,
+    )
+
+
 def populate_test_assembly_images(
     presentation_path: Path,
     metadata: dict[str, Any],
     image_paths: list[Path],
 ) -> None:
+    """Rellena ``2. Test Assembly``.
+
+    ``image_paths`` son las fotografías seleccionadas de las evidencias
+    ``initial`` (como máximo :data:`ASSEMBLY_MAX_PHOTOS`), en orden
+    automático. Se colocan dos por diapositiva: las dos primeras en la
+    diapositiva principal y las dos siguientes en una continuación
+    ``2. Test Assembly (cont.)`` situada justo después.
+    """
     presentation = Presentation(presentation_path)
 
     slide = find_slide_in_section(
@@ -154,39 +221,23 @@ def populate_test_assembly_images(
     # ==========================================================
     # 1. INITIAL EVIDENCE PHOTOS
     # ==========================================================
-    first_slide_images = image_paths[:2]
-
-    image_top_cm = 3.70
-    image_width_cm = TWO_COLUMN_IMAGE_WIDTH_CM
-    image_height_cm = TWO_COLUMN_IMAGE_HEIGHT_CM
-    image_gap_cm = IMAGE_COLUMN_GAP_CM
-
-    first_image_left_cm = CONTENT_LEFT_CM
-
-    second_image_left_cm = (
-        first_image_left_cm
-        + image_width_cm
-        + image_gap_cm
-    )
-
-    if len(first_slide_images) >= 1:
-        add_contained_image(
-            slide=slide,
-            image_path=first_slide_images[0],
-            left_cm=first_image_left_cm,
-            top_cm=image_top_cm,
-            width_cm=image_width_cm,
-            height_cm=image_height_cm,
+    if len(image_paths) > ASSEMBLY_MAX_PHOTOS:
+        raise ValueError(
+            f"Test Assembly admits at most {ASSEMBLY_MAX_PHOTOS} photos; "
+            f"{len(image_paths)} were received."
         )
 
-    if len(first_slide_images) >= 2:
-        add_contained_image(
+    photo_groups = chunk_items(
+        items=list(image_paths),
+        chunk_size=EVIDENCE_PHOTOS_PER_SLIDE,
+    )
+
+    if photo_groups:
+        add_assembly_photo_row(
             slide=slide,
-            image_path=first_slide_images[1],
-            left_cm=second_image_left_cm,
-            top_cm=image_top_cm,
-            width_cm=image_width_cm,
-            height_cm=image_height_cm,
+            image_paths=photo_groups[0],
+            top_cm=ASSEMBLY_FIRST_PHOTOS_TOP_CM,
+            height_cm=TWO_COLUMN_IMAGE_HEIGHT_CM,
         )
 
     # ==========================================================
@@ -292,6 +343,21 @@ def populate_test_assembly_images(
     # ==========================================================
 
     previous_slide = slide
+
+    # Fotografías 3 y 4: diapositiva propia, justo después de la primera.
+    for photo_group in photo_groups[1:]:
+        photo_slide = create_continuation_slide(
+            presentation=presentation,
+            reference_slide=previous_slide,
+            title="2. Test Assembly (cont.)",
+        )
+
+        populate_assembly_photos_continuation_slide(
+            slide=photo_slide,
+            image_paths=photo_group,
+        )
+
+        previous_slide = photo_slide
 
     for equipment_group in continuation_equipment_groups:
         continuation_slide = create_continuation_slide(

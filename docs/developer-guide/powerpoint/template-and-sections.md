@@ -33,7 +33,7 @@ Utiliza los datos generales del ensayo y el procedimiento declarados en los meta
 
 ## `Test Assembly`
 
-Utiliza las fotografías del estado inicial descubierto mediante `02_Evidences/*/evidence.json`. La versión actual ya no depende de rutas heredadas dentro de `test_metadata.json`.
+Utiliza las fotografías seleccionadas de las evidencias `initial` descubiertas mediante `02_Evidences/*/evidence.json` (como máximo 4, dos por diapositiva). Las fotografías 3 y 4 se colocan en una diapositiva `2. Test Assembly (cont.)` justo después de la principal. La versión actual ya no depende de rutas heredadas dentro de `test_metadata.json`.
 
 ## `Test Inputs`
 
@@ -41,7 +41,7 @@ Incluye los parámetros climáticos, las tablas paginadas de perfil y las gráfi
 
 ## `Test Results`
 
-Conserva la secuencia real definida por `sequence` en cada descriptor de evidencia. Puede incluir títulos, referencias, notas y fotografías, además de las gráficas SIMPATI previamente guardadas.
+Conserva la secuencia real definida por `sequence` en cada descriptor de evidencia (salvo las `initial`). Incluye títulos, referencias, notas y las fotografías seleccionadas, dos por diapositiva con continuaciones `(cont.)`; una evidencia sin fotografías seleccionadas conserva su diapositiva. Antes de las evidencias se insertan las imágenes seleccionadas de `_RenderedAssets`.
 
 ## `Conclusions`
 

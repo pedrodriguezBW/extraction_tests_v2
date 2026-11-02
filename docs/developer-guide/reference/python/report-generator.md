@@ -44,6 +44,14 @@ la limpieza de la presentación y la publicación del PowerPoint final.
    :show-inheritance:
 ```
 
+## Selección de fotografías de evidencias
+
+```{eval-rst}
+.. automodule:: src.report_generator.evidence_photos
+   :members:
+   :show-inheritance:
+```
+
 ## Fuentes de datos
 
 ```{eval-rst}

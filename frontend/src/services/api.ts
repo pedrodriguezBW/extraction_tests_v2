@@ -33,6 +33,17 @@ import type {
  * Se obtiene de `VITE_API_BASE_URL` y utiliza la dirección local por defecto
  * cuando la variable de entorno no está definida.
  */
+/**
+ * Fotografías de evidencia seleccionadas para cada sección del informe.
+ */
+export interface EvidencePhotoSelectionRequest {
+  /** Rutas relativas para 2. Test Assembly (máximo 4). */
+  assembly: readonly string[];
+
+  /** Rutas relativas para 4. Test Results (sin límite). */
+  results: readonly string[];
+}
+
 export const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000"
 ).replace(/\/+$/, "");
@@ -194,6 +205,8 @@ export function inspectProject(
  * @param selectedRenderedAssets Rutas relativas, en orden, de las imágenes
  * de `04_Report/_RenderedAssets` que se insertarán en Test Results. Se envía
  * siempre de forma explícita: una lista vacía genera el informe sin ellas.
+ * @param selectedEvidencePhotos Fotografías de evidencia seleccionadas para
+ * Test Assembly (máximo 4) y Test Results (sin límite).
  * @returns El resultado de la generación, incluido el nombre y la ruta del
  * informe y las imágenes insertadas cuando la operación finaliza
  * correctamente.
@@ -202,10 +215,16 @@ export function inspectProject(
 export function generateReport(
   testRoot: string,
   selectedRenderedAssets: readonly string[],
+  selectedEvidencePhotos: EvidencePhotoSelectionRequest = {
+    assembly: [],
+    results: [],
+  },
 ): Promise<ReportGenerationResponse> {
   const request: ReportGenerationRequest = {
     test_root: testRoot,
     selected_rendered_assets: [...selectedRenderedAssets],
+    selected_assembly_photos: [...selectedEvidencePhotos.assembly],
+    selected_result_photos: [...selectedEvidencePhotos.results],
   };
 
   return requestJson<ReportGenerationResponse>(
@@ -468,6 +487,25 @@ export function getRenderedAssetUrl(
   });
 
   return `${API_BASE_URL}/projects/rendered-asset?${query.toString()}`;
+}
+
+/**
+ * Construye la URL de una fotografía declarada por una evidencia válida.
+ *
+ * @param testRoot Ruta de la carpeta raíz del ensayo.
+ * @param relativePath `relative_path` devuelto por la inspección.
+ * @returns La URL de la fotografía servida por el backend.
+ */
+export function getEvidencePhotoUrl(
+  testRoot: string,
+  relativePath: string,
+): string {
+  const query = new URLSearchParams({
+    test_root: testRoot,
+    relative_path: relativePath,
+  });
+
+  return `${API_BASE_URL}/projects/evidence-photo?${query.toString()}`;
 }
 
 /**
