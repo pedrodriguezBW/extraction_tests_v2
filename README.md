@@ -231,6 +231,37 @@ botones. `POST /projects/generate-report` recibe la selección en
 - Python: `python -m unittest discover -s tests`
 - Frontend: `cd frontend` y `npm test`
 
+## Instalación en otros PC (paquete de un clic)
+
+**Generar el paquete** (en el PC de desarrollo, con Python, Node.js y Rust):
+doble clic en `empaquetar.bat` en la raíz del repositorio. El script
+(`packaging/build_package.ps1`):
+
+1. Comprueba que `version.py` y `tauri.conf.json` tienen la misma versión.
+2. Descarga el Python embebido de la misma versión que el `.venv` (o usa
+   `-PythonEmbedZip <zip>` si el proxy lo impide) e instala dentro las
+   dependencias de `requirements.txt`.
+3. Copia `backend/`, `src/`, `config.py` y la plantilla configurada.
+4. Compila la interfaz en modo release (`npm run tauri -- build --no-bundle`).
+5. Verifica el paquete (importaciones y `/health`) y crea en
+   `%USERPROFILE%\GeneradorInformes-paquetes`:
+   - `GeneradorInformes-<versión>/` y `generador-informes-<versión>.zip`;
+   - `generador-informes.json`, el manifiesto de versión.
+
+`empaquetar.bat -Publicar` copia además el ZIP y el manifiesto a la carpeta
+compartida `ToolingVersions` (el manifiesto en último lugar).
+
+**Instalar** (cualquier usuario, sin permisos de administrador ni Python,
+Node o Rust): descomprimir el ZIP y doble clic en `Instalar.bat`. Se instala
+en `%LOCALAPPDATA%\Programs\GeneradorInformes`, crea el acceso directo
+*Generador de Informes* en el Escritorio y en el menú Inicio, y abre la
+aplicación. Para actualizar se repite con el ZIP nuevo.
+
+El acceso directo (o `Iniciar Generador de Informes.bat`) arranca el backend
+oculto en `127.0.0.1:8000`, espera a `/health`, abre la interfaz y detiene el
+backend al cerrar la ventana. La plantilla incluida se indica con la variable
+`REPORT_TEMPLATE_PATH`. Registros: `%LOCALAPPDATA%\GeneradorInformes\logs`.
+
 ## Interfaz de escritorio
 
 El frontend React + TypeScript y la configuración de Tauri están en

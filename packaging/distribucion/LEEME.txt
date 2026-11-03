@@ -1,0 +1,32 @@
+GENERADOR DE INFORMES - INSTALACION
+===================================
+
+Requisitos: Windows 10/11 de 64 bits (con Microsoft Edge WebView2, incluido
+de serie en Windows 11 y en los equipos corporativos actualizados).
+No hace falta instalar Python, Node.js ni Rust, ni permisos de administrador.
+
+INSTALAR O ACTUALIZAR
+1. Descomprime el ZIP (clic derecho > Extraer todo). No lo ejecutes desde
+   dentro del ZIP.
+2. Doble clic en "Instalar.bat".
+   - Copia el programa a %LOCALAPPDATA%\Programs\GeneradorInformes.
+   - Crea el acceso directo "Generador de Informes" en el Escritorio y en el
+     menu Inicio.
+   - Abre la aplicacion.
+Para actualizar a una version nueva, repite los mismos pasos con el ZIP nuevo.
+
+USO DIARIO
+Doble clic en el acceso directo "Generador de Informes" del Escritorio
+(o en "Iniciar Generador de Informes.bat" de la carpeta del programa).
+Al cerrar la ventana se detiene tambien el servicio interno.
+
+SIN INSTALAR
+Tambien puede usarse directamente desde la carpeta descomprimida con
+"Iniciar Generador de Informes.bat".
+
+PROBLEMAS
+- "El puerto 8000 esta ocupado": cierra otra copia del backend (por ejemplo,
+  una consola de desarrollo con uvicorn) o reinicia el PC.
+- Registros del servicio interno: %LOCALAPPDATA%\GeneradorInformes\logs
+- Desinstalar: menu Inicio > "Desinstalar Generador de Informes"
+  (o Desinstalar.bat en la carpeta del programa).

@@ -4,6 +4,19 @@ All notable project changes are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- One-click distribution package. `empaquetar.bat` (repository root, runs `packaging/build_package.ps1`) builds `GeneradorInformes-<version>/` and `generador-informes-<version>.zip` in `%USERPROFILE%\GeneradorInformes-paquetes`: embedded Python with every dependency of `requirements.txt`, the backend and engine code, a copy of the PowerPoint template and the release desktop executable (`tauri build --no-bundle`). It checks that `version.py` and `tauri.conf.json` match, verifies imports and `/health` of the packaged backend, writes the `generador-informes.json` manifest and, with `-Publicar`, copies ZIP and manifest to the shared `ToolingVersions` folder (manifest last).
+- End users only unzip and double-click `Instalar.bat`: per-user install in `%LOCALAPPDATA%\Programs\GeneradorInformes` (no administrator rights, no Python/Node/Rust), Desktop and Start menu shortcuts, and the app opens. `Iniciar Generador de Informes.bat` / the shortcut start the hidden backend on `127.0.0.1:8000`, wait for `/health`, open the UI and stop the backend when the window is closed. `Desinstalar.bat` removes it. Logs in `%LOCALAPPDATA%\GeneradorInformes\logs`.
+
+### Fixed
+
+- Installed (release) desktop app: Graphtec chart previews appeared as a broken image. The backend sends the preview as a `data:image/png;base64` URL, which the Tauri Content Security Policy (`img-src`) did not allow; `data:` is now allowed in `tauri.conf.json`. Rebuild the package with `empaquetar.bat` to apply it.
+
+### Changed
+
+- `config.py`: the PowerPoint template can be overridden with the `REPORT_TEMPLATE_PATH` environment variable (used by the installed package); without it the previous path is used.
+
 ## [0.6.0] - 2026-11-02
 
 ### Changed
