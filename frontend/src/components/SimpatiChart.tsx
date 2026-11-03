@@ -43,6 +43,9 @@ export interface SimpatiChartProps {
   /** Indica si existe una operación de guardado en curso. */
   saving: boolean;
 
+  /** Impide guardar la gráfica aunque permita seguir explorando su vista. */
+  saveDisabled?: boolean;
+
   /** Nombres de las gráficas almacenadas actualmente para el ensayo. */
   savedChartNames: string[];
 
@@ -204,6 +207,7 @@ function pathSegments(
 export function SimpatiChart({
   data,
   saving,
+  saveDisabled = false,
   savedChartNames,
   title = "SIMPATI temperature profile",
   onSave,
@@ -545,6 +549,7 @@ export function SimpatiChart({
             type="button"
             onClick={() => void saveCurrentView()}
             disabled={
+              saveDisabled ||
               selectedChannels.length === 0 ||
               preparingSave ||
               saving

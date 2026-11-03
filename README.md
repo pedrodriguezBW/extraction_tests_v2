@@ -16,6 +16,32 @@ Flujo principal:
    se incluyen en *Test Results*.
 7. Generar el PowerPoint editable dentro de `04_Report`.
 
+## Versión del generador
+
+Al iniciar y antes de generar un informe, la aplicación comprueba la versión
+contra `generador-informes.json` en la carpeta compartida:
+
+```text
+\\vigvsfil1.global.borgwarner.net\vigproductengineering\Documentacion_I+D\R&T\ToolingVersions\generador-informes.json
+```
+
+El manifiesto debe ser un JSON UTF-8 con la versión vigente y la ruta UNC
+completa del paquete distribuido:
+
+```json
+{
+  "version": "0.6.0",
+  "package": "\\\\vigvsfil1.global.borgwarner.net\\vigproductengineering\\Documentacion_I+D\\R&T\\ToolingVersions\\generador-informes-0.6.0.zip"
+}
+```
+
+Si la versión instalada no coincide, se muestra un diálogo al arrancar y se
+bloquean la generación de informes, el guardado de gráficas y la eliminación
+de imágenes hasta actualizar el programa. Las operaciones de inspección y
+vista previa siguen disponibles. Si el manifiesto no está disponible o no es
+válido, se muestra una advertencia, pero se permite seguir trabajando y
+generar informes.
+
 ## Estructura del ensayo
 
 La aplicación recibe la carpeta individual de un ensayo:

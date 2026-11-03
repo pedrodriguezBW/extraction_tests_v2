@@ -11,6 +11,15 @@ export interface HealthResponse {
 
   /** Versión publicada por el backend. */
   version: string;
+
+  /** Resultado de la comparación con el manifiesto compartido. */
+  version_check: {
+    status: "current" | "outdated" | "unavailable";
+    installed_version: string;
+    current_version: string | null;
+    package: string | null;
+    warning: string | null;
+  };
 }
 
 /**

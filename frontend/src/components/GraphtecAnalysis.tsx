@@ -40,6 +40,8 @@ export interface GraphtecAnalysisViewProps {
   state: GraphtecPanelState;
   /** Otra operación incompatible está en curso. */
   disabled: boolean;
+  /** Impide guardar el gráfico sin deshabilitar la vista previa. */
+  saveDisabled?: boolean;
   dispatch: (action: GraphtecPanelAction) => void;
   onPreview: () => void;
   onSave: () => void;
@@ -53,6 +55,7 @@ export function GraphtecAnalysisView({
   inspection,
   state,
   disabled,
+  saveDisabled = false,
   dispatch,
   onPreview,
   onSave,
@@ -290,7 +293,9 @@ export function GraphtecAnalysisView({
           <button
             className="button button--primary"
             type="button"
-            disabled={!canSaveGraphtec(state, inspection, disabled)}
+            disabled={
+              !canSaveGraphtec(state, inspection, disabled || saveDisabled)
+            }
             onClick={onSave}
           >
             {save.status === "saving" ? "Saving chart..." : "Save chart"}
@@ -363,6 +368,7 @@ export function GraphtecAnalysisView({
 export interface GraphtecAnalysisProps {
   inspection: GraphtecInspectionResponse;
   disabled: boolean;
+  saveDisabled?: boolean;
   onPreview: (
     settings: GraphtecChartSettings,
   ) => Promise<GraphtecChartPreviewResponse>;
@@ -383,6 +389,7 @@ export interface GraphtecAnalysisProps {
 export function GraphtecAnalysis({
   inspection,
   disabled,
+  saveDisabled = false,
   onPreview,
   onSave,
 }: GraphtecAnalysisProps) {
@@ -439,7 +446,7 @@ export function GraphtecAnalysis({
   }, [disabled, inspection, requestPreview, state]);
 
   const save = useCallback(async () => {
-    if (!canSaveGraphtec(state, inspection, disabled)) {
+    if (!canSaveGraphtec(state, inspection, disabled || saveDisabled)) {
       return;
     }
     dispatch({ type: "saveStarted" });
@@ -459,13 +466,14 @@ export function GraphtecAnalysis({
         });
       }
     }
-  }, [disabled, inspection, onSave, state]);
+  }, [disabled, inspection, onSave, saveDisabled, state]);
 
   return (
     <GraphtecAnalysisView
       inspection={inspection}
       state={state}
       disabled={disabled}
+      saveDisabled={saveDisabled}
       dispatch={dispatch}
       onPreview={() => void requestPreview()}
       onSave={() => void save()}

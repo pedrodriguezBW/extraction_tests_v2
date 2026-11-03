@@ -57,12 +57,31 @@ from ..services.simpati_inspection import (
     inspect_project_simpati,
     save_project_simpati_chart,
 )
+from src.report_generator.version_check import check_application_version
 
 
 router = APIRouter(
     prefix="/projects",
     tags=["projects"],
 )
+
+
+def _outdated_version_response() -> JSONResponse | None:
+    version_check = check_application_version()
+    if version_check.status != "outdated":
+        return None
+
+    return JSONResponse(
+        status_code=409,
+        content={
+            "detail": (
+                f"This application version ({version_check.installed_version}) "
+                f"is outdated. Version {version_check.current_version} is "
+                f"required. Download the current package from "
+                f"{version_check.package}."
+            )
+        },
+    )
 
 
 @router.post(
@@ -107,6 +126,7 @@ def open_project_evidence_photo_endpoint(
         400: {"model": ReportGenerationResponse},
         403: {"model": ReportGenerationResponse},
         404: {"model": ReportGenerationResponse},
+        409: {"model": ReportGenerationResponse},
         415: {"model": ReportGenerationResponse},
         500: {"model": ReportGenerationResponse},
     },
@@ -175,6 +195,7 @@ def inspect_project_simpati_endpoint(
     responses={
         400: {"model": SimpatiChartSaveResponse},
         403: {"model": SimpatiChartSaveResponse},
+        409: {"model": SimpatiChartSaveResponse},
         500: {"model": SimpatiChartSaveResponse},
     },
 )
@@ -186,6 +207,10 @@ def save_project_simpati_chart_endpoint(
     The chart is named ``chart_simpati_xNN_MM.png`` after its source
     acquisition, so charts of different acquisitions never collide.
     """
+    version_error = _outdated_version_response()
+    if version_error is not None:
+        return version_error
+
     try:
         return save_project_simpati_chart(
             request.test_root,
@@ -257,13 +282,17 @@ def open_project_rendered_asset_endpoint(
     response_model=RenderedAssetDeleteResponse,
     responses={
         code: {"model": RenderedAssetDeleteResponse}
-        for code in _RENDERED_ASSET_ERROR_STATUSES
+        for code in (*_RENDERED_ASSET_ERROR_STATUSES, 409)
     },
 )
 def delete_project_rendered_asset_endpoint(
     request: RenderedAssetRequest,
 ) -> RenderedAssetDeleteResponse | JSONResponse:
     """Delete one image of 04_Report/_RenderedAssets and its metadata file."""
+    version_error = _outdated_version_response()
+    if version_error is not None:
+        return version_error
+
     try:
         return delete_project_rendered_asset(
             request.test_root,
@@ -336,13 +365,17 @@ def preview_project_graphtec_chart_endpoint(
     response_model=GraphtecChartSaveResponse,
     responses={
         code: {"model": GraphtecChartSaveResponse}
-        for code in _GRAPHTEC_ERROR_STATUSES
+        for code in (*_GRAPHTEC_ERROR_STATUSES, 409)
     },
 )
 def save_project_graphtec_chart_endpoint(
     request: GraphtecChartRequest,
 ) -> GraphtecChartSaveResponse | JSONResponse:
     """Render and save a Graphtec chart in 04_Report/_RenderedAssets."""
+    version_error = _outdated_version_response()
+    if version_error is not None:
+        return version_error
+
     try:
         return save_project_graphtec_chart(
             request.test_root,

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.report_generator.version import __version__
+from src.report_generator.version_check import check_application_version
 
 from .api.projects import router as projects_router
 
@@ -36,8 +37,16 @@ app.include_router(projects_router)
 @app.get("/health")
 def health_check():
     """Check whether the backend is available."""
+    version_check = check_application_version()
     return {
         "status": "ok",
         "application": "climatic-report-generator",
         "version": __version__,
+        "version_check": {
+            "status": version_check.status,
+            "installed_version": version_check.installed_version,
+            "current_version": version_check.current_version,
+            "package": version_check.package,
+            "warning": version_check.warning,
+        },
     }

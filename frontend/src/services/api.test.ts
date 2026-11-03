@@ -42,6 +42,13 @@ describe("API service", () => {
         status: "ok",
         application: "climatic-report-generator",
         version: "0.2.1",
+        version_check: {
+          status: "current",
+          installed_version: "0.2.1",
+          current_version: "0.2.1",
+          package: "\\\\server\\share\\generator.zip",
+          warning: null,
+        },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -50,6 +57,13 @@ describe("API service", () => {
       status: "ok",
       application: "climatic-report-generator",
       version: "0.2.1",
+      version_check: {
+        status: "current",
+        installed_version: "0.2.1",
+        current_version: "0.2.1",
+        package: "\\\\server\\share\\generator.zip",
+        warning: null,
+      },
     });
   });
 

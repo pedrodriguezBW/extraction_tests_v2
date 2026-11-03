@@ -17,12 +17,17 @@ const inspection = buildGraphtecInspection({
   warnings: ["No result record (PASS) was found in the file."],
 });
 
-function render(state: GraphtecPanelState, disabled = false): string {
+function render(
+  state: GraphtecPanelState,
+  disabled = false,
+  saveDisabled = false,
+): string {
   return renderToStaticMarkup(
     <GraphtecAnalysisView
       inspection={inspection}
       state={state}
       disabled={disabled}
+      saveDisabled={saveDisabled}
       dispatch={() => undefined}
       onPreview={() => undefined}
       onSave={() => undefined}
@@ -124,6 +129,13 @@ describe("GraphtecAnalysisView", () => {
       "Limit marker indicates a value greater than the displayed threshold.",
     );
     expect(button(markup, "Save chart")).not.toContain("disabled");
+  });
+
+  it("keeps preview available while disabling saves in read-only mode", () => {
+    const markup = render(ready(), false, true);
+
+    expect(button(markup, "Preview chart")).not.toContain("disabled");
+    expect(button(markup, "Save chart")).toContain("disabled");
   });
 
   it("shows preview errors", () => {

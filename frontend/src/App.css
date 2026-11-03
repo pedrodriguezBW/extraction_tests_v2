@@ -421,6 +421,46 @@ input:focus-visible {
   border-color: #e8c76b;
 }
 
+.version-notice {
+  width: min(1180px, calc(100% - 40px));
+  margin: 20px auto 0;
+}
+
+.version-notice code,
+.version-dialog__package {
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.version-dialog {
+  width: min(540px, calc(100% - 32px));
+  padding: 26px;
+  color: #162637;
+  border: 1px solid #aebbc6;
+  border-radius: 6px;
+  box-shadow: 0 18px 48px rgb(21 44 65 / 25%);
+}
+
+.version-dialog::backdrop {
+  background: rgb(11 41 66 / 58%);
+}
+
+.version-dialog h2 {
+  margin: 0 0 14px;
+  color: #102f49;
+  font-size: 1.2rem;
+}
+
+.version-dialog p {
+  line-height: 1.5;
+}
+
+.version-dialog .button {
+  margin-top: 12px;
+}
+
 .loading-text {
   padding: 18px 4px;
   color: #42586a;

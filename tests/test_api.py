@@ -4,17 +4,33 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from fastapi.responses import JSONResponse
 
 from project_fixtures import add_evidence, build_test_folder
 
 from backend.app.main import app
 
 from src.report_generator.version import __version__
+from src.report_generator.version_check import VersionCheck
 
 
 class HealthEndpointTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
+        self.version_check_patch = patch(
+            "backend.app.main.check_application_version",
+            return_value=VersionCheck(
+                status="current",
+                installed_version=__version__,
+                current_version=__version__,
+                package=(
+                    r"\\vigvsfil1.global.borgwarner.net"
+                    r"\vigproductengineering\ToolingVersions\generator.zip"
+                ),
+            ),
+        )
+        self.version_check_patch.start()
+        self.addCleanup(self.version_check_patch.stop)
 
     def test_health_endpoint(self):
         response = self.client.get("/health")
@@ -26,6 +42,16 @@ class HealthEndpointTests(unittest.TestCase):
                 "status": "ok",
                 "application": "climatic-report-generator",
                 "version": __version__,
+                "version_check": {
+                    "status": "current",
+                    "installed_version": __version__,
+                    "current_version": __version__,
+                    "package": (
+                        r"\\vigvsfil1.global.borgwarner.net"
+                        r"\vigproductengineering\ToolingVersions\generator.zip"
+                    ),
+                    "warning": None,
+                },
             },
         )
 
@@ -43,6 +69,57 @@ class HealthEndpointTests(unittest.TestCase):
             response.headers["access-control-allow-origin"],
             "http://localhost:1420",
         )
+
+
+class OutdatedVersionWriteProtectionTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+        self.blocked_response = JSONResponse(
+            status_code=409,
+            content={"detail": "Update required; application is read-only."},
+        )
+
+    def test_chart_save_and_asset_delete_endpoints_are_blocked(self):
+        requests = [
+            (
+                "/projects/simpati/save-chart",
+                {
+                    "test_root": r"C:\Tests\TEST - 001",
+                    "relative_path": "03_Data/01_SIMPATI/acquisition.x01",
+                    "image_base64": "aW1hZ2U=",
+                },
+            ),
+            (
+                "/projects/graphtec/save-chart",
+                {
+                    "test_root": r"C:\Tests\TEST - 001",
+                    "relative_path": "03_Data/02_Graphtec/acquisition.txt",
+                    "chart": {"series": ["voltage"]},
+                },
+            ),
+            (
+                "/projects/rendered-assets/delete",
+                {
+                    "test_root": r"C:\Tests\TEST - 001",
+                    "relative_path": (
+                        "04_Report/_RenderedAssets/chart.png"
+                    ),
+                },
+            ),
+        ]
+
+        with patch(
+            "backend.app.api.projects._outdated_version_response",
+            return_value=self.blocked_response,
+        ):
+            for url, body in requests:
+                with self.subTest(url=url):
+                    response = self.client.post(url, json=body)
+                    self.assertEqual(response.status_code, 409)
+                    self.assertEqual(
+                        response.json()["detail"],
+                        "Update required; application is read-only.",
+                    )
 
 
 class ProjectInspectionEndpointTests(unittest.TestCase):

@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { DataSourceSelector } from "./components/DataSourceSelector";
@@ -133,6 +140,13 @@ function App() {
   const [backendStatus, setBackendStatus] =
     useState<BackendStatus>("checking");
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
+  const [versionCheck, setVersionCheck] =
+    useState<Awaited<ReturnType<typeof checkHealth>>["version_check"] | null>(
+      null,
+    );
+  const [versionMismatchDismissed, setVersionMismatchDismissed] =
+    useState(false);
+  const versionDialogRef = useRef<HTMLDialogElement>(null);
   const [selectedPath, setSelectedPath] = useState("");
   const [inspectionLoading, setInspectionLoading] = useState(false);
   const [inspection, setInspection] =
@@ -170,9 +184,12 @@ function App() {
     try {
       const response = await checkHealth();
       setBackendVersion(response.version);
+      setVersionCheck(response.version_check);
+      setVersionMismatchDismissed(false);
       setBackendStatus("connected");
     } catch (error) {
       setBackendVersion(null);
+      setVersionCheck(null);
       setBackendStatus("unavailable");
       setCurrentError(errorMessage(error));
     }
@@ -181,6 +198,26 @@ function App() {
   useEffect(() => {
     void retryBackendConnection();
   }, [retryBackendConnection]);
+
+  useEffect(() => {
+    const dialog = versionDialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    if (
+      versionCheck?.status === "outdated" &&
+      !versionMismatchDismissed &&
+      !dialog.open
+    ) {
+      dialog.showModal();
+    } else if (
+      (versionCheck?.status !== "outdated" || versionMismatchDismissed) &&
+      dialog.open
+    ) {
+      dialog.close();
+    }
+  }, [versionCheck, versionMismatchDismissed]);
 
   const resetProjectResults = useCallback(() => {
     setInspection(null);
@@ -224,6 +261,7 @@ function App() {
   }, [resetProjectResults]);
 
   const graphtecOperationActive = graphtecLoading || graphtecSaving;
+  const readOnlyOutdated = versionCheck?.status === "outdated";
   const renderedAssetsBusy =
     renderedAssetsLoading || deletingRenderedAssetPath !== null;
 
@@ -309,6 +347,7 @@ function App() {
   const generateSelectedProjectReport = useCallback(async () => {
     if (
       !selectedPath ||
+      readOnlyOutdated ||
       !canGenerateReport(inspection) ||
       backendStatus !== "connected" ||
       inspectionLoading ||
@@ -359,6 +398,7 @@ function App() {
   }, [
     backendStatus,
     inspection,
+    readOnlyOutdated,
     inspectionLoading,
     simpatiLoading,
     simpatiChartSaving,
@@ -502,6 +542,11 @@ function App() {
     async (
       settings: GraphtecChartSettings,
     ): Promise<GraphtecChartSaveResponse> => {
+      if (readOnlyOutdated) {
+        throw new Error(
+          "This outdated application is in read-only mode. Update it before saving files.",
+        );
+      }
       const relativePath = dataSelection.graphtec?.relative_path;
       if (!selectedPath || !relativePath) {
         throw new Error("Analyze a Graphtec file before saving the chart.");
@@ -530,11 +575,17 @@ function App() {
         setGraphtecSaving(false);
       }
     },
-    [dataSelection.graphtec?.relative_path, selectedPath],
+    [dataSelection.graphtec?.relative_path, readOnlyOutdated, selectedPath],
   );
 
   const deleteSelectedRenderedAsset = useCallback(
     async (relativePath: string) => {
+      if (readOnlyOutdated) {
+        setCurrentError(
+          "This outdated application is in read-only mode. Update it before deleting files.",
+        );
+        return;
+      }
       if (!selectedPath) {
         return;
       }
@@ -568,7 +619,7 @@ function App() {
         setDeletingRenderedAssetPath(null);
       }
     },
-    [renderedAssets.assets, selectedPath],
+    [readOnlyOutdated, renderedAssets.assets, selectedPath],
   );
 
   const openSelectedRenderedAsset = useCallback(
@@ -621,6 +672,11 @@ function App() {
 
   const saveCurrentSimpatiChart = useCallback(
     async (imageBase64: string): Promise<SimpatiChartSaveResponse> => {
+      if (readOnlyOutdated) {
+        throw new Error(
+          "This outdated application is in read-only mode. Update it before saving files.",
+        );
+      }
       if (!selectedPath) {
         throw new Error("Select a test folder before saving the chart.");
       }
@@ -657,7 +713,7 @@ function App() {
         setSimpatiChartSaving(false);
       }
     },
-    [selectedPath, simpatiSourcePath],
+    [readOnlyOutdated, selectedPath, simpatiSourcePath],
   );
 
   const inspectionRows = useMemo<InspectionRow[]>(() => {
@@ -748,6 +804,7 @@ function App() {
   const canGenerate =
     selectedPath.length > 0 &&
     backendStatus === "connected" &&
+    versionCheck?.status !== "outdated" &&
     reportReady &&
     !busy;
   const canInspectSimpati =
@@ -772,6 +829,35 @@ function App() {
 
   return (
     <div className="app-shell">
+      {versionCheck?.status === "outdated" && (
+        <dialog
+          className="version-dialog"
+          ref={versionDialogRef}
+          aria-labelledby="version-dialog-title"
+          onClose={() => setVersionMismatchDismissed(true)}
+        >
+          <h2 id="version-dialog-title">A newer generator version is required</h2>
+          <p>
+            This copy is version {versionCheck.installed_version}; version{" "}
+            {versionCheck.current_version} is current. This application is in
+            read-only mode until it is updated.
+          </p>
+          <p>
+            Download the current package from:
+            <code className="version-dialog__package">
+              {versionCheck.package}
+            </code>
+          </p>
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={() => versionDialogRef.current?.close()}
+            autoFocus
+          >
+            Continue to application
+          </button>
+        </dialog>
+      )}
       <header className="app-header">
         <div>
           <p className="app-kicker">HVCH Testing</p>
@@ -806,6 +892,28 @@ function App() {
           )}
         </div>
       </header>
+
+      {versionCheck?.status === "outdated" && versionMismatchDismissed && (
+        <div className="version-notice message-panel message-panel--warning" role="alert">
+          <h2>Update required to modify project files</h2>
+          <p>
+            Installed version {versionCheck.installed_version}; current version{" "}
+            {versionCheck.current_version}. The application is read-only:
+            saving charts, deleting images, and generating reports are
+            disabled. Download the package from:
+          </p>
+          <code>{versionCheck.package}</code>
+        </div>
+      )}
+      {versionCheck?.status === "unavailable" && (
+        <div className="version-notice message-panel message-panel--warning" role="status">
+          <h2>Could not check the generator version</h2>
+          <p>
+            {versionCheck.warning} You can continue working and generating
+            reports.
+          </p>
+        </div>
+      )}
 
       <main className="workspace">
         <section className="workflow-section" aria-labelledby="project-heading">
@@ -1119,6 +1227,7 @@ function App() {
               key={graphtec.relative_path ?? "graphtec"}
               inspection={graphtec}
               disabled={busy}
+              saveDisabled={readOnlyOutdated}
               onPreview={previewSelectedGraphtecChart}
               onSave={saveSelectedGraphtecChart}
             />
@@ -1246,6 +1355,7 @@ function App() {
                 <SimpatiChart
                   key={simpati.selected_relative_path}
                   data={simpati}
+                  saveDisabled={readOnlyOutdated}
                   title={`SIMPATI ${
                     simpati.selected_index !== null
                       ? `x${String(simpati.selected_index).padStart(2, "0")} · `
@@ -1266,7 +1376,9 @@ function App() {
               state={renderedAssets}
               loading={renderedAssetsLoading}
               deletingRelativePath={deletingRenderedAssetPath}
-              disabled={busy && !renderedAssetsBusy}
+              disabled={
+                readOnlyOutdated || (busy && !renderedAssetsBusy)
+              }
               getImageUrl={(relativePath) =>
                 getRenderedAssetUrl(selectedPath, relativePath)
               }

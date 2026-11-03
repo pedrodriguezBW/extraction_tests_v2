@@ -31,11 +31,12 @@ function inspection(): SimpatiInspectionResponse {
   };
 }
 
-function render(): string {
+function render(saveDisabled = false): string {
   return renderToStaticMarkup(
     <SimpatiChart
       data={inspection()}
       saving={false}
+      saveDisabled={saveDisabled}
       savedChartNames={[]}
       title="SIMPATI x01 · test.x01"
       onSave={() => Promise.reject(new Error("not used"))}
@@ -56,6 +57,16 @@ describe("SimpatiChart", () => {
     const markup = render();
     expect(markup).toContain(">Reset view</button>");
     expect(markup).toContain(">Save current chart</button>");
+  });
+
+  it("disables saving while retaining the read-only chart view", () => {
+    const markup = render(true);
+    const saveButton = markup.match(
+      /<button[^>]*>Save current chart<\/button>/,
+    )?.[0];
+
+    expect(saveButton).toContain("disabled");
+    expect(markup).toContain(">Reset view</button>");
   });
 
   it("explains the zoom on the chart without axis mode buttons", () => {

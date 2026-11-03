@@ -12,6 +12,7 @@ from backend.app.services.report_generation import (
     ReportGenerationError,
     generate_project_report,
 )
+from src.report_generator.version_check import VersionCheck
 
 ASSETS = "04_Report/_RenderedAssets"
 
@@ -20,6 +21,17 @@ class ReportGenerationServiceTests(unittest.TestCase):
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.test_root = Path(self.temporary_directory.name)
+        self.version_check_patch = patch(
+            "backend.app.services.report_generation.check_application_version",
+            return_value=VersionCheck(
+                status="current",
+                installed_version="0.6.0",
+                current_version="0.6.0",
+                package=r"\\server\share\generator.zip",
+            ),
+        )
+        self.version_check_patch.start()
+        self.addCleanup(self.version_check_patch.stop)
         self.template_path = self.test_root / "template.pptx"
         self.report_path = (
             self.test_root
@@ -286,12 +298,75 @@ class ReportGenerationServiceTests(unittest.TestCase):
             "MetadataError",
         )
 
+    @patch(
+        "backend.app.services.report_generation."
+        "generate_climatic_report"
+    )
+    def test_outdated_version_blocks_generation(self, generate_report_mock):
+        with patch(
+            "backend.app.services.report_generation.check_application_version",
+            return_value=VersionCheck(
+                status="outdated",
+                installed_version="0.6.0",
+                current_version="0.7.0",
+                package=r"\\server\share\generator-0.7.0.zip",
+            ),
+        ):
+            with self.assertRaises(ReportGenerationError) as context:
+                generate_project_report(self.test_root)
+
+        self.assertEqual(context.exception.status_code, 409)
+        self.assertEqual(
+            context.exception.error.code,
+            "outdated_application_version",
+        )
+        self.assertIn(r"\\server\share\generator-0.7.0.zip",
+                      context.exception.error.message)
+        generate_report_mock.assert_not_called()
+
+    @patch(
+        "backend.app.services.report_generation."
+        "generate_climatic_report"
+    )
+    def test_unavailable_manifest_does_not_block_generation(
+        self,
+        generate_report_mock,
+    ):
+        generate_report_mock.return_value = self.report_path
+        with patch(
+            "backend.app.services.report_generation.check_application_version",
+            return_value=VersionCheck(
+                status="unavailable",
+                installed_version="0.6.0",
+                warning="Manifest unavailable.",
+            ),
+        ), patch(
+            "backend.app.services.report_generation."
+            "POWERPOINT_TEMPLATE_PATH",
+            self.template_path,
+        ):
+            result = generate_project_report(self.test_root)
+
+        self.assertTrue(result.success)
+        generate_report_mock.assert_called_once()
+
 
 class ReportGenerationEndpointTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.test_root = Path(self.temporary_directory.name)
+        self.version_check_patch = patch(
+            "backend.app.services.report_generation.check_application_version",
+            return_value=VersionCheck(
+                status="current",
+                installed_version="0.6.0",
+                current_version="0.6.0",
+                package=r"\\server\share\generator.zip",
+            ),
+        )
+        self.version_check_patch.start()
+        self.addCleanup(self.version_check_patch.stop)
         self.template_path = self.test_root / "template.pptx"
         self.report_path = (
             self.test_root
@@ -346,6 +421,40 @@ class ReportGenerationEndpointTests(unittest.TestCase):
             selected_assembly_photos=[],
             selected_result_photos=[],
         )
+
+    @patch(
+        "backend.app.services.report_generation."
+        "generate_climatic_report"
+    )
+    def test_generate_report_endpoint_blocks_outdated_version(
+        self,
+        generate_report_mock,
+    ):
+        with patch(
+            "backend.app.services.report_generation.check_application_version",
+            return_value=VersionCheck(
+                status="outdated",
+                installed_version="0.6.0",
+                current_version="0.7.0",
+                package=r"\\server\share\generator-0.7.0.zip",
+            ),
+        ):
+            response = self.client.post(
+                "/projects/generate-report",
+                json={"test_root": str(self.test_root)},
+            )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(response.json()["success"])
+        self.assertEqual(
+            response.json()["errors"][0]["code"],
+            "outdated_application_version",
+        )
+        self.assertIn(
+            r"\\server\share\generator-0.7.0.zip",
+            response.json()["errors"][0]["message"],
+        )
+        generate_report_mock.assert_not_called()
 
     @patch(
         "backend.app.services.report_generation."

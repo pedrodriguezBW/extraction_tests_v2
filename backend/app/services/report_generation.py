@@ -23,6 +23,7 @@ from src.report_generator.rendered_assets import (
     RenderedAssetUnsupportedError,
     relative_asset_path,
 )
+from src.report_generator.version_check import check_application_version
 
 from ..models.common import ApiError
 from ..models.report_generation import ReportGenerationResponse
@@ -138,6 +139,21 @@ def generate_project_report(
     order. ``None`` keeps the behaviour without selection.
     """
     project_root = Path(test_root).expanduser()
+    version_check = check_application_version()
+    if version_check.status == "outdated":
+        raise ReportGenerationError(
+            test_root=project_root,
+            status_code=409,
+            error=ApiError(
+                code="outdated_application_version",
+                message=(
+                    f"This application version ({version_check.installed_version}) "
+                    f"is outdated. Version {version_check.current_version} is "
+                    f"required. Download the current package from "
+                    f"{version_check.package}."
+                ),
+            ),
+        )
 
     try:
         project_root = project_root.resolve()
