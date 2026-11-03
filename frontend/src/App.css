@@ -712,34 +712,10 @@ input:focus-visible {
   margin-top: 16px;
 }
 
-.graphtec-preview {
-  margin-top: 18px;
-}
 
-.graphtec-preview__figure {
-  margin: 0;
-  padding: 12px;
-  background: #ffffff;
-  border: 1px solid #d5dde4;
-}
 
-.graphtec-preview__figure img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
 
-.graphtec-preview__figure figcaption {
-  margin-top: 8px;
-  color: #60717f;
-  font-size: 0.8rem;
-}
 
-.graphtec-preview__note {
-  display: block;
-  margin-top: 4px;
-  color: #405566;
-}
 
 .resource-metrics {
   grid-template-columns: repeat(4, minmax(0, 1fr));

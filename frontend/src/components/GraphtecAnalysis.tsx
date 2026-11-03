@@ -1,29 +1,23 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
+import { GraphtecChart } from "./GraphtecChart";
 import {
-  canPreviewGraphtec,
   canSaveGraphtec,
   formatSeconds,
-  graphtecFormKey,
-  graphtecFormToSettings,
   graphtecPanelReducer,
   graphtecUnitsSummary,
+  graphtecViewToSettings,
   initialGraphtecPanelState,
-  isGraphtecPreviewCurrent,
-  shouldAutoRefreshPreview,
+  isFullGraphtecViewport,
   validateGraphtecForm,
   type GraphtecPanelAction,
   type GraphtecPanelState,
 } from "../services/graphtecChart";
 import type {
-  GraphtecChartPreviewResponse,
   GraphtecChartSaveResponse,
   GraphtecChartSettings,
   GraphtecInspectionResponse,
 } from "../types/graphtec";
-
-/** Retardo antes de regenerar la previsualización tras un cambio. */
-export const PREVIEW_REFRESH_DELAY_MS = 450;
 
 function errorText(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim()
@@ -40,16 +34,15 @@ export interface GraphtecAnalysisViewProps {
   state: GraphtecPanelState;
   /** Otra operación incompatible está en curso. */
   disabled: boolean;
-  /** Impide guardar el gráfico sin deshabilitar la vista previa. */
+  /** Impide guardar el gráfico sin deshabilitar la exploración. */
   saveDisabled?: boolean;
   dispatch: (action: GraphtecPanelAction) => void;
-  onPreview: () => void;
   onSave: () => void;
 }
 
 /**
- * Resumen del archivo Graphtec, configuración de la gráfica,
- * previsualización y guardado.
+ * Resumen del archivo Graphtec, gráfica interactiva (zoom por arrastre, como
+ * en SIMPATI) y guardado de la vista visible.
  */
 export function GraphtecAnalysisView({
   inspection,
@@ -57,12 +50,11 @@ export function GraphtecAnalysisView({
   disabled,
   saveDisabled = false,
   dispatch,
-  onPreview,
   onSave,
 }: GraphtecAnalysisViewProps) {
-  const { form, preview, save } = state;
+  const { form, save } = state;
   const validationError = validateGraphtecForm(form, inspection);
-  const previewCurrent = isGraphtecPreviewCurrent(state);
+  const zoomed = !isFullGraphtecViewport(state.viewport, inspection);
   const controlsDisabled = disabled || save.status === "saving";
   const testType = inspection.test_types.join(", ") || "Unknown";
 
@@ -156,7 +148,8 @@ export function GraphtecAnalysisView({
         <h3>Chart configuration</h3>
         <p className="action-hint">
           X axis: Elapsed time [s]. Voltage uses the left axis; current or
-          resistance uses the right axis.
+          resistance uses the right axis. Save chart stores exactly the view
+          shown below, including the zoom.
         </p>
 
         <fieldset className="graphtec-config__series" disabled={controlsDisabled}>
@@ -194,42 +187,6 @@ export function GraphtecAnalysisView({
                 dispatch({
                   type: "formChanged",
                   patch: { title: event.target.value },
-                })
-              }
-            />
-          </label>
-          <label className="graphtec-field">
-            <span>Start [s]</span>
-            <input
-              id="graphtec-time-min"
-              type="number"
-              min={0}
-              step="any"
-              value={form.timeMin}
-              placeholder={String(inspection.elapsed_time_start ?? 0)}
-              disabled={controlsDisabled}
-              onChange={(event) =>
-                dispatch({
-                  type: "formChanged",
-                  patch: { timeMin: event.target.value },
-                })
-              }
-            />
-          </label>
-          <label className="graphtec-field">
-            <span>End [s]</span>
-            <input
-              id="graphtec-time-max"
-              type="number"
-              min={0}
-              step="any"
-              value={form.timeMax}
-              placeholder={String(inspection.elapsed_time_end ?? "")}
-              disabled={controlsDisabled}
-              onChange={(event) =>
-                dispatch({
-                  type: "formChanged",
-                  patch: { timeMax: event.target.value },
                 })
               }
             />
@@ -280,15 +237,7 @@ export function GraphtecAnalysisView({
             disabled={controlsDisabled}
             onClick={() => dispatch({ type: "reset", inspection })}
           >
-            Reset
-          </button>
-          <button
-            className="button button--secondary"
-            type="button"
-            disabled={!canPreviewGraphtec(state, inspection, disabled)}
-            onClick={onPreview}
-          >
-            {preview.status === "loading" ? "Generating preview..." : "Preview chart"}
+            Reset view
           </button>
           <button
             className="button button--primary"
@@ -300,9 +249,11 @@ export function GraphtecAnalysisView({
           >
             {save.status === "saving" ? "Saving chart..." : "Save chart"}
           </button>
-          {!previewCurrent && preview.status !== "loading" && (
-            <span className="action-hint">
-              Preview the chart to enable saving.
+          {zoomed && (
+            <span className="action-hint graphtec-zoom-status">
+              Zoomed view: {formatSeconds(state.viewport.timeStart)} to{" "}
+              {formatSeconds(state.viewport.timeEnd)}
+              {state.viewport.yZoom !== null ? ", value range zoomed" : ""}.
             </span>
           )}
         </div>
@@ -323,43 +274,29 @@ export function GraphtecAnalysisView({
         </div>
       )}
 
-      <div className="graphtec-preview" aria-busy={preview.status === "loading"}>
-        {preview.status === "idle" && (
-          <div className="empty-state">
-            Configure the chart and select Preview chart.
-          </div>
-        )}
-        {preview.status === "loading" && (
-          <p className="loading-text" role="status">
-            Generating preview...
+      {inspection.chart_data.elapsed_time_seconds.length === 0 ? (
+        <div className="empty-state">
+          The file has no records to display.
+        </div>
+      ) : (
+        <>
+          <GraphtecChart
+            inspection={inspection}
+            state={state}
+            onViewportChange={(viewport) =>
+              dispatch({ type: "viewportChanged", viewport })
+            }
+            onZoomReset={() => dispatch({ type: "zoomReset", inspection })}
+          />
+          <p className="simpati-chart__hint">
+            Drag on the chart to zoom: horizontally for time, vertically for
+            values or diagonally for both. Double-click the chart or use Reset
+            view to show the full chart.
+            {inspection.chart_data.truncated &&
+              " Long files are shown with a reduced number of points; the saved chart uses every record."}
           </p>
-        )}
-        {preview.status === "error" && (
-          <div className="simpati-save-status simpati-save-status--error" role="alert">
-            {preview.error ?? "The preview could not be generated."}
-          </div>
-        )}
-        {preview.response?.image_base64 && preview.status !== "error" && (
-          <figure className="graphtec-preview__figure">
-            <img
-              src={preview.response.image_base64}
-              alt={`Graphtec chart preview: ${preview.response.title ?? ""}`}
-            />
-            <figcaption>
-              {preview.response.axes.map((axis) => axis.label).join(" | ")}
-              {" | "}
-              {preview.response.x_axis_label} from{" "}
-              {formatSeconds(preview.response.time_start)} to{" "}
-              {formatSeconds(preview.response.time_end)}
-              {preview.response.notes.map((note) => (
-                <span key={note} className="graphtec-preview__note">
-                  {note}
-                </span>
-              ))}
-            </figcaption>
-          </figure>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -369,28 +306,24 @@ export interface GraphtecAnalysisProps {
   inspection: GraphtecInspectionResponse;
   disabled: boolean;
   saveDisabled?: boolean;
-  onPreview: (
-    settings: GraphtecChartSettings,
-  ) => Promise<GraphtecChartPreviewResponse>;
+  /** Genera y guarda la imagen de la vista indicada. */
   onSave: (
     settings: GraphtecChartSettings,
   ) => Promise<GraphtecChartSaveResponse>;
 }
 
 /**
- * Gestiona la configuración, la previsualización y el guardado de la
- * gráfica de un archivo Graphtec analizado.
+ * Gestiona la gráfica interactiva y el guardado de un archivo Graphtec
+ * analizado.
  *
  * El componente debe montarse con `key` igual a la ruta del archivo para
- * descartar la configuración y la previsualización al cambiar de archivo.
- * Las respuestas que llegan tras desmontarse o tras una petición más
- * reciente se ignoran.
+ * descartar la configuración y el zoom al cambiar de archivo. Las respuestas
+ * que llegan tras desmontarse se ignoran.
  */
 export function GraphtecAnalysis({
   inspection,
   disabled,
   saveDisabled = false,
-  onPreview,
   onSave,
 }: GraphtecAnalysisProps) {
   const [state, dispatch] = useReducer(
@@ -398,7 +331,6 @@ export function GraphtecAnalysis({
     inspection,
     initialGraphtecPanelState,
   );
-  const requestCounter = useRef(0);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -408,50 +340,13 @@ export function GraphtecAnalysis({
     };
   }, []);
 
-  const requestPreview = useCallback(async () => {
-    if (validateGraphtecForm(state.form, inspection) !== null) {
-      return;
-    }
-    requestCounter.current += 1;
-    const requestId = requestCounter.current;
-    dispatch({
-      type: "previewRequested",
-      requestId,
-      formKey: graphtecFormKey(state.form),
-    });
-    try {
-      const response = await onPreview(graphtecFormToSettings(state.form));
-      if (mounted.current) {
-        dispatch({ type: "previewSucceeded", requestId, response });
-      }
-    } catch (error) {
-      if (mounted.current) {
-        dispatch({
-          type: "previewFailed",
-          requestId,
-          message: errorText(error, "The preview could not be generated."),
-        });
-      }
-    }
-  }, [inspection, onPreview, state.form]);
-
-  useEffect(() => {
-    if (disabled || !shouldAutoRefreshPreview(state, inspection)) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      void requestPreview();
-    }, PREVIEW_REFRESH_DELAY_MS);
-    return () => window.clearTimeout(timer);
-  }, [disabled, inspection, requestPreview, state]);
-
   const save = useCallback(async () => {
     if (!canSaveGraphtec(state, inspection, disabled || saveDisabled)) {
       return;
     }
     dispatch({ type: "saveStarted" });
     try {
-      const response = await onSave(graphtecFormToSettings(state.form));
+      const response = await onSave(graphtecViewToSettings(state, inspection));
       if (mounted.current) {
         dispatch({
           type: "saveSucceeded",
@@ -475,7 +370,6 @@ export function GraphtecAnalysis({
       disabled={disabled}
       saveDisabled={saveDisabled}
       dispatch={dispatch}
-      onPreview={() => void requestPreview()}
       onSave={() => void save()}
     />
   );

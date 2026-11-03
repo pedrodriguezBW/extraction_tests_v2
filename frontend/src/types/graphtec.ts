@@ -38,6 +38,19 @@ export interface GraphtecChartSettings {
 
   /** Fin del intervalo en segundos o `null` para el final completo. */
   time_max: number | null;
+
+  /**
+   * Rango Y visible de cada serie, tal como lo muestra el visor interactivo.
+   * La imagen guardada usa exactamente estos límites. Omitido o `null`:
+   * rango automático.
+   */
+  value_ranges?: Partial<Record<GraphtecSeriesId, GraphtecValueRange>> | null;
+}
+
+/** Rango de valores visible en un eje Y. */
+export interface GraphtecValueRange {
+  minimum: number;
+  maximum: number;
 }
 
 /** Petición de previsualización o guardado. */

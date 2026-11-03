@@ -245,6 +245,42 @@ export function buildGraphtecInspection(
   };
 }
 
+/**
+ * Datos de gráfica Graphtec IR: 9 registros entre 0 y 8 s, tensión 0-1 kV,
+ * resistencia con dos valores limitados (`>`) y un registro PASS final.
+ */
+export function buildGraphtecChartData(): GraphtecInspectionResponse["chart_data"] {
+  return {
+    elapsed_time_seconds: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+    voltage_kv: [0, 0.25, 0.5, 0.75, 1, 1, 1, 0.5, 1],
+    measurement: [100, 200, 300, 50000, 50000, 400, 500, 600, 600],
+    measurement_operator: [null, null, null, ">", ">", null, null, null, null],
+    status: ["TEST", "TEST", "TEST", "TEST", "TEST", "TEST", "TEST", "TEST", "PASS"],
+    phase: ["R", "R", "R", "T", "T", "T", "D", "D", "D"],
+    truncated: false,
+  };
+}
+
+/** Análisis Graphtec IR con datos de gráfica y fases R, T y D. */
+export function buildGraphtecInspectionWithData(
+  overrides: Partial<GraphtecInspectionResponse> = {},
+): GraphtecInspectionResponse {
+  return buildGraphtecInspection({
+    records_count: 9,
+    elapsed_time_start: 0,
+    elapsed_time_end: 8,
+    duration_seconds: 8,
+    limited_values_count: 2,
+    phase_segments: [
+      { phase: "R", start_elapsed_seconds: 0, end_elapsed_seconds: 2, first_line: 2, last_line: 4, records_count: 3 },
+      { phase: "T", start_elapsed_seconds: 3, end_elapsed_seconds: 5, first_line: 5, last_line: 7, records_count: 3 },
+      { phase: "D", start_elapsed_seconds: 6, end_elapsed_seconds: 8, first_line: 8, last_line: 10, records_count: 3 },
+    ],
+    chart_data: buildGraphtecChartData(),
+    ...overrides,
+  });
+}
+
 /** Graphtec chart preview returned by the backend. */
 export function buildGraphtecPreview(
   overrides: Partial<GraphtecChartPreviewResponse> = {},

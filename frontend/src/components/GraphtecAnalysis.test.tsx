@@ -3,18 +3,19 @@ import { describe, expect, it } from "vitest";
 
 import { GraphtecAnalysis, GraphtecAnalysisView } from "./GraphtecAnalysis";
 import {
-  graphtecFormKey,
   graphtecPanelReducer,
   initialGraphtecPanelState,
   type GraphtecPanelState,
 } from "../services/graphtecChart";
 import {
   buildGraphtecInspection,
-  buildGraphtecPreview,
+  buildGraphtecInspectionWithData,
 } from "../services/testFixtures";
 
-const inspection = buildGraphtecInspection({
+const inspection = buildGraphtecInspectionWithData({
   warnings: ["No result record (PASS) was found in the file."],
+  records_count: 73,
+  limited_values_count: 20,
 });
 
 function render(
@@ -29,7 +30,6 @@ function render(
       disabled={disabled}
       saveDisabled={saveDisabled}
       dispatch={() => undefined}
-      onPreview={() => undefined}
       onSave={() => undefined}
     />,
   );
@@ -41,20 +41,6 @@ function button(markup: string, label: string): string {
     throw new Error(`Button not found: ${label}`);
   }
   return markup.slice(markup.lastIndexOf("<button", end), end);
-}
-
-function ready(): GraphtecPanelState {
-  const initial = initialGraphtecPanelState(inspection);
-  const loading = graphtecPanelReducer(initial, {
-    type: "previewRequested",
-    requestId: 1,
-    formKey: graphtecFormKey(initial.form),
-  });
-  return graphtecPanelReducer(loading, {
-    type: "previewSucceeded",
-    requestId: 1,
-    response: buildGraphtecPreview(),
-  });
 }
 
 describe("GraphtecAnalysisView", () => {
@@ -71,7 +57,7 @@ describe("GraphtecAnalysisView", () => {
       "<dt>Phases</dt><dd>R, T, D</dd>",
       "Voltage [kV], Resistance [Mohm]",
       "Resistance: Mohm, Gohm → Mohm",
-      "14.8 s",
+      "8 s",
       "No result record (PASS) was found in the file.",
       "20 limited values",
     ]) {
@@ -87,74 +73,75 @@ describe("GraphtecAnalysisView", () => {
     expect(markup).not.toContain('value="current"');
   });
 
-  it("shows an editable title and the time range inputs", () => {
+  it("replaces the Start/End fields and the preview image by the interactive chart", () => {
     const markup = render(initialGraphtecPanelState(inspection));
 
     expect(markup).toContain('id="graphtec-title"');
-    expect(markup).toContain('value="Graphtec IR - Channel 1"');
-    expect(markup).toContain('id="graphtec-time-min"');
-    expect(markup).toContain('placeholder="0"');
-    expect(markup).toContain('id="graphtec-time-max"');
-    expect(markup).toContain('placeholder="14.8"');
-    expect(markup).toContain("X axis: Elapsed time [s]");
+    expect(markup).not.toContain('id="graphtec-time-min"');
+    expect(markup).not.toContain('id="graphtec-time-max"');
+    expect(markup).not.toContain("Preview chart");
+    expect(markup).not.toContain("<img");
+    expect(markup).toContain("<svg");
+    expect(markup).toContain("Drag across the");
+    expect(markup).toContain("Double-click the chart or use Reset");
   });
 
-  it("enables Preview chart and keeps Save chart disabled before a preview", () => {
+  it("draws both axes, the phases, limit markers and the result record", () => {
     const markup = render(initialGraphtecPanelState(inspection));
 
-    expect(button(markup, "Preview chart")).not.toContain("disabled");
-    expect(button(markup, "Save chart")).toContain("disabled");
-    expect(markup).toContain("Preview the chart to enable saving.");
+    expect(markup).toContain("Voltage [kV]</text>");
+    expect(markup).toContain("Resistance [Mohm]</text>");
+    expect(markup).toContain("graphtec-chart__axis--left");
+    expect(markup).toContain("graphtec-chart__axis--right");
+    expect(markup.match(/class="graphtec-chart__phase"/g)?.length).toBe(3);
+    expect(markup.match(/class="graphtec-chart__limit"/g)?.length).toBe(2);
+    // El registro PASS se marca en las dos series.
+    expect(markup.match(/class="graphtec-chart__result"/g)?.length).toBe(2);
+    expect(markup).toContain("Resistance limit (&gt; threshold)");
+    expect(markup).toContain("Voltage - PASS record");
   });
 
-  it("shows the loading state", () => {
-    const initial = initialGraphtecPanelState(inspection);
-    const loading = graphtecPanelReducer(initial, {
-      type: "previewRequested",
-      requestId: 1,
-      formKey: graphtecFormKey(initial.form),
+  it("hides legend and phase separators when they are switched off", () => {
+    const state = graphtecPanelReducer(initialGraphtecPanelState(inspection), {
+      type: "formChanged",
+      patch: { showLegend: false, showPhaseSeparators: false },
     });
-    const markup = render(loading);
-
-    expect(markup).toContain('aria-busy="true"');
-    expect(button(markup, "Generating preview...")).toContain("disabled");
-  });
-
-  it("shows the preview with axes and limit note, and enables Save chart", () => {
-    const markup = render(ready());
-
-    expect(markup).toContain('src="data:image/png;base64,iVBORw0KGgo="');
-    expect(markup).toContain("Voltage [kV] | Resistance [Mohm]");
-    expect(markup).toContain(
-      "Limit marker indicates a value greater than the displayed threshold.",
-    );
-    expect(button(markup, "Save chart")).not.toContain("disabled");
-  });
-
-  it("keeps preview available while disabling saves in read-only mode", () => {
-    const markup = render(ready(), false, true);
-
-    expect(button(markup, "Preview chart")).not.toContain("disabled");
-    expect(button(markup, "Save chart")).toContain("disabled");
-  });
-
-  it("shows preview errors", () => {
-    const state = graphtecPanelReducer(
-      graphtecPanelReducer(initialGraphtecPanelState(inspection), {
-        type: "previewRequested",
-        requestId: 1,
-        formKey: "x",
-      }),
-      { type: "previewFailed", requestId: 1, message: "No records fall inside the selected time range." },
-    );
     const markup = render(state);
 
-    expect(markup).toContain('role="alert"');
-    expect(markup).toContain("No records fall inside the selected time range.");
+    expect(markup).not.toContain("graphtec-chart__legend-item");
+    expect(markup).not.toContain("graphtec-chart__phase");
+  });
+
+  it("draws only the visible interval when zoomed", () => {
+    const state = graphtecPanelReducer(initialGraphtecPanelState(inspection), {
+      type: "viewportChanged",
+      viewport: { timeStart: 5, timeEnd: 8, yZoom: null },
+    });
+    const markup = render(state);
+
+    expect(markup).not.toContain("graphtec-chart__limit");
+    expect(markup).toContain("Zoomed view: 5 s to 8 s.");
+  });
+
+  it("uses a single left axis with one series", () => {
+    const state = graphtecPanelReducer(initialGraphtecPanelState(inspection), {
+      type: "seriesToggled",
+      seriesId: "voltage",
+      selected: false,
+    });
+    const markup = render(state);
+
+    expect(markup).toContain("graphtec-chart__axis--left");
+    expect(markup).not.toContain("graphtec-chart__axis--right");
+  });
+
+  it("enables Save chart without a preview step and disables it in read-only mode", () => {
+    expect(button(render(initialGraphtecPanelState(inspection)), "Save chart")).not.toContain("disabled");
+    expect(button(render(initialGraphtecPanelState(inspection), false, true), "Save chart")).toContain("disabled");
   });
 
   it("shows the saving and saved states", () => {
-    const saving = graphtecPanelReducer(ready(), { type: "saveStarted" });
+    const saving = graphtecPanelReducer(initialGraphtecPanelState(inspection), { type: "saveStarted" });
     expect(button(render(saving), "Saving chart...")).toContain("disabled");
 
     const saved = graphtecPanelReducer(saving, {
@@ -169,39 +156,52 @@ describe("GraphtecAnalysisView", () => {
   it("shows validation errors", () => {
     const state = graphtecPanelReducer(initialGraphtecPanelState(inspection), {
       type: "formChanged",
-      patch: { timeMin: "10", timeMax: "2" },
+      patch: { series: [] },
     });
     const markup = render(state);
 
-    expect(markup).toContain("The start time must be lower than the end time.");
-    expect(button(markup, "Preview chart")).toContain("disabled");
+    expect(markup).toContain("Select at least one series.");
+    expect(button(markup, "Save chart")).toContain("disabled");
   });
 
   it("disables every action while another operation runs", () => {
-    const markup = render(ready(), true);
+    const markup = render(initialGraphtecPanelState(inspection), true);
 
-    expect(button(markup, "Preview chart")).toContain("disabled");
     expect(button(markup, "Save chart")).toContain("disabled");
-    expect(button(markup, "Reset")).toContain("disabled");
+    expect(button(markup, "Reset view")).toContain("disabled");
+  });
+
+  it("explains when the file has no records to draw", () => {
+    const empty = buildGraphtecInspection();
+    const markup = renderToStaticMarkup(
+      <GraphtecAnalysisView
+        inspection={empty}
+        state={initialGraphtecPanelState(empty)}
+        disabled={false}
+        dispatch={() => undefined}
+        onSave={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain("The file has no records to display.");
   });
 });
 
 describe("GraphtecAnalysis", () => {
-  it("starts from the defaults without requesting a preview", () => {
-    let previews = 0;
+  it("shows the interactive chart immediately without calling the backend", () => {
+    let saves = 0;
     const markup = renderToStaticMarkup(
       <GraphtecAnalysis
         inspection={inspection}
         disabled={false}
-        onPreview={() => {
-          previews += 1;
-          return Promise.resolve(buildGraphtecPreview());
+        onSave={() => {
+          saves += 1;
+          return Promise.reject(new Error("not expected"));
         }}
-        onSave={() => Promise.reject(new Error("not expected"))}
       />,
     );
 
-    expect(previews).toBe(0);
-    expect(markup).toContain("Configure the chart and select Preview chart.");
+    expect(saves).toBe(0);
+    expect(markup).toContain("<svg");
   });
 });

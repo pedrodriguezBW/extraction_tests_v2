@@ -25,7 +25,6 @@ import {
   inspectProject,
   inspectSimpati,
   listRenderedAssets,
-  previewGraphtecChart,
   saveGraphtecChart,
   saveSimpatiChart,
 } from "./services/api";
@@ -524,19 +523,6 @@ function App() {
     simpatiChartSaving,
     simpatiLoading,
   ]);
-
-  const previewSelectedGraphtecChart = useCallback(
-    (settings: GraphtecChartSettings) => {
-      const relativePath = dataSelection.graphtec?.relative_path;
-      if (!selectedPath || !relativePath) {
-        return Promise.reject(
-          new Error("Analyze a Graphtec file before previewing the chart."),
-        );
-      }
-      return previewGraphtecChart(selectedPath, relativePath, settings);
-    },
-    [dataSelection.graphtec?.relative_path, selectedPath],
-  );
 
   const saveSelectedGraphtecChart = useCallback(
     async (
@@ -1228,7 +1214,6 @@ function App() {
               inspection={graphtec}
               disabled={busy}
               saveDisabled={readOnlyOutdated}
-              onPreview={previewSelectedGraphtecChart}
               onSave={saveSelectedGraphtecChart}
             />
           )}
