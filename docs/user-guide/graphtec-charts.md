@@ -62,10 +62,8 @@ un error que indica la línea.
   Corriente y resistencia nunca se mezclan.
 - **Title:** se propone uno a partir del contenido, por ejemplo
   `Graphtec IR - Channel 1`.
-- **Start [s]** y **End [s]:** intervalo opcional de tiempo acumulado.
-  Vacío equivale al intervalo completo.
 - **Show legend** y **Show phase separators.**
-- **Reset** recupera la configuración inicial.
+- **Reset view** recupera la configuración inicial y la vista completa.
 
 El eje X es siempre **Elapsed time [s]**. La tensión utiliza el eje
 izquierdo y la corriente o la resistencia, el derecho. Con una sola serie
@@ -82,17 +80,34 @@ que mida exactamente 50 Gohm. La aplicación:
 - Muestra la nota *Limit marker indicates a value greater than the displayed
   threshold.*
 
-## Previsualizar y guardar
+## Explorar la gráfica (zoom)
 
-1. Pulsa **Preview chart**. Después, la previsualización se actualiza al
-   cambiar las series, el intervalo u otras opciones.
-2. Pulsa **Save chart**. Solo se habilita cuando la previsualización
-   corresponde a la configuración actual.
+La gráfica aparece en cuanto se analiza el archivo y funciona igual que la de
+SIMPATI. Arrastra sobre el área de la gráfica:
+
+- **En horizontal:** amplía el intervalo de tiempo (eje X) sin cambiar los
+  ejes Y.
+- **En vertical:** amplía el rango de valores. Los dos ejes Y (tensión y
+  corriente o resistencia) se amplían a la vez, en la misma proporción.
+- **En diagonal:** amplía ambos ejes.
+
+Los ejes Y muestran el rango completo de la adquisición hasta que los amplías;
+ampliar el tiempo nunca los reajusta. Un **doble clic** sobre la gráfica
+restablece solo el zoom; **Reset view** restablece también las series y las
+opciones.
+
+## Guardar
+
+Pulsa **Save chart**. Se guarda exactamente la vista visible: el mismo
+intervalo de tiempo, el mismo rango de cada eje Y, las series, el título, la
+leyenda y los separadores de fase. La imagen para el informe se genera con el
+formato común de exportación y con todos los registros del archivo.
 
 La gráfica se guarda en `04_Report/_RenderedAssets` con un nombre generado
 (`graphtec_chart_01.png`, `graphtec_chart_02.png`, …) que nunca sobrescribe
 otra imagen. Junto a ella se guarda un JSON con el archivo de origen, el tipo
-de ensayo, las series, el intervalo y las unidades.
+de ensayo, las series, el intervalo, los rangos de valores (`value_ranges`) y
+las unidades.
 
 Las gráficas guardadas aparecen en **Report images** con la procedencia
 `Graphtec`, donde pueden abrirse, eliminarse y marcarse o desmarcarse para el

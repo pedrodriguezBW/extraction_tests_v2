@@ -21,6 +21,13 @@ class GraphtecFileRequest(BaseModel):
     )
 
 
+class GraphtecValueRange(BaseModel):
+    """Visible value range of one series axis (Y zoom)."""
+
+    minimum: float
+    maximum: float
+
+
 class GraphtecChartSettings(BaseModel):
     """Chart settings. The X axis is always elapsed_time_seconds."""
 
@@ -39,6 +46,14 @@ class GraphtecChartSettings(BaseModel):
     time_max: float | None = Field(
         default=None,
         description="End of the elapsed time range in seconds.",
+    )
+    value_ranges: dict[str, GraphtecValueRange] | None = Field(
+        default=None,
+        description=(
+            "Visible Y range per series id (voltage, current, resistance), "
+            "as shown by the interactive viewer. Missing series use the "
+            "automatic range."
+        ),
     )
 
 

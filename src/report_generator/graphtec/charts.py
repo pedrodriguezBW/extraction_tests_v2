@@ -87,6 +87,9 @@ class GraphtecChartConfig:
     show_phase_separators: bool = True
     time_min: float | None = None
     time_max: float | None = None
+    # Rango Y visible por serie: ((id, mínimo, máximo), ...). Lo envía el
+    # visor interactivo para que la imagen guardada coincida con la vista.
+    value_ranges: tuple[tuple[str, float, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -120,6 +123,7 @@ class GraphtecChartRender:
     result_points: int
     phase_markers: list[PhaseMarker] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    value_ranges: tuple[tuple[str, float, float], ...] = ()
 
 
 def available_series(acquisition: GraphtecAcquisition) -> list[GraphtecSeries]:
@@ -201,6 +205,7 @@ def validate_chart_config(
         )
 
     ordered = tuple(s for s in available if s in requested)
+    value_ranges = _validate_value_ranges(config.value_ranges, ordered)
     return GraphtecChartConfig(
         series=ordered,
         title=title,
@@ -208,7 +213,42 @@ def validate_chart_config(
         show_phase_separators=bool(config.show_phase_separators),
         time_min=time_min,
         time_max=time_max,
+        value_ranges=value_ranges,
     )
+
+
+def _validate_value_ranges(
+    value_ranges, selected: tuple[str, ...]
+) -> tuple[tuple[str, float, float], ...]:
+    """Normaliza los rangos Y: solo series seleccionadas, finitos y crecientes."""
+    result = []
+    seen = set()
+    for item in value_ranges or ():
+        try:
+            series_id, minimum, maximum = item
+            minimum = float(minimum)
+            maximum = float(maximum)
+        except (TypeError, ValueError) as error:
+            raise GraphtecChartConfigError(
+                "Each value range needs a series, a minimum and a maximum."
+            ) from error
+        if series_id not in selected:
+            raise GraphtecChartConfigError(
+                f"The value range refers to a series that is not selected: {series_id}."
+            )
+        if series_id in seen:
+            raise GraphtecChartConfigError(
+                f"Duplicated value range for {series_id}."
+            )
+        if not (math.isfinite(minimum) and math.isfinite(maximum)):
+            raise GraphtecChartConfigError("Value ranges must be finite numbers.")
+        if minimum >= maximum:
+            raise GraphtecChartConfigError(
+                "The minimum of a value range must be lower than its maximum."
+            )
+        seen.add(series_id)
+        result.append((series_id, minimum, maximum))
+    return tuple(s for s_id in selected for s in result if s[0] == s_id)
 
 
 def _series_value(record: GraphtecRecord, series_id: str) -> float:
@@ -366,6 +406,11 @@ def _build_graphtec_figure(
                 color="#5b6b78",
             )
 
+    # Rango Y fijado por el visor interactivo (zoom vertical o vista por
+    # defecto): la imagen reproduce exactamente lo que se ve en pantalla.
+    for series_id, minimum, maximum in config.value_ranges:
+        axes_for_series[series_id].set_ylim(minimum, maximum)
+
     # A small margin keeps the first and last markers fully visible.
     primary.set_xlim(start - span * 0.015, end + span * 0.015)
     primary.set_xlabel(f"{X_AXIS_LABEL} [{X_AXIS_UNIT}]")
@@ -399,6 +444,7 @@ def _build_graphtec_figure(
         result_points=result_points,
         phase_markers=phase_markers if config.show_phase_separators else [],
         notes=notes,
+        value_ranges=config.value_ranges,
     )
     return figure, render
 

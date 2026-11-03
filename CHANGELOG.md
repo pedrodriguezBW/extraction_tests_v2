@@ -15,6 +15,8 @@ All notable project changes are documented in this file.
 
 ### Changed
 
+- Graphtec (TXT) charts are now interactive, with the same zoom system as the SIMPATI charts. The chart is drawn directly in the application as soon as the file is analyzed (no **Preview chart** step): drag horizontally to narrow the time interval, vertically to zoom the value range (voltage and current/resistance axes together) or diagonally for both; **Reset view** and a double-click restore the full view. The value axes show the full range of the acquisition until the user zooms them; zooming the time axis never rescales them. The **Start [s]** / **End [s]** fields are removed. **Save chart** stores exactly the visible view: the backend renders the report image with the same time interval and value ranges. Limited values (for example `>50Gohm`), result records (PASS) and phase separators are drawn as in the saved image.
+- `POST /projects/graphtec/save-chart` and `preview-chart`: `chart.value_ranges` (optional, `{series_id: {minimum, maximum}}`) fixes the Y range of each selected series; it is validated (selected series, finite, minimum lower than maximum) and recorded in the chart JSON as `value_ranges`. Without it the automatic range is kept.
 - `config.py`: the PowerPoint template can be overridden with the `REPORT_TEMPLATE_PATH` environment variable (used by the installed package); without it the previous path is used.
 
 ## [0.6.0] - 2026-11-02

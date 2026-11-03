@@ -157,6 +157,58 @@ class GraphtecChartTests(unittest.TestCase):
                     self.dcw, config(series=("voltage",), time_min=time_min, time_max=time_max)
                 )
 
+    def test_value_ranges_fix_each_y_axis(self):
+        figure, render = build_graphtec_figure(
+            self.ir,
+            config(
+                series=("voltage", "resistance"),
+                value_ranges=(("voltage", 0.2, 0.6), ("resistance", 10.0, 900.0)),
+            ),
+        )
+
+        self.assertEqual(figure.axes[0].get_ylim(), (0.2, 0.6))
+        self.assertEqual(figure.axes[1].get_ylim(), (10.0, 900.0))
+        self.assertEqual(
+            render.value_ranges,
+            (("voltage", 0.2, 0.6), ("resistance", 10.0, 900.0)),
+        )
+
+    def test_value_range_of_a_single_series_uses_the_left_axis(self):
+        figure, _ = build_graphtec_figure(
+            self.ir,
+            config(series=("resistance",), value_ranges=(("resistance", 5.0, 50.0),)),
+        )
+
+        self.assertEqual(figure.axes[0].get_ylim(), (5.0, 50.0))
+
+    def test_value_ranges_are_optional_and_ordered_by_series(self):
+        figure, render = build_graphtec_figure(
+            self.ir,
+            config(
+                series=("voltage", "resistance"),
+                value_ranges=(("resistance", 1.0, 2.0),),
+            ),
+        )
+
+        self.assertEqual(render.value_ranges, (("resistance", 1.0, 2.0),))
+        self.assertEqual(figure.axes[1].get_ylim(), (1.0, 2.0))
+        self.assertNotEqual(figure.axes[0].get_ylim(), (1.0, 2.0))
+
+    def test_invalid_value_ranges(self):
+        for ranges in (
+            (("current", 0.0, 1.0),),
+            (("voltage", 1.0, 1.0),),
+            (("voltage", 2.0, 1.0),),
+            (("voltage", float("nan"), 1.0),),
+            (("voltage", 0.0, float("inf")),),
+            (("voltage", 0.0, 1.0), ("voltage", 0.0, 2.0)),
+            (("voltage", "x", 1.0),),
+        ):
+            with self.assertRaises(GraphtecChartConfigError, msg=ranges):
+                build_graphtec_figure(
+                    self.ir, config(series=("voltage",), value_ranges=ranges)
+                )
+
     def test_invalid_series_configuration(self):
         for series in ((), ("temperature",)):
             with self.assertRaises(GraphtecChartConfigError):
@@ -302,6 +354,34 @@ class GraphtecSavedChartTests(unittest.TestCase):
             response.relative_path, "04_Report/_RenderedAssets/graphtec_chart_01.png"
         )
         self.assertEqual(self.source.read_bytes(), original)
+
+    def test_saved_chart_reproduces_the_zoomed_view(self):
+        response = self.save(
+            time_min=2.0,
+            time_max=6.0,
+            value_ranges={
+                "voltage": {"minimum": 0.1, "maximum": 0.9},
+                "resistance": {"minimum": 100.0, "maximum": 2000.0},
+            },
+        )
+
+        self.assertTrue(response.success)
+        metadata = json.loads((self.assets / "graphtec_chart_01.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            metadata["value_ranges"],
+            {
+                "voltage": {"minimum": 0.1, "maximum": 0.9},
+                "resistance": {"minimum": 100.0, "maximum": 2000.0},
+            },
+        )
+        self.assertEqual(metadata["time_range"]["start"], 2.0)
+        self.assertEqual(metadata["time_range"]["end"], 6.0)
+
+    def test_saving_without_value_ranges_keeps_the_automatic_range(self):
+        self.save()
+
+        metadata = json.loads((self.assets / "graphtec_chart_01.json").read_text(encoding="utf-8"))
+        self.assertEqual(metadata["value_ranges"], {})
 
     def test_chart_name_does_not_use_the_source_name(self):
         write_graphtec_file(self.test_root, "IR_PASS_TC9.txt", IR_TEXT)

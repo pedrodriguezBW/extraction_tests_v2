@@ -261,6 +261,10 @@ def _chart_config(settings: GraphtecChartSettings) -> GraphtecChartConfig:
         show_phase_separators=settings.show_phase_separators,
         time_min=settings.time_min,
         time_max=settings.time_max,
+        value_ranges=tuple(
+            (series_id, value_range.minimum, value_range.maximum)
+            for series_id, value_range in (settings.value_ranges or {}).items()
+        ),
     )
 
 
@@ -355,6 +359,10 @@ def _chart_metadata(
             "full_range": render.full_range,
             "requested_min": settings.time_min,
             "requested_max": settings.time_max,
+        },
+        "value_ranges": {
+            series_id: {"minimum": minimum, "maximum": maximum}
+            for series_id, minimum, maximum in render.value_ranges
         },
         "show_legend": settings.show_legend,
         "show_phase_separators": settings.show_phase_separators,
