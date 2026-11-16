@@ -263,13 +263,13 @@ def populate_test_assembly_images(
         width_cm=CONTENT_WIDTH_CM,
     )
 
-    # Nombre y tipo de cámara aparecen juntos, con idéntico estilo.
-    for facility_text, top_cm in (
-        (climatic_chamber or "—", 12.70),
-        (chamber_description(climatic_chamber), 13.25),
+    # El tipo ocupa el espacio a la derecha del nombre, en la misma línea.
+    for facility_text, left_cm, width_cm in (
+        (climatic_chamber or "—", CONTENT_LEFT_CM, 14.0),
+        (chamber_description(climatic_chamber), 17.50, 14.25),
     ):
         facility_box = slide.shapes.add_textbox(
-            Cm(CONTENT_LEFT_CM), Cm(top_cm), Cm(CONTENT_WIDTH_CM), Cm(0.55),
+            Cm(left_cm), Cm(12.70), Cm(width_cm), Cm(0.55),
         )
         facility_frame = facility_box.text_frame
         facility_frame.word_wrap = True
@@ -289,9 +289,8 @@ def populate_test_assembly_images(
 
     equipment_items = metadata.get("equipment") or []
 
-    # La nueva línea deja espacio para tres equipos antes del pie.
-    first_slide_equipment = equipment_items[:3]
-    remaining_equipment = equipment_items[3:]
+    first_slide_equipment = equipment_items[:4]
+    remaining_equipment = equipment_items[4:]
 
     continuation_equipment_groups = chunk_items(
         items=remaining_equipment,
@@ -303,16 +302,16 @@ def populate_test_assembly_images(
             slide=slide,
             title="Additional equipment",
             left_cm=CONTENT_LEFT_CM,
-            top_cm=14.05,
+            top_cm=13.40,
             width_cm=CONTENT_WIDTH_CM,
         )
 
         add_equipment_column_headers(
             slide=slide,
-            top_cm=14.72,
+            top_cm=14.07,
         )
 
-        first_equipment_top_cm = 15.15
+        first_equipment_top_cm = 14.50
         equipment_row_spacing_cm = 0.52
 
         for equipment_index, equipment_data in enumerate(

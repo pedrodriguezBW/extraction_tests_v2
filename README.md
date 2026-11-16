@@ -53,7 +53,7 @@ función Control) y, si hace falta, su consigna. La evaluación usa el archivo
 completo, aunque el visor reduzca sus muestras o se amplíe una zona: el
 recuadro indica **Adquisición completa**. Se sombrean ±2 K tras el asentamiento
 de cada meseta y se resaltan las excursiones en rojo. El PNG incluye estado,
-TA/TB medidas, t1, ciclos y estabilización `—`; el resultado numérico se
+TA/TB medidas, t1 y ciclos; el resultado numérico se
 guarda en el JSON acompañante. Rampas y estabilización del espécimen no se
 evalúan. Sin datos suficientes se muestra `—`, nunca un OK supuesto.
 

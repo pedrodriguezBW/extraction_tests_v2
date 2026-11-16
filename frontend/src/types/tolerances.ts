@@ -15,8 +15,7 @@ export function toleranceSummary(result: ToleranceResult): string[] {
     `Tolerancias: ${result.status ?? "—"}${result.status === "NOK" ? ` (${result.out_of_tolerance_segments} ${result.out_of_tolerance_segments === 1 ? "tramo" : "tramos"} fuera)` : ""}`,
     `TA medida: ${value(result.ta_c, " °C")} · TB medida: ${value(result.tb_c, " °C")}`,
     `t1 medido: ${value(result.t1_minutes, " min")} · Ciclos: ${value(result.cycles)}`,
-    "Estabilización (ΔTs ≤ 5 K): —",
-    "Adquisición completa · Rampas no evaluadas",
+    "Adquisición completa",
   ];
 }
 

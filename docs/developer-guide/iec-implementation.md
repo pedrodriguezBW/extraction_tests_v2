@@ -42,8 +42,9 @@ integral con las normas ni demuestra estabilización del espécimen.
 - Laboratory, Test type y Standard se presentan en Test Description con las
   etiquetas grises y los valores debajo del resto de parámetros, sin tabla.
   La cámara aparece una sola vez en la primera diapositiva de Assembly:
-  nombre y tipo con la misma tipografía, justo antes de Additional equipment.
-  Caben tres equipos en esa diapositiva; el resto usa continuaciones. Los
+  nombre a la izquierda y tipo a su derecha, con la misma tipografía y en la
+  misma línea, justo antes de Additional equipment. Caben cuatro equipos en
+  esa diapositiva; el resto usa continuaciones. Los
   puntos de medida se presentan en continuaciones propias, estimando alturas
   por contenido y paginando sin reducir fuente.
   Test Procedure empieza en la primera diapositiva y ocupa el espacio hacia
@@ -104,7 +105,8 @@ son las decisiones del plan, no una interpretación completa de las normas.
 10. NOK si hay alguna excursión; OK solo con mesetas evaluables y medidas
     completas. Sin mesetas suficientes, o con medidas ausentes, huecos o
     registros rechazados, se evita declarar OK y se dejan t1/ciclos en `—`.
-    ΔTs siempre es null (`—`).
+    ΔTs siempre es null en el JSON. El recuadro no muestra estabilización
+    ni referencias a rampas, porque no se evalúan.
 
 El recuadro indica **Adquisición completa**: al guardar una vista ampliada
 los dibujos se recortan al zoom y los números siguen describiendo el log

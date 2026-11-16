@@ -141,8 +141,8 @@ class IecReportTests(unittest.TestCase):
         first = next(slide for slide in presentation.slides if slide.shapes.title and slide.shapes.title.text == "2. Test Assembly")
         shapes = {shape.text: shape for shape in first.shapes if shape.has_text_frame}
         name_shape, type_shape = shapes[chamber], shapes[description]
-        self.assertEqual(name_shape.left, type_shape.left)
-        self.assertLess(name_shape.top, type_shape.top)
+        self.assertGreaterEqual(type_shape.left, name_shape.left + name_shape.width)
+        self.assertEqual(name_shape.top, type_shape.top)
         self.assertLess(type_shape.top + type_shape.height, shapes["ADDITIONAL EQUIPMENT"].top)
         name_font = name_shape.text_frame.paragraphs[0].font
         type_font = type_shape.text_frame.paragraphs[0].font

@@ -67,7 +67,9 @@ describe("export format", () => {
     const svg = buildChartExportSvg(model({tolerances}));
     expect(svg).toContain("Tolerancias: NOK (1 tramo fuera)");
     expect(svg).toContain("TA medida: -40 °C");
-    expect(svg).toContain("Estabilización (ΔTs ≤ 5 K): —");
+    expect(svg).not.toContain("Estabilización");
+    expect(svg).not.toContain("Rampas");
+    expect(svg).toContain("Adquisición completa");
     expect(svg).toContain('fill="#58a881"');
     expect(svg).toContain('fill="#d72631"');
     expect(svg).not.toContain("NaN");

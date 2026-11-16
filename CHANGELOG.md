@@ -4,6 +4,14 @@ All notable project changes are documented in this file.
 
 ## [Unreleased]
 
+### Presentación de cámara y gráficas
+
+- El tipo de cámara se alinea a la derecha de su nombre, en la misma línea
+  y tipografía. Additional equipment recupera su posición y admite cuatro
+  equipos en la primera diapositiva.
+- Las gráficas omiten los textos de estabilización y rampas no evaluadas.
+  El recuadro se ajusta a su contenido y deja más espacio para la gráfica.
+
 ### Cámara en Test Assembly
 
 - El nombre de cámara aparece una sola vez, seguido de su tipo en la misma

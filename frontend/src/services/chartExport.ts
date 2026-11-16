@@ -422,7 +422,8 @@ function layoutWithScale(
 
   const left = PAD + axisFontSize * 1.25 + yLabelWidth + 10;
   const right = EXPORT_VIEW_WIDTH - PAD - 4;
-  const top = legendBottom + 8 + tickFontSize * 0.5 + (model.tolerances ? 170 : 0);
+  const summaryHeight = model.tolerances ? toleranceSummary(model.tolerances).length * 29 + 25 : 0;
+  const top = legendBottom + 8 + tickFontSize * 0.5 + summaryHeight;
   const bottom = EXPORT_VIEW_HEIGHT - PAD - 2 * tickFontSize * 1.2 - X_LABEL_OFFSET;
 
   const { xStart, xEnd } = model.viewport;
@@ -521,9 +522,10 @@ export function buildChartExportSvg(model: ChartExportModel): string {
       parts.push(`<rect x="${tx(plateau.start)}" y="${yScale(display(plateau.setpoint_c + 2))}" width="${Math.max(0, tx(plateau.end) - tx(plateau.start))}" height="${yScale(display(plateau.setpoint_c - 2)) - yScale(display(plateau.setpoint_c + 2))}" fill="#58a881" fill-opacity="0.25"/>`);
     }
     parts.push('</g>');
-    const summaryY = plot.top - 145;
-    parts.push(`<rect x="${plot.left}" y="${summaryY - 24}" width="${plot.width}" height="151" rx="3" fill="#f0f7f4" stroke="#7b9c8d"/>`);
-    toleranceSummary(result).forEach((line, index) => parts.push(`<text x="${plot.left + 5}" y="${summaryY + 29 * index}" font-size="${pt(10)}" fill="#102f49">${escapeXml(line)}</text>`));
+    const summary = toleranceSummary(result);
+    const summaryY = plot.top - summary.length * 29;
+    parts.push(`<rect x="${plot.left}" y="${summaryY - 24}" width="${plot.width}" height="${summary.length * 29 + 6}" rx="3" fill="#f0f7f4" stroke="#7b9c8d"/>`);
+    summary.forEach((line, index) => parts.push(`<text x="${plot.left + 5}" y="${summaryY + 29 * index}" font-size="${pt(10)}" fill="#102f49">${escapeXml(line)}</text>`));
   }
 
   // Eje Y: rejilla y valores.
