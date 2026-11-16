@@ -13,6 +13,14 @@ class ToleranceSettings(BaseModel):
     reference: str | None = Field(default=None, max_length=200)
 
 
+def _consistent_duration(durations):
+    """Solo resume duraciones comparables; conserva frío/calor por separado."""
+    if not durations:
+        return None
+    central = median(durations)
+    return central if max(durations) - min(durations) <= 0.1 * central else None
+
+
 def evaluate_tolerances(acquisition, channels, test_type, channel_column, reference_column=None):
     """Evalúa mesetas extremas, excluye rampas, asentamiento y huecos temporales.
 
@@ -47,6 +55,12 @@ def evaluate_tolerances(acquisition, channels, test_type, channel_column, refere
     setpoints = [celsius(v, reference.unit) for v in nominal]
     deltas = [b - a for a, b in zip(times, times[1:]) if b > a]
     period = median(deltas) if deltas else 0
+    # Un hueco o una consigna ausente impiden enlazar ciclos entre bloques.
+    blocks = [0] * len(times)
+    for i in range(1, len(times)):
+        interrupted = (not 0 < times[i] - times[i - 1] <= 3 * period
+                       or not math.isfinite(setpoints[i - 1]) or not math.isfinite(setpoints[i]))
+        blocks[i] = blocks[i - 1] + int(interrupted)
     groups = []
     start = None
     for i in range(len(times) + 1):
@@ -64,38 +78,49 @@ def evaluate_tolerances(acquisition, channels, test_type, channel_column, refere
             start = i
     low = min((g[3] for g in groups), default=None)
     high = max((g[3] for g in groups), default=None)
-    result = {"schema_version": 1, "algorithm": "extreme-plateaus-v1", "test_type": test_type,
+    result = {"schema_version": 1, "algorithm": "extreme-plateaus-v2", "test_type": test_type,
               "channel": actual.column, "reference": reference.column, "tolerance_k": 2,
               "scope": "full_acquisition", "status": None, "out_of_tolerance_segments": 0,
               "ta_c": None, "tb_c": None, "t1_minutes": None, "cycles": None,
+              "t1_low_minutes": None, "t1_high_minutes": None, "cycles_partial": False,
+              "complete_plateaus_count": 0,
               "stabilization_delta_ts_k": None, "plateaus": [], "excursions": [], "warnings": []}
     if low is None or (test_type in {"Na", "Nb", "Nc"} and high - low < 4):
         result["warnings"].append("No hay mesetas extremas suficientes para una evaluación fiable")
         return result
     temperatures = {"low": [], "high": []}
-    durations = []
+    durations = {"low": [], "high": []}
     sequence = []
-    incomplete = any(delta > 3 * period for delta in deltas) or acquisition.rejected_count > 0
+    reference_incomplete = any(blocks) or acquisition.rejected_count > 0 or any(not math.isfinite(v) for v in setpoints)
+    measurement_incomplete = False
+    partial_plateaus = False
     for start, end, duration, target in groups:
         level = "low" if abs(target - low) <= 0.05 else "high" if abs(target - high) <= 0.05 else None
         if level is None or (test_type == "Ab" and level != "low") or (test_type == "Bb" and abs(target - high) > 0.05):
             continue
         if test_type == "Bb":
             level = "high"
+        # La duración y el recuento dependen de la consigna, no de que haya
+        # medidas válidas después del asentamiento ni de que cumplan ±2 K.
+        complete = (start > 0 and end < len(times) - 1
+                    and blocks[start - 1] == blocks[start] == blocks[end] == blocks[end + 1])
+        if complete:
+            durations[level].append(duration / 60)
+            sequence.append((level, blocks[start]))
+        else:
+            partial_plateaus = True
         settling = max(300, min(900, 0.1 * duration))
         evaluated = [i for i in range(start, end + 1) if times[i] >= times[start] + settling]
         if len(evaluated) < 2:
+            measurement_incomplete = True
             continue
         result["plateaus"].append({"start": frame["Timestamp"].iloc[evaluated[0]].isoformat(),
                                    "end": frame["Timestamp"].iloc[end].isoformat(), "setpoint_c": target})
-        if start > 0 and end < len(times) - 1 and times[start] - times[start - 1] <= 3 * period and times[end + 1] - times[end] <= 3 * period:
-            durations.append(duration / 60)
-            sequence.append(level)
         excursion = []
         for i in evaluated:
             value = values[i]
             if not math.isfinite(value):
-                incomplete = True
+                measurement_incomplete = True
             if math.isfinite(value):
                 temperatures[level].append(value)
             outside = math.isfinite(value) and abs(value - target) > 2
@@ -108,24 +133,35 @@ def evaluate_tolerances(acquisition, channels, test_type, channel_column, refere
             result["excursions"].append(excursion)
     result["out_of_tolerance_segments"] = len(result["excursions"])
     if result["plateaus"]:
+        incomplete = reference_incomplete or measurement_incomplete
         result["status"] = "NOK" if result["excursions"] else None if incomplete else "OK"
     result["ta_c"] = min(temperatures["low"], default=None)
     result["tb_c"] = max(temperatures["high"], default=None)
-    if durations and max(durations) - min(durations) <= 0.1 * median(durations):
-        result["t1_minutes"] = median(durations)
+    result["t1_minutes"] = _consistent_duration(durations["low"] + durations["high"])
+    result["t1_low_minutes"] = _consistent_duration(durations["low"])
+    result["t1_high_minutes"] = _consistent_duration(durations["high"])
+    result["complete_plateaus_count"] = len(sequence)
     if test_type in {"Na", "Nb", "Nc"}:
-        # Solo cuentan pares frío/calor completos, sin reutilizar mesetas.
-        pending = False
+        # Cada par completo de extremos opuestos cuenta una vez, empiece
+        # por frío o por calor. Nunca se reutilizan mesetas ni cruzan huecos.
+        pending = None
         count = 0
-        for level in sequence:
-            if level == "low":
-                pending = True
-            elif pending:
+        for level, block in sequence:
+            if pending is not None and pending[1] == block and pending[0] != level:
                 count += 1
-                pending = False
-        result["cycles"] = count
-    if incomplete:
-        result["t1_minutes"] = None
-        result["cycles"] = None
-        result["warnings"].append("Hay huecos o medidas ausentes; no se puede declarar OK")
+                pending = None
+            else:
+                pending = (level, block)
+        result["cycles_partial"] = reference_incomplete or partial_plateaus or pending is not None
+        result["cycles"] = count if count or not result["cycles_partial"] else None
+        if result["cycles_partial"]:
+            result["warnings"].append("Recuento parcial: solo se cuentan pares completos observados dentro de cada tramo continuo de consigna")
+    if reference_incomplete:
+        result["warnings"].append("Hay interrupciones de consigna o registros descartados; los cálculos conservan solo las mesetas completas observadas")
+    if measurement_incomplete:
+        result["warnings"].append("Faltan medidas para evaluar tolerancias; esto no anula las duraciones ni los ciclos obtenidos de la consigna")
+    if not sequence:
+        result["warnings"].append("No se observan mesetas completas delimitadas por cambios de consigna")
+    elif result["t1_minutes"] is None:
+        result["warnings"].append("Las duraciones no son uniformes; se muestran por separado las de frío y calor cuando son comparables")
     return result

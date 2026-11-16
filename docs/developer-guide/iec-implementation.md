@@ -71,7 +71,7 @@ son las decisiones del plan, no una interpretación completa de las normas.
 
 ## Fase 2: algoritmo y límites
 
-`simpati/tolerances.py`, identificador `extreme-plateaus-v1`:
+`simpati/tolerances.py`, identificador `extreme-plateaus-v2`:
 
 1. Se usan todos los registros del log original. El visor puede reducirlos a
    1200 puntos, pero ni esa reducción ni el zoom deciden el resultado.
@@ -100,11 +100,21 @@ son las decisiones del plan, no una interpretación completa de las normas.
    La duración observada es última muestra menos primera; su resolución es
    la del muestreo. Mesetas que tocan los extremos del archivo o un hueco no
    cuentan para t1 o ciclos. No se infiere la duración de porciones no grabadas.
-9. Ciclos: pares completos frío/calor, en ese orden, sin reutilizar mesetas.
+   Se calculan también medianas independientes para frío y calor. Si no hay
+   una duración global comparable, se muestran las de TA y TB que sí lo sean.
+   Estas métricas dependen de la consigna y no exigen una ventana de tolerancia
+   con al menos dos medidas posteriores al asentamiento.
+9. Ciclos: pares completos de extremos opuestos, empiecen en frío o en calor,
+   sin reutilizar mesetas ni cruzar huecos temporales o consignas ausentes.
+   Un hueco no anula los pares completos de otros tramos. `cycles_partial`
+   señala que el número corresponde solo a lo observado; si no se demuestra
+   ningún par y hay partes incompletas se devuelve null, en lugar de cero.
    Ab/Bb muestran `—` porque no se aplica un recuento cíclico.
 10. NOK si hay alguna excursión; OK solo con mesetas evaluables y medidas
     completas. Sin mesetas suficientes, o con medidas ausentes, huecos o
-    registros rechazados, se evita declarar OK y se dejan t1/ciclos en `—`.
+    registros rechazados, se evita declarar OK. Las medidas ausentes no anulan
+    t1 ni ciclos deducibles de la consigna. Los huecos de consigna limitan las
+    métricas a las mesetas completas de cada bloque y producen avisos explícitos.
     ΔTs siempre es null en el JSON. El recuadro no muestra estabilización
     ni referencias a rampas, porque no se evalúan.
 
@@ -150,9 +160,9 @@ Las pruebas usan también los dos logs reales versionados en
 
 ## Validación realizada
 
-- Batería Python: `python -m unittest discover -s tests -q` (367 pruebas,
+- Batería Python: `python -m unittest discover -s tests -q` (373 pruebas,
   incluidas las pruebas de formato y paginación; dos omitidas por plataforma).
-- Frontend: `npm test` (186 pruebas) y `npm run build`.
+- Frontend: `npm test` (188 pruebas) y `npm run build`.
 - Guardado/recarga, metadata intacto, archivos inválidos, `_Working` borrada,
   cambios de log, cámaras y prioridad de norma.
 - OK/NOK sintético, límites inclusivos, asentamiento mínimo/máximo, huecos,

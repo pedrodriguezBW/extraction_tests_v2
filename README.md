@@ -57,6 +57,12 @@ TA/TB medidas, t1 y ciclos; el resultado numérico se
 guarda en el JSON acompañante. Rampas y estabilización del espécimen no se
 evalúan. Sin datos suficientes se muestra `—`, nunca un OK supuesto.
 
+La duración de meseta y los ciclos se calculan desde la consigna, incluso
+si faltan medidas de temperatura. Solo se usan mesetas completas y no se
+unen ciclos a través de huecos. Un recuento limitado a los tramos observados
+se marca **parcial**. Si frío y calor tienen permanencias distintas, t1 se
+muestra por separado para TA y TB cuando sus duraciones son comparables.
+
 Los criterios numéricos, las decisiones por fase y cómo reproducir los
 ejemplos están en [la nota de implementación IEC](docs/developer-guide/iec-implementation.md).
 

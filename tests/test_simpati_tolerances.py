@@ -56,7 +56,10 @@ class ToleranceTests(unittest.TestCase):
         acquisition.dataframe.loc[10, "A:Temperature [°C]"] = -38
         self.assertEqual(self.evaluate(acquisition)["status"], "OK")
         acquisition.dataframe.loc[10, "A:Temperature [°C]"] = float("nan")
-        self.assertIsNone(self.evaluate(acquisition)["status"])
+        result = self.evaluate(acquisition)
+        self.assertIsNone(result["status"])
+        self.assertEqual(result["cycles"], 2)
+        self.assertEqual(result["t1_minutes"], 30)
 
     def test_long_exposure_settles_at_fifteen_minutes(self):
         acquisition = synthetic_acquisition()
@@ -73,6 +76,60 @@ class ToleranceTests(unittest.TestCase):
         acquisition = synthetic_acquisition()
         acquisition.dataframe = acquisition.dataframe.iloc[:4]
         self.assertIsNone(self.evaluate(acquisition)["status"])
+
+    def test_gap_does_not_erase_complete_cycles_in_other_blocks(self):
+        acquisition = synthetic_acquisition()
+        acquisition.dataframe.loc[20:, "Timestamp"] += pd.Timedelta(hours=1)
+        result = self.evaluate(acquisition)
+        self.assertEqual(result["cycles"], 1)
+        self.assertTrue(result["cycles_partial"])
+        self.assertEqual(result["t1_minutes"], 30)
+
+    def test_pair_cannot_cross_gap_between_complete_plateaus(self):
+        acquisition = synthetic_acquisition()
+        acquisition.dataframe = acquisition.dataframe.iloc[:75].copy()
+        acquisition.dataframe.loc[36:, "Timestamp"] += pd.Timedelta(hours=1)
+        result = self.evaluate(acquisition)
+        self.assertEqual(result["complete_plateaus_count"], 2)
+        self.assertIsNone(result["cycles"])
+        self.assertTrue(result["cycles_partial"])
+
+    def test_cycles_can_start_with_hot_plateau(self):
+        acquisition = synthetic_acquisition()
+        for column in ("A:Temperature [°C]", "N:Temperature [°C]"):
+            acquisition.dataframe[column] = 45 - acquisition.dataframe[column]
+        result = self.evaluate(acquisition)
+        self.assertEqual(result["cycles"], 2)
+
+    def test_exact_five_minute_plateaus_count_without_tolerance_window(self):
+        targets = [23] + [-40] * 6 + [23] + [85] * 6 + [23]
+        acquisition = SimpleNamespace(dataframe=pd.DataFrame({
+            "Timestamp": pd.date_range("2026-01-01", periods=len(targets), freq="min"),
+            "A:Temperature [°C]": targets, "N:Temperature [°C]": targets}), rejected_count=0)
+        result = self.evaluate(acquisition)
+        self.assertEqual(result["cycles"], 1)
+        self.assertEqual(result["t1_minutes"], 5)
+        self.assertIsNone(result["status"])
+
+    def test_different_hot_and_cold_durations_are_reported_separately(self):
+        targets = [23] + [-40] * 31 + [23] + [85] * 46 + [23]
+        acquisition = SimpleNamespace(dataframe=pd.DataFrame({
+            "Timestamp": pd.date_range("2026-01-01", periods=len(targets), freq="min"),
+            "A:Temperature [°C]": targets, "N:Temperature [°C]": targets}), rejected_count=0)
+        result = self.evaluate(acquisition)
+        self.assertIsNone(result["t1_minutes"])
+        self.assertEqual(result["t1_low_minutes"], 30)
+        self.assertEqual(result["t1_high_minutes"], 45)
+        self.assertEqual(result["cycles"], 1)
+
+    def test_rejected_rows_do_not_erase_observed_metrics(self):
+        acquisition = synthetic_acquisition()
+        acquisition.rejected_count = 1
+        result = self.evaluate(acquisition)
+        self.assertEqual(result["cycles"], 2)
+        self.assertEqual(result["t1_minutes"], 30)
+        self.assertTrue(result["cycles_partial"])
+        self.assertIsNone(result["status"])
 
     def test_cold_and_dry_heat_only_evaluate_relevant_extreme(self):
         acquisition = synthetic_acquisition()
@@ -110,6 +167,9 @@ class ToleranceTests(unittest.TestCase):
             result = evaluate_tolerances(acquisition, channels, "Nb", channel.column)
             self.assertEqual(result["scope"], "full_acquisition")
             self.assertTrue(result["plateaus"])
+            if path == X04_FIXTURE:
+                self.assertGreater(result["cycles"], 0)
+                self.assertGreater(result["complete_plateaus_count"], 0)
             json.dumps(result, allow_nan=False)
 
     @patch("backend.app.api.projects.check_application_version", return_value=VersionCheck(status="current", installed_version="0.6.0"))

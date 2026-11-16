@@ -5,16 +5,23 @@ export interface ToleranceResult {
   channel: string; reference: string; scope: "full_acquisition";
   out_of_tolerance_segments: number;
   ta_c: number | null; tb_c: number | null; t1_minutes: number | null; cycles: number | null;
+  t1_low_minutes?: number | null; t1_high_minutes?: number | null; cycles_partial?: boolean;
   plateaus: {start: string; end: string; setpoint_c: number}[];
   excursions: [string, number][][];
   warnings: string[];
 }
 export function toleranceSummary(result: ToleranceResult): string[] {
   const value = (n: number | null, unit = "") => n === null ? "—" : `${Number(n.toFixed(2))}${unit}`;
+  const separateDurations = result.t1_minutes === null &&
+    (result.t1_low_minutes != null || result.t1_high_minutes != null);
+  const duration = separateDurations
+    ? `t1 medido: TA ${value(result.t1_low_minutes ?? null, " min")} · TB ${value(result.t1_high_minutes ?? null, " min")}`
+    : `t1 medido: ${value(result.t1_minutes, " min")}`;
+  const cycles = `Ciclos: ${value(result.cycles)}${result.cycles_partial && result.cycles !== null ? " (parcial)" : ""}`;
   return [
     `Tolerancias: ${result.status ?? "—"}${result.status === "NOK" ? ` (${result.out_of_tolerance_segments} ${result.out_of_tolerance_segments === 1 ? "tramo" : "tramos"} fuera)` : ""}`,
     `TA medida: ${value(result.ta_c, " °C")} · TB medida: ${value(result.tb_c, " °C")}`,
-    `t1 medido: ${value(result.t1_minutes, " min")} · Ciclos: ${value(result.cycles)}`,
+    ...(separateDurations ? [duration, cycles] : [`${duration} · ${cycles}`]),
     "Adquisición completa",
   ];
 }

@@ -4,6 +4,22 @@ All notable project changes are documented in this file.
 
 ## [Unreleased]
 
+### Duraciones y ciclos SIMPATI con registros incompletos
+
+- Corregido: una medida ausente o un hueco anulaba t1 y todos los ciclos,
+  aunque hubiera mesetas completas en otros tramos. La duración y el recuento
+  ahora se obtienen de la consigna, de forma independiente de la tolerancia.
+- Se cuentan pares completos de extremos opuestos tanto frío/calor como
+  calor/frío, sin cruzar interrupciones. Los recuentos incompletos se marcan
+  «parcial»; falta de evidencia no se presenta como cero ciclos.
+- Las mesetas completas de cinco minutos pueden aportar duración y ciclos
+  aunque no tengan suficientes medidas tras el asentamiento para evaluar ±2 K.
+- Si las duraciones de frío y calor difieren, se muestran separadas cuando
+  cada extremo tiene duraciones comparables. Algoritmo `extreme-plateaus-v2`.
+- Regresión con el log real x04 del repositorio, casos con huecos, medidas
+  ausentes, arranque en caliente y permanencias asimétricas. El archivo x03
+  de la captura del usuario no está disponible localmente para contrastarlo.
+
 ### Presentación de cámara y gráficas
 
 - El tipo de cámara se alinea a la derecha de su nombre, en la misma línea
