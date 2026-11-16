@@ -6,6 +6,9 @@ from typing import Any
 from pptx import Presentation
 from pptx.enum.text import MSO_AUTO_SIZE, MSO_ANCHOR, PP_ALIGN
 from pptx.util import Cm, Pt
+from config import LABORATORY_NAME
+from ..standards import description_values
+from ..powerpoint.tables import add_profile_table
 
 from ..powerpoint.layout import (
     add_label_and_value,
@@ -17,6 +20,7 @@ from ..powerpoint.navigation import (
     apply_slide_title_style,
     find_slide_by_title,
     remove_shape,
+    create_continuation_slide,
 )
 from ..powerpoint.styles import (
     COLOR_NAVY,
@@ -101,6 +105,7 @@ def calculate_procedure_font_size(
 def populate_test_description(
     presentation_path: Path,
     metadata: dict[str, Any],
+    report_inputs: dict | None = None,
 ) -> None:
     presentation = Presentation(
         presentation_path
@@ -278,25 +283,43 @@ def populate_test_description(
         height_cm=1.10,
     )
 
+    test_type, standard = description_values(metadata, report_inputs or {})
+    add_profile_table(slide, ["Laboratory", LABORATORY_NAME],
+                      [["Test type", test_type], ["Standard", standard]],
+                      [5.0, 24.63], 7.65, data_row_height_cm=0.65)
+
     # ==========================================================
     # 2. TEST PROCEDURE
     # ==========================================================
 
+    needs_continuation = calculate_procedure_font_size(
+        procedure, CONTENT_WIDTH_CM, TEST_DESCRIPTION_PROCEDURE_HEIGHT_CM - 2.1,
+        minimum_size_pt=1,
+    ) < FONT_SIZE_PROCEDURE_MIN_PT
     add_section_header(
         slide=slide,
-        title="Test procedure",
+        title="Test procedure (see continuation)" if needs_continuation else "Test procedure",
         left_cm=CONTENT_LEFT_CM,
         top_cm=(
-            TEST_DESCRIPTION_PROCEDURE_SECTION_TOP_CM
+            TEST_DESCRIPTION_PROCEDURE_SECTION_TOP_CM + 2.1
         ),
         width_cm=CONTENT_WIDTH_CM,
     )
 
-    procedure_box = slide.shapes.add_textbox(
+    # Los procedimientos largos conservan su texto y una fuente legible.
+    procedure_slide = slide
+    procedure_top = TEST_DESCRIPTION_PROCEDURE_TOP_CM + 2.1
+    procedure_height = TEST_DESCRIPTION_PROCEDURE_HEIGHT_CM - 2.1
+    if needs_continuation:
+        procedure_slide = create_continuation_slide(presentation, slide, "1. Test Description (cont.)")
+        add_section_header(procedure_slide, "Test procedure (continued)", CONTENT_LEFT_CM, 4.25, CONTENT_WIDTH_CM)
+        procedure_top = 5.10
+        procedure_height = 11.20
+    procedure_box = procedure_slide.shapes.add_textbox(
         Cm(CONTENT_LEFT_CM),
-        Cm(TEST_DESCRIPTION_PROCEDURE_TOP_CM),
+        Cm(procedure_top),
         Cm(CONTENT_WIDTH_CM),
-        Cm(TEST_DESCRIPTION_PROCEDURE_HEIGHT_CM),
+        Cm(procedure_height),
     )
 
     procedure_frame = procedure_box.text_frame
@@ -319,7 +342,7 @@ def populate_test_description(
             text=procedure,
             box_width_cm=CONTENT_WIDTH_CM,
             box_height_cm=(
-                TEST_DESCRIPTION_PROCEDURE_HEIGHT_CM
+                procedure_height
             ),
         )
     )

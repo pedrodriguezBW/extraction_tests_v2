@@ -132,6 +132,40 @@ input:focus-visible {
   border-bottom: 1px solid #dce3e9;
 }
 
+.test-configuration fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.test-configuration input, .test-configuration select {
+  padding: 0.55rem;
+  border: 1px solid #bccbd6;
+  border-radius: 5px;
+  background: #fff;
+  color: #102f49;
+  max-width: 100%;
+}
+
+.test-configuration table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.test-configuration th, .test-configuration td {
+  text-align: left;
+  padding: 0.4rem;
+  border-bottom: 1px solid #e0e8ed;
+}
+
+.test-configuration td input { width: 100%; min-width: 8rem; }
+.test-configuration small { display: block; color: #925900; }
+.test-configuration button { margin: 0.3rem; }
+.test-configuration caption { text-align: left; font-weight: 600; margin-bottom: 0.5rem; }
+.simpati-chart__toolbar select { padding: 0.45rem; max-width: 25rem; }
+
 .workflow-section:last-of-type {
   border-bottom: 0;
 }

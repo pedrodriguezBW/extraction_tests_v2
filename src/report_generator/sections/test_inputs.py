@@ -458,7 +458,7 @@ def populate_test_inputs(
 
     add_test_input_parameter(
         slide=slide,
-        label="Minimum temperature",
+        label="Min temperature (TA)",
         value=minimum_temperature,
         left_cm=14.00,
         top_cm=TEST_INPUTS_FIRST_ROW_TOP_CM,
@@ -467,7 +467,7 @@ def populate_test_inputs(
 
     add_test_input_parameter(
         slide=slide,
-        label="Maximum temperature",
+        label="Max temperature (TB)",
         value=maximum_temperature,
         left_cm=23.00,
         top_cm=TEST_INPUTS_FIRST_ROW_TOP_CM,

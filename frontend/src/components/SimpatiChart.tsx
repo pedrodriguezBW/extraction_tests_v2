@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { evaluateTolerances } from "../services/api";
+import { toleranceSummary, timestampPosition, type ToleranceSettings, type ToleranceResult } from "../types/tolerances";
 
 import {
   EXPORT_HEIGHT_PX,
@@ -37,6 +39,8 @@ import type {
  * Propiedades necesarias para mostrar y guardar una gráfica SIMPATI.
  */
 export interface SimpatiChartProps {
+  testType?: string;
+  controlChannel?: string;
   /** Datos procesados de la adquisición y de su vista previa. */
   data: SimpatiInspectionResponse;
 
@@ -63,6 +67,7 @@ export interface SimpatiChartProps {
    */
   onSave: (
     imageBase64: string,
+    tolerances?: ToleranceSettings,
   ) => Promise<SimpatiChartSaveResponse>;
 }
 
@@ -211,7 +216,34 @@ export function SimpatiChart({
   savedChartNames,
   title = "SIMPATI temperature profile",
   onSave,
+  testType = "",
+  controlChannel,
 }: SimpatiChartProps) {
+  const [showTolerances, setShowTolerances] = useState(false);
+  const actualChannels = data.thermal_channels.filter(channel => channel.role?.endsWith("_temperature"));
+  const referenceChannels = data.thermal_channels.filter(channel => channel.role?.endsWith("_setpoint"));
+  const [evaluatedChannel, setEvaluatedChannel] = useState("");
+  const [referenceChannel, setReferenceChannel] = useState("");
+  const [evaluation, setEvaluation] = useState<{key: string; result: ToleranceResult} | null>(null);
+  const [toleranceError, setToleranceError] = useState<string | null>(null);
+  useEffect(() => {
+    setEvaluatedChannel(controlChannel && actualChannels.some(channel => channel.id === controlChannel)
+      ? controlChannel : actualChannels[0]?.id ?? "");
+  }, [data, controlChannel]);
+  const settings = useMemo<ToleranceSettings>(() => ({test_type: testType, channel: evaluatedChannel, reference: referenceChannel || null}), [testType, evaluatedChannel, referenceChannel]);
+  const evaluationKey = JSON.stringify([data.selected_relative_path, settings]);
+  const tolerancesActive = showTolerances && !!testType;
+  const toleranceResult = tolerancesActive && evaluation?.key === evaluationKey ? evaluation.result : null;
+  useEffect(() => {
+    let cancelled = false;
+    setToleranceError(null);
+    if (tolerancesActive && data.selected_relative_path) {
+      void evaluateTolerances(data.test_root, data.selected_relative_path, settings).then(result => {
+        if (!cancelled) setEvaluation({key: evaluationKey, result});
+      }).catch(error => {if (!cancelled) setToleranceError(error instanceof Error ? error.message : String(error));});
+    }
+    return () => {cancelled = true;};
+  }, [tolerancesActive, evaluationKey, data.test_root, data.selected_relative_path, settings]);
   const titleId = useId();
   const descriptionId = useId();
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -417,6 +449,8 @@ export function SimpatiChart({
     // partir de exactamente la vista visible: intervalo X, rango Y,
     // canales, título y estilos. No se recalculan los límites.
     const serialized = buildChartExportSvg({
+      tolerances: toleranceResult,
+      toleranceUnit: actualChannels.find(channel => channel.id === evaluatedChannel)?.unit,
       title,
       valueAxisLabel: "Value",
       timestamps: data.preview_timestamps,
@@ -480,7 +514,7 @@ export function SimpatiChart({
 
     try {
       const imageBase64 = await renderPngDataUrl();
-      const result = await onSave(imageBase64);
+      const result = await onSave(imageBase64, ...(toleranceResult ? [settings] : []));
       setSavedChart(result);
     } catch (error) {
       setSaveError(
@@ -508,6 +542,24 @@ export function SimpatiChart({
 
   return (
     <div className="simpati-chart">
+      <div className="simpati-chart__toolbar">
+        <label><input type="checkbox" checked={tolerancesActive} disabled={!testType}
+          onChange={event => {setEvaluation(null); setShowTolerances(event.target.checked);}}/>Mostrar tolerancias</label>
+        {!testType && <span>Seleccione un tipo de ensayo en Configuración del ensayo.</span>}
+        {tolerancesActive && <>
+          <label>Canal evaluado <select value={evaluatedChannel} onChange={event => setEvaluatedChannel(event.target.value)}>
+            {actualChannels.map(channel => <option key={channel.id} value={channel.id}>{channel.label}</option>)}
+          </select></label>
+          <label>Consigna <select value={referenceChannel} onChange={event => setReferenceChannel(event.target.value)}>
+            <option value="">Automática (misma familia)</option>
+            {referenceChannels.map(channel => <option key={channel.id} value={channel.id}>{channel.label}</option>)}
+          </select></label>
+          {toleranceError && <p role="alert">{toleranceError}</p>}
+          {!toleranceResult && !toleranceError && <span>Evaluando adquisición completa…</span>}
+        </>}
+      </div>
+      {toleranceResult && <div role="status">{toleranceSummary(toleranceResult).map(line => <div key={line}>{line}</div>)}
+        {toleranceResult.warnings.map(line => <p key={line}>{line}</p>)}</div>}
       <div className="simpati-chart__toolbar">
         <div className="simpati-chart__series">
           {data.thermal_channels.map((channel, index) => {
@@ -550,6 +602,7 @@ export function SimpatiChart({
             onClick={() => void saveCurrentView()}
             disabled={
               saveDisabled ||
+              (tolerancesActive && !toleranceResult) ||
               selectedChannels.length === 0 ||
               preparingSave ||
               saving
@@ -684,6 +737,19 @@ export function SimpatiChart({
             </text>
           )}
 
+          {toleranceResult && <g clipPath={`url(#${clipPathId})`} pointerEvents="none">
+            {toleranceResult.plateaus.map((plateau, index) => {
+              const display = (value: number) => actualChannels.find(channel => channel.id === evaluatedChannel)?.unit.toLowerCase().includes("f") ? value * 9 / 5 + 32 : value;
+              const left = xScale(timestampPosition(data.preview_timestamps, plateau.start));
+              const right = xScale(timestampPosition(data.preview_timestamps, plateau.end));
+              return <rect key={index} x={left} width={Math.max(0, right - left)} y={yScale(display(plateau.setpoint_c + 2))}
+                height={yScale(display(plateau.setpoint_c - 2)) - yScale(display(plateau.setpoint_c + 2))} fill="#58a881" opacity="0.25"/>;
+            })}
+            {toleranceResult.excursions.flatMap((segment, index) => segment.map(([time, value], i) => {
+              const displayValue = actualChannels.find(channel => channel.id === evaluatedChannel)?.unit.toLowerCase().includes("f") ? value * 9 / 5 + 32 : value;
+              return <circle key={`${index}-${i}`} cx={xScale(timestampPosition(data.preview_timestamps, time))} cy={yScale(displayValue)} r="4" fill="#d72631"/>;
+            }))}
+          </g>}
           {yTicks.map((tick, tickIndex) => {
             const y = yScale(tick);
             return (

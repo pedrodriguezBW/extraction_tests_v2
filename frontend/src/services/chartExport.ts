@@ -17,6 +17,7 @@
  */
 
 import { valueTickDecimals, type ChartViewport, type ValueRange } from "./chartZoom";
+import { toleranceSummary, timestampPosition, type ToleranceResult } from "../types/tolerances";
 
 /** Proporción ancho:alto de las imágenes exportadas. */
 export const EXPORT_ASPECT_RATIO = 1.6;
@@ -78,6 +79,8 @@ export interface ExportSeries {
 
 /** Vista que se exporta: exactamente la que el usuario ve en pantalla. */
 export interface ChartExportModel {
+  tolerances?: ToleranceResult | null;
+  toleranceUnit?: string;
   title: string;
   valueAxisLabel: string;
   timestamps: ReadonlyArray<string>;
@@ -419,7 +422,7 @@ function layoutWithScale(
 
   const left = PAD + axisFontSize * 1.25 + yLabelWidth + 10;
   const right = EXPORT_VIEW_WIDTH - PAD - 4;
-  const top = legendBottom + 8 + tickFontSize * 0.5;
+  const top = legendBottom + 8 + tickFontSize * 0.5 + (model.tolerances ? 170 : 0);
   const bottom = EXPORT_VIEW_HEIGHT - PAD - 2 * tickFontSize * 1.2 - X_LABEL_OFFSET;
 
   const { xStart, xEnd } = model.viewport;
@@ -509,6 +512,20 @@ export function buildChartExportSvg(model: ChartExportModel): string {
       `height="${round(plot.height)}" fill="#f8fafb" stroke="#aebbc6" stroke-width="${round(pt(EXPORT_LINE_PT.frame))}"/>`,
   );
 
+  if (model.tolerances) {
+    const result = model.tolerances;
+    const display = (value: number) => model.toleranceUnit?.toLowerCase().includes("f") ? value * 9 / 5 + 32 : value;
+    const tx = (timestamp: string) => xScale(timestampPosition(model.timestamps, timestamp));
+    parts.push('<g clip-path="url(#export-plot)">');
+    for (const plateau of result.plateaus) {
+      parts.push(`<rect x="${tx(plateau.start)}" y="${yScale(display(plateau.setpoint_c + 2))}" width="${Math.max(0, tx(plateau.end) - tx(plateau.start))}" height="${yScale(display(plateau.setpoint_c - 2)) - yScale(display(plateau.setpoint_c + 2))}" fill="#58a881" fill-opacity="0.25"/>`);
+    }
+    parts.push('</g>');
+    const summaryY = plot.top - 145;
+    parts.push(`<rect x="${plot.left}" y="${summaryY - 24}" width="${plot.width}" height="151" rx="3" fill="#f0f7f4" stroke="#7b9c8d"/>`);
+    toleranceSummary(result).forEach((line, index) => parts.push(`<text x="${plot.left + 5}" y="${summaryY + 29 * index}" font-size="${pt(10)}" fill="#102f49">${escapeXml(line)}</text>`));
+  }
+
   // Eje Y: rejilla y valores.
   for (const tick of layout.yTicks) {
     const y = yScale(tick);
@@ -557,6 +574,16 @@ export function buildChartExportSvg(model: ChartExportModel): string {
     }
   }
   parts.push("</g>");
+  if (model.tolerances) {
+    const display = (value: number) => model.toleranceUnit?.toLowerCase().includes("f") ? value * 9 / 5 + 32 : value;
+    parts.push('<g clip-path="url(#export-plot)">');
+    for (const excursion of model.tolerances.excursions) {
+      const points = excursion.map(([timestamp, value]) => `${xScale(timestampPosition(model.timestamps, timestamp))},${yScale(display(value))}`).join(" ");
+      parts.push(`<polyline points="${points}" fill="none" stroke="#d72631" stroke-width="5"/>`);
+      for (const [timestamp, value] of excursion) parts.push(`<circle cx="${xScale(timestampPosition(model.timestamps, timestamp))}" cy="${yScale(display(value))}" r="3" fill="#d72631"/>`);
+    }
+    parts.push('</g>');
+  }
   parts.push("</svg>");
   return parts.join("");
 }

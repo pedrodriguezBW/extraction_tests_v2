@@ -1,4 +1,5 @@
 import type { ApiError } from "./common";
+import type { ToleranceSettings } from "./tolerances";
 import type { RenderedAsset, RenderedAssetWarning } from "./renderedAssets";
 
 /**
@@ -151,6 +152,7 @@ export interface SimpatiInspectionRequest {
  * Petición utilizada para guardar una gráfica SIMPATI.
  */
 export interface SimpatiChartSaveRequest {
+  tolerances?: ToleranceSettings;
   /** Ruta de la carpeta raíz del ensayo. */
   test_root: string;
 

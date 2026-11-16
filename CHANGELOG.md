@@ -4,6 +4,47 @@ All notable project changes are documented in this file.
 
 ## [Unreleased]
 
+### Adaptación IEC · Fase 1
+
+- Panel Configuración del ensayo: catálogo extensible Na/Nb/Nc/Ab/Bb,
+  puntos de medida precargados desde el SIMPATI seleccionado, edición y
+  filas manuales, conservación de canales ausentes con aviso.
+- Persistencia atómica y versionada en `_Working/report_inputs.json`;
+  guardado automático antes de generar desde la interfaz. El metadata del
+  agente y el Excel permanecen de solo lectura. Archivos ausentes se tratan
+  como ensayo nuevo; corruptos/desconocidos se ignoran con aviso.
+- Laboratory STC, Test type, Standard (prioridad de `test.standard`), cámara
+  HU/OVEN/TS y tabla de puntos con continuación. Inputs TA/TB renombrados.
+- Decisiones/desviaciones: se parte del HEAD actual `17a8f3e` de la rama
+  solicitada, posterior a `d7349a1`; el diseño actual no contiene las tablas
+  descritas literalmente en el plan. Se añade tabla en Test Description y
+  continuación de Assembly para conservar las fotos y el equipamiento.
+  Procedimientos extensos usan una continuación para evitar solapamientos.
+  Nombres verificados en las vistas previas del texto IEC; Na 2023 se llama
+  «Rapid change of temperature». Clave propuesta: `test.standard`.
+- Ejemplo: `examples/generated/IEC_phase1.pptx`, reproducible con el script
+  de `examples/`. Usa plantilla de validación y datos sintéticos porque la
+  plantilla corporativa configurada no está disponible en este equipo.
+
+### Adaptación IEC · Fase 2
+
+- Mostrar tolerancias por gráfica, apagado por defecto e inhabilitado sin
+  tipo de ensayo; canal evaluado y consigna seleccionables.
+- Cálculo en backend con todos los registros: banda ±2 K en mesetas tras
+  asentamiento, excursiones rojas, estado OK/NOK o indeterminado, TA/TB,
+  t1 y ciclos. Sin evaluación de rampas ni ΔTs del espécimen.
+- El PNG y su JSON guardan la evaluación; los resultados se reutilizan en
+  las diapositivas existentes de Test Results. Con el selector apagado se
+  conserva exactamente el SVG de exportación anterior.
+- Criterio conservador: consigna constante a ±0,05 K, mesetas extremas,
+  asentamiento clamp(0,1·t1, 5, 15 min), huecos >3 muestras separados;
+  t1 mediano solo con duraciones consistentes y ciclos de pares completos
+  frío/calor. Mesetas cortadas por el archivo no cuentan para t1/ciclos.
+  El recuadro corresponde a toda la adquisición, también al hacer zoom.
+  Detalles y limitaciones en `docs/developer-guide/iec-implementation.md`.
+- Ejemplo: `examples/generated/IEC_phase2.pptx` con gráficas sintéticas OK
+  y NOK. Pruebas con ambas adquisiciones reales versionadas en el repositorio.
+
 ### Added
 
 - One-click distribution package. `empaquetar.bat` (repository root, runs `packaging/build_package.ps1`) builds `GeneradorInformes-<version>/` and `generador-informes-<version>.zip` in `%USERPROFILE%\GeneradorInformes-paquetes`: embedded Python with every dependency of `requirements.txt`, the backend and engine code, a copy of the PowerPoint template and the release desktop executable (`tauri build --no-bundle`). It checks that `version.py` and `tauri.conf.json` match, verifies imports and `/health` of the packaged backend, writes the `generador-informes.json` manifest and, with `-Publicar`, copies ZIP and manifest to the shared `ToolingVersions` folder (manifest last).

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Sequence
+import warnings
 
 from .evidence_photos import (
     ASSEMBLY_SECTION,
@@ -12,6 +13,7 @@ from .evidence_photos import (
 )
 from .evidences import EvidenceDiscovery, discover_evidences
 from .metadata import load_test_metadata
+from .report_inputs import load_report_inputs
 from .rendered_assets import list_rendered_assets, select_rendered_assets
 from .powerpoint.presentation import (
     create_working_presentation,
@@ -145,12 +147,16 @@ def generate_climatic_report(
         metadata,
     )
 
-    populate_test_description(working_path, metadata)
+    report_inputs, input_warnings = load_report_inputs(test_root)
+    for message in input_warnings:
+        warnings.warn(message, UserWarning, stacklevel=2)
+    populate_test_description(working_path, metadata, report_inputs.model_dump())
     populate_tested_parts(working_path, metadata)
     populate_test_assembly_images(
         presentation_path=working_path,
         metadata=metadata,
         image_paths=[photo.path for photo in assembly_photos],
+        report_inputs=report_inputs.model_dump(),
     )
     populate_test_inputs(working_path, metadata)
     populate_test_results(

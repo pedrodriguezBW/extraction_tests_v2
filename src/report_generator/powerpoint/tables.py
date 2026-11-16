@@ -217,6 +217,7 @@ def add_profile_table(
     column_widths_cm: list[float],
     table_top_cm: float,
     data_row_height_cm: float = TABLE_ROW_HEIGHT_CM,
+    row_heights_cm: list[float] | None = None,
 ) -> float:
     """
     Añade una tabla nativa de PowerPoint y devuelve
@@ -229,10 +230,10 @@ def add_profile_table(
     row_count = len(rows) + 1
     column_count = len(headers)
 
-    table_height_cm = (
-        header_height_cm
-        + len(rows) * data_row_height_cm
-    )
+    row_heights_cm = row_heights_cm or [data_row_height_cm] * len(rows)
+    if len(row_heights_cm) != len(rows):
+        raise ValueError("La altura de las filas debe corresponder con los datos")
+    table_height_cm = header_height_cm + sum(row_heights_cm)
 
     table_shape = slide.shapes.add_table(
         row_count,
@@ -256,7 +257,7 @@ def add_profile_table(
 
     for row_index in range(1, row_count):
         table.rows[row_index].height = Cm(
-            data_row_height_cm
+            row_heights_cm[row_index - 1]
         )
 
     # ==========================================================

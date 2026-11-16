@@ -5,6 +5,8 @@ from src.report_generator.version import __version__
 from src.report_generator.version_check import check_application_version
 
 from .api.projects import router as projects_router
+from .api.report_inputs import router as inputs_router
+from .api.tolerances import router as tolerances_router
 
 
 app = FastAPI(
@@ -32,6 +34,8 @@ app.add_middleware(
 )
 
 app.include_router(projects_router)
+app.include_router(inputs_router)
+app.include_router(tolerances_router)
 
 
 @app.get("/health")

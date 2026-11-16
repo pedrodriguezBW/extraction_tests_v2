@@ -216,6 +216,7 @@ def save_project_simpati_chart_endpoint(
             request.test_root,
             request.relative_path,
             request.image_base64,
+            **({"tolerances": request.tolerances} if request.tolerances is not None else {}),
         )
     except SimpatiChartSaveError as error:
         return JSONResponse(

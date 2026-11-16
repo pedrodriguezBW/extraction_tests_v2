@@ -3,6 +3,8 @@ import type {
   ProjectInspectionRequest,
   ProjectInspectionResponse,
 } from "../types/project";
+import type { ReportInputs, TestCatalog } from "../types/reportInputs";
+import type { ToleranceSettings, ToleranceResult } from "../types/tolerances";
 import type {
   GraphtecChartPreviewResponse,
   GraphtecChartRequest,
@@ -212,14 +214,16 @@ export function inspectProject(
  * correctamente.
  * @throws {@link ApiClientError} Si el informe no puede generarse.
  */
-export function generateReport(
+export async function generateReport(
   testRoot: string,
   selectedRenderedAssets: readonly string[],
   selectedEvidencePhotos: EvidencePhotoSelectionRequest = {
     assembly: [],
     results: [],
   },
+  reportInputs?: ReportInputs,
 ): Promise<ReportGenerationResponse> {
+  if (reportInputs) await saveReportInputs(testRoot, reportInputs);
   const request: ReportGenerationRequest = {
     test_root: testRoot,
     selected_rendered_assets: [...selectedRenderedAssets],
@@ -291,11 +295,13 @@ export function saveSimpatiChart(
   testRoot: string,
   relativePath: string,
   imageBase64: string,
+  tolerances?: ToleranceSettings,
 ): Promise<SimpatiChartSaveResponse> {
   const request: SimpatiChartSaveRequest = {
     test_root: testRoot,
     relative_path: relativePath,
     image_base64: imageBase64,
+    ...(tolerances ? {tolerances} : {}),
   };
 
   return requestJson<SimpatiChartSaveResponse>(
@@ -357,6 +363,22 @@ function postJson<T>(path: string, request: unknown): Promise<T> {
     },
     body: JSON.stringify(request),
   });
+}
+
+/** Recupera la configuración sin modificar el metadata. */
+export function loadReportInputs(testRoot: string, selectedSimpatiFiles: string[] = []) {
+  return postJson<{inputs: ReportInputs; warnings: string[]; test_types: TestCatalog; channels: string[]}>(
+    "/projects/report-inputs/load", {test_root: testRoot, selected_simpati_files: selectedSimpatiFiles});
+}
+
+/** Evalúa el archivo original; la vista previa nunca decide el resultado. */
+export function evaluateTolerances(testRoot: string, relativePath: string, settings: ToleranceSettings) {
+  return postJson<ToleranceResult>("/projects/simpati/tolerances", {test_root: testRoot, relative_path: relativePath, ...settings});
+}
+
+/** Guarda la configuración actual antes de generar el informe. */
+export function saveReportInputs(testRoot: string, inputs: ReportInputs) {
+  return postJson<{inputs: ReportInputs}>("/projects/report-inputs/save", {test_root: testRoot, inputs});
 }
 
 /**

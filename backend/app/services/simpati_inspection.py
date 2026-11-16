@@ -496,6 +496,7 @@ def save_project_simpati_chart(
     test_root: str | Path,
     relative_path: str,
     image_base64: str,
+    tolerances=None,
 ) -> SimpatiChartSaveResponse:
     """
     Save a PNG chart of one acquisition in 04_Report/_RenderedAssets.
@@ -518,13 +519,22 @@ def save_project_simpati_chart(
 
         acquisition_file = resolve_simpati_acquisition(project_root, relative_path)
         image_bytes = _decode_png(image_base64)
+        evaluation = None
+        if tolerances is not None:
+            from src.report_generator.simpati.tolerances import evaluate_tolerances
+            analysis = _analyze(acquisition_file)
+            if analysis.acquisition is None:
+                raise ValueError("No se ha podido leer la adquisición SIMPATI")
+            evaluation = evaluate_tolerances(analysis.acquisition, analysis.channels,
+                                             tolerances.test_type, tolerances.channel, tolerances.reference)
         output_directory = prepare_rendered_assets_directory(project_root)
 
         def companions(chart_path: Path):
             yield (
                 metadata_path_for(chart_path),
                 json.dumps(
-                    chart_metadata(chart_path.name, len(image_bytes), acquisition_file),
+                    {**chart_metadata(chart_path.name, len(image_bytes), acquisition_file),
+                     **({"tolerances": evaluation} if evaluation is not None else {})},
                     indent=2,
                     ensure_ascii=False,
                 ).encode("utf-8"),

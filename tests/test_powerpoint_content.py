@@ -454,6 +454,7 @@ class TestResultsPopulationTests(unittest.TestCase):
             [selected],
         )
 
+    @patch("src.report_generator.generator.load_report_inputs")
     @patch("src.report_generator.generator.publish_report")
     @patch("src.report_generator.generator.prune_climatic_report_slides")
     @patch("src.report_generator.generator.populate_test_results")
@@ -486,7 +487,10 @@ class TestResultsPopulationTests(unittest.TestCase):
         populate_results_mock,
         prune_slides_mock,
         publish_report_mock,
+        load_inputs_mock,
     ):
+        from src.report_generator.report_inputs import ReportInputs
+        load_inputs_mock.return_value = (ReportInputs(), [])
         test_root = Path("test")
         template_path = Path("template.pptx")
         working_path = Path("working") / "report.pptx"
@@ -527,7 +531,7 @@ class TestResultsPopulationTests(unittest.TestCase):
             ],
         )
         select_assets_mock.assert_called_once_with(test_root, selected)
-        populate_assembly_mock.assert_called_once_with(presentation_path=working_path,metadata=metadata,image_paths=initial_images)
+        populate_assembly_mock.assert_called_once_with(presentation_path=working_path,metadata=metadata,image_paths=initial_images,report_inputs=ReportInputs().model_dump())
         populate_results_mock.assert_called_once_with(presentation_path=working_path,test_root=test_root,evidence_discovery=evidence_discovery,result_image_paths=resolved,evidence_photo_paths={result_photo.evidence.descriptor_path:[result_photo.path]})
         prune_slides_mock.assert_called_once_with(working_path)
         publish_report_mock.assert_called_once_with(

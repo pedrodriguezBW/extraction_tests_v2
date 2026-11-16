@@ -16,6 +16,44 @@ Flujo principal:
    se incluyen en *Test Results*.
 7. Generar el PowerPoint editable dentro de `04_Report`.
 
+## Configuración IEC del ensayo
+
+El panel **Configuración del ensayo** permite elegir Na, Nb, Nc, Ab o Bb
+y editar puntos de medida (canal, ubicación, sensor y función: Espécimen,
+Aire o Control). Al seleccionar una adquisición SIMPATI se precargan sus
+canales térmicos. Los canales nuevos se añaden vacíos; los ya editados se
+conservan y los ausentes muestran «no encontrado en los logs». Graphtec no
+precarga canales térmicos. También pueden añadirse y borrarse filas manuales.
+
+**Guardar** escribe únicamente `04_Report/_Working/report_inputs.json`
+(`schema_version: 1`). Al generar desde la interfaz, lo editado se guarda
+automáticamente antes de solicitar el informe; un fallo al guardar impide
+generar con datos anteriores. Los scripts de consola consumen la última
+configuración guardada. El metadata del agente y el Excel no se modifican.
+Si falta `_Working` o el archivo, se empieza vacío. Un JSON corrupto o con
+versión desconocida se ignora con aviso y permanece en disco; un guardado
+explícito posterior lo sustituye por la configuración actual.
+
+El informe añade Laboratory (`STC`), Test type y Standard, el tipo de cámara
+HU/OVEN/TS y la tabla de puntos de medida con continuaciones. Los campos
+nuevos sin datos aparecen como `—`. La clave opcional `test.standard` del
+metadata prevalece sobre la edición del catálogo; su nombre se centraliza
+en `standards.STANDARD_METADATA_KEY`. Los nombres de temperatura de los
+inputs pasan a **Min temperature (TA)** y **Max temperature (TB)**.
+
+En cada gráfica SIMPATI, **Mostrar tolerancias** está desactivado inicialmente
+y requiere un tipo de ensayo. Seleccione el canal evaluado (se propone el de
+función Control) y, si hace falta, su consigna. La evaluación usa el archivo
+completo, aunque el visor reduzca sus muestras o se amplíe una zona: el
+recuadro indica **Adquisición completa**. Se sombrean ±2 K tras el asentamiento
+de cada meseta y se resaltan las excursiones en rojo. El PNG incluye estado,
+TA/TB medidas, t1, ciclos y estabilización `—`; el resultado numérico se
+guarda en el JSON acompañante. Rampas y estabilización del espécimen no se
+evalúan. Sin datos suficientes se muestra `—`, nunca un OK supuesto.
+
+Los criterios numéricos, las decisiones por fase y cómo reproducir los
+ejemplos están en [la nota de implementación IEC](docs/developer-guide/iec-implementation.md).
+
 ## Versión del generador
 
 Al iniciar y antes de generar un informe, la aplicación comprueba la versión
@@ -105,7 +143,9 @@ Después de inspeccionar el ensayo, la interfaz muestra los selectores
   de la fuente no existe o si no contiene archivos.
 - Cambiar de fuente limpia el archivo seleccionado y el análisis SIMPATI
   anterior. Cambiar de archivo limpia el análisis anterior. Ningún cambio
-  de selección analiza archivos automáticamente.
+  de selección abre el editor de análisis automáticamente. La configuración
+  del ensayo sí inspecciona los canales del log SIMPATI seleccionado para
+  precargar sus puntos de medida.
 - **Analyze SIMPATI** solo se habilita con la fuente SIMPATI y la
   adquisición SIMPATI detectada seleccionada.
 - **Analyze Graphtec** lee el archivo Graphtec seleccionado. La lectura

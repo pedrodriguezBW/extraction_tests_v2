@@ -251,6 +251,9 @@ class ProjectInspectionEndpointTests(unittest.TestCase):
             project_routes,
             {
                 ("POST", "/projects/inspect"),
+                ("POST", "/projects/report-inputs/load"),
+                ("POST", "/projects/report-inputs/save"),
+                ("POST", "/projects/simpati/tolerances"),
                 ("GET", "/projects/evidence-photo"),
                 ("POST", "/projects/generate-report"),
                 ("POST", "/projects/simpati/inspect"),

@@ -166,6 +166,10 @@ def validate_metadata(metadata: Any) -> list[str]:
         )
     else:
         test_name = test_data.get("test_name")
+        from .standards import STANDARD_METADATA_KEY
+        standard = test_data.get(STANDARD_METADATA_KEY)
+        if standard is not None and not isinstance(standard, str):
+            errors.append(f"The optional field 'test.{STANDARD_METADATA_KEY}' must be text.")
         if not isinstance(test_name, str) or not test_name.strip():
             errors.append(
                 "The metadata field 'test.test_name' must be a "

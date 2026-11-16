@@ -93,6 +93,7 @@ describe("API service", () => {
       "ApiClientError",
       "checkHealth",
       "deleteRenderedAsset",
+      "evaluateTolerances",
       "fetchRenderedAsset",
       "generateReport",
       "getEvidencePhotoUrl",
@@ -101,8 +102,10 @@ describe("API service", () => {
       "inspectProject",
       "inspectSimpati",
       "listRenderedAssets",
+      "loadReportInputs",
       "previewGraphtecChart",
       "saveGraphtecChart",
+      "saveReportInputs",
       "saveSimpatiChart",
     ]);
   });

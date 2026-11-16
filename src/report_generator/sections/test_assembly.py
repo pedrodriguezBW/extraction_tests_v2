@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from math import ceil
 
 from pptx import Presentation
 from pptx.enum.text import MSO_ANCHOR
 from pptx.util import Cm, Pt
+from ..standards import chamber_description
+from ..powerpoint.tables import add_profile_table
 
 from ..evidence_photos import ASSEMBLY_MAX_PHOTOS, EVIDENCE_PHOTOS_PER_SLIDE
 from ..powerpoint.images import add_contained_image
@@ -199,6 +202,7 @@ def populate_test_assembly_images(
     presentation_path: Path,
     metadata: dict[str, Any],
     image_paths: list[Path],
+    report_inputs: dict | None = None,
 ) -> None:
     """Rellena ``2. Test Assembly``.
 
@@ -372,5 +376,39 @@ def populate_test_assembly_images(
         )
 
         previous_slide = continuation_slide
+
+    # Se reutilizan las continuaciones para no reducir las fotografías.
+    points = (report_inputs or {}).get("measurement_points", [])
+    functions = {"specimen": "Specimen", "air": "Air", "control": "Control"}
+    groups = [[]]
+    heights = [[]]
+    for point in points:
+        # Reserva espacio según el texto más largo, sin reducir la fuente.
+        lines = max(sum(max(1, ceil(len(line) / width)) for line in str(point.get(key) or "—").splitlines())
+                    for key, width in (("channel", 30), ("location", 30), ("sensor_type", 19)))
+        height = max(0.85, 0.56 * lines + 0.2)
+        capacity = 7.0 if len(groups) == 1 else 10.8
+        if groups[-1] and sum(heights[-1]) + height > capacity:
+            groups.append([])
+            heights.append([])
+        groups[-1].append(point)
+        heights[-1].append(height)
+    for index, group in enumerate(groups):
+        details = create_continuation_slide(
+            presentation=presentation, reference_slide=previous_slide,
+            title="2. Test Assembly (cont.)",
+        )
+        top = 4.25
+        if index == 0:
+            top = add_profile_table(details, ["Chamber", "Chamber type"],
+                                    [[climatic_chamber or "—", chamber_description(climatic_chamber)]],
+                                    [12.0, 17.63], top, data_row_height_cm=1.1) + 0.6
+        add_section_header(details, "Measurement points", CONTENT_LEFT_CM, top, CONTENT_WIDTH_CM)
+        rows = [[point.get(key) or "—" for key in ("channel", "location", "sensor_type")]
+                + [functions.get(point.get("function"), "—")] for point in group]
+        add_profile_table(details, ["Channel", "Location", "Sensor type", "Function"],
+                          rows or [["—"] * 4], [9.0, 9.0, 6.0, 5.63], top + 0.8,
+                          data_row_height_cm=0.85, row_heights_cm=heights[index] or [0.85])
+        previous_slide = details
 
     presentation.save(presentation_path)

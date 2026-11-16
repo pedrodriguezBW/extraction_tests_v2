@@ -260,7 +260,7 @@ class EvidencePaginationTests(unittest.TestCase):
         for count, continuations in [(0, 0), (1, 0), (2, 0), (3, 1), (4, 1)]:
             with self.subTest(count=count):
                 paths, first, created, images, _ = self.run_assembly(count)
-                self.assertEqual(len(created), continuations)
+                self.assertEqual(len(created), continuations + 1)
                 self.assertEqual([c.kwargs["image_path"] for c in images], paths)
                 self.assertEqual([c.kwargs["slide"] for c in images][:2], [first] * min(count, 2))
                 if continuations:
@@ -270,7 +270,7 @@ class EvidencePaginationTests(unittest.TestCase):
 
     def test_photo_continuation_comes_before_equipment_continuations(self):
         _, first, created, _, equipment_slide = self.run_assembly(4, equipment=6)
-        self.assertEqual(len(created), 2)
+        self.assertEqual(len(created), 3)
         self.assertIs(created[1][1]["reference_slide"], created[0][0])
         self.assertIs(equipment_slide.call_args.kwargs["slide"], created[1][0])
 

@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+LABORATORY_NAME = "STC"
+
 
 TEMPLATE_PATH_ENV_VAR = "REPORT_TEMPLATE_PATH"
 """Variable de entorno que permite usar otra plantilla PowerPoint.

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from src.report_generator.simpati.tolerances import ToleranceSettings
 
 from .common import ApiError
 from .rendered_assets import RenderedAssetResult, RenderedAssetWarning
@@ -24,6 +25,7 @@ class SimpatiInspectionRequest(BaseModel):
 
 class SimpatiChartSaveRequest(BaseModel):
     """PNG chart data to save for one SIMPATI acquisition."""
+    tolerances: ToleranceSettings | None = None
 
     test_root: str = Field(
         min_length=1,

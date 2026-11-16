@@ -14,6 +14,10 @@ import { EvidencePhotos } from "./components/EvidencePhotos";
 import { RenderedAssets } from "./components/RenderedAssets";
 import { SimpatiAcquisitions } from "./components/SimpatiAcquisitions";
 import { SimpatiChart } from "./components/SimpatiChart";
+import { TestConfiguration } from "./components/TestConfiguration";
+import { emptyInputs, mergeChannels, type ReportInputs, type TestCatalog } from "./types/reportInputs";
+import type { ToleranceSettings } from "./types/tolerances";
+import { loadReportInputs, saveReportInputs } from "./services/api";
 import {
   checkHealth,
   deleteRenderedAsset,
@@ -156,6 +160,50 @@ function App() {
     INITIAL_DATA_SELECTION,
   );
   const simpati = dataSelection.simpati;
+  const [reportInputs, setReportInputs] = useState<ReportInputs>(emptyInputs);
+  const [testCatalog, setTestCatalog] = useState<TestCatalog>({});
+  const [inputsWarnings, setInputsWarnings] = useState<string[]>([]);
+  const [inputsRoot, setInputsRoot] = useState<string | null>(null);
+  const [inputsSaving, setInputsSaving] = useState(false);
+  const configurationRoot = inspection?.test_root ?? null;
+  const [detectedChannels, setDetectedChannels] = useState<string[]>([]);
+  const [channelSelection, setChannelSelection] = useState<string | null>(null);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setInputsRoot(null);
+    setReportInputs(emptyInputs());
+    if (configurationRoot) void loadReportInputs(configurationRoot).then(result => {
+      if (!cancelled) {
+        setReportInputs(result.inputs); setTestCatalog(result.test_types);
+        setInputsWarnings(result.warnings); setInputsRoot(configurationRoot);
+      }
+    }).catch(error => {if (!cancelled) setInputsWarnings([errorMessage(error)]);});
+    return () => { cancelled = true; };
+  }, [configurationRoot, inspection]);
+  useEffect(() => {
+    let cancelled = false;
+    setDetectedChannels([]); setChannelSelection(null); setChannelsLoading(false);
+    if (configurationRoot && dataSelection.sourceKey === "simpati" && dataSelection.fileRelativePath) {
+      setChannelsLoading(true);
+      const path = dataSelection.fileRelativePath;
+      void loadReportInputs(configurationRoot, [path]).then(result => {
+        if (!cancelled) {
+          setDetectedChannels(result.channels); setChannelSelection(path);
+          if (result.warnings.length) setInputsWarnings(result.warnings);
+        }
+      }).catch(error => {if (!cancelled) setInputsWarnings([errorMessage(error)]);})
+        .finally(() => {if (!cancelled) setChannelsLoading(false);});
+    }
+    return () => {cancelled = true;};
+  }, [configurationRoot, dataSelection.sourceKey, dataSelection.fileRelativePath]);
+  useEffect(() => {
+    if (inputsRoot === configurationRoot) setReportInputs(current => mergeChannels(current, detectedChannels));
+  }, [detectedChannels, inputsRoot, configurationRoot]);
+  const persistInputs = async () => {
+    if (!inputsRoot || inputsRoot !== configurationRoot) throw new Error("La configuración todavía no está disponible.");
+    await saveReportInputs(inputsRoot, reportInputs);
+  };
   const graphtec = dataSelection.graphtec;
   const [graphtecLoading, setGraphtecLoading] = useState(false);
   const [graphtecSaving, setGraphtecSaving] = useState(false);
@@ -379,7 +427,7 @@ function App() {
       const response = await generateReport(selectedPath, selectedAssets, {
         assembly: selectedEvidencePhotoPaths(evidencePhotos, "assembly"),
         results: selectedEvidencePhotoPaths(evidencePhotos, "results"),
-      });
+      }, reportInputs);
       setReport(response);
       const usedCount = response.rendered_assets_count;
       setOperationMessage(
@@ -407,6 +455,9 @@ function App() {
     renderedAssets,
     evidencePhotos,
     selectedPath,
+    reportInputs,
+    inputsRoot,
+    configurationRoot,
   ]);
 
   const inspectSelectedSimpati = useCallback(async (
@@ -657,7 +708,7 @@ function App() {
   const simpatiSourcePath = dataSelection.simpati?.selected_relative_path ?? null;
 
   const saveCurrentSimpatiChart = useCallback(
-    async (imageBase64: string): Promise<SimpatiChartSaveResponse> => {
+    async (imageBase64: string, tolerances?: ToleranceSettings): Promise<SimpatiChartSaveResponse> => {
       if (readOnlyOutdated) {
         throw new Error(
           "This outdated application is in read-only mode. Update it before saving files.",
@@ -679,6 +730,7 @@ function App() {
           selectedPath,
           simpatiSourcePath,
           imageBase64,
+          tolerances,
         );
         // The saved chart joins the generic inventory and is selected by
         // default for the report.
@@ -781,13 +833,14 @@ function App() {
     simpatiChartSaving ||
     renderedAssetsBusy ||
     graphtecOperationActive ||
-    reportLoading;
+    reportLoading || inputsSaving || channelsLoading;
   const canInspect =
     selectedPath.length > 0 &&
     backendStatus === "connected" &&
     !busy;
   const reportReady = canGenerateReport(inspection);
   const canGenerate =
+    inputsRoot === configurationRoot && inputsRoot !== null &&
     selectedPath.length > 0 &&
     backendStatus === "connected" &&
     versionCheck?.status !== "outdated" &&
@@ -1340,6 +1393,8 @@ function App() {
                 <SimpatiChart
                   key={simpati.selected_relative_path}
                   data={simpati}
+                  testType={reportInputs.test_type}
+                  controlChannel={reportInputs.measurement_points.find(point => point.function === "control")?.channel}
                   saveDisabled={readOnlyOutdated}
                   title={`SIMPATI ${
                     simpati.selected_index !== null
@@ -1378,6 +1433,14 @@ function App() {
           )}
         </section>
 
+        {inspection && <TestConfiguration inputs={reportInputs} catalog={testCatalog}
+          channels={detectedChannels} detected={channelSelection !== null} disabled={readOnlyOutdated || busy || inputsSaving || inputsRoot !== configurationRoot}
+          warnings={inputsWarnings} onChange={setReportInputs} onSave={() => {
+            setInputsSaving(true);
+            void persistInputs().then(() => setInputsWarnings(["Configuración guardada."]))
+              .catch(error => setInputsWarnings([errorMessage(error)]))
+              .finally(() => setInputsSaving(false));
+          }}/>}
         <section
           className="workflow-section"
           aria-labelledby="report-heading"

@@ -45,6 +45,18 @@ function render(saveDisabled = false): string {
 }
 
 describe("SimpatiChart", () => {
+  it("deshabilita tolerancias con explicación cuando falta el tipo de ensayo", () => {
+    const markup = render();
+    expect(markup).toMatch(/<input[^>]*type="checkbox"[^>]*disabled=""/);
+    expect(markup).toContain("Seleccione un tipo de ensayo");
+  });
+
+  it("mantiene las tolerancias desactivadas inicialmente aun con tipo de ensayo", () => {
+    const markup = renderToStaticMarkup(<SimpatiChart data={inspection()} saving={false} savedChartNames={[]}
+      testType="Nb" onSave={() => Promise.reject(new Error("not used"))}/>);
+    expect(markup).not.toContain("Tolerancias:");
+    expect(markup).not.toContain("Evaluando adquisición");
+  });
   it("has no start and end range controls below the chart", () => {
     const markup = render();
     expect(markup).not.toContain('type="range"');

@@ -19,6 +19,7 @@ import {
   type ExportSeries,
 } from "./chartExport";
 import { defaultValueRange, fullViewport } from "./chartZoom";
+import type { ToleranceResult } from "../types/tolerances";
 
 // Una muestra por hora durante diez días: fechas largas en el eje X.
 const TIMESTAMPS = Array.from({ length: 241 }, (_, index) =>
@@ -54,6 +55,24 @@ function model(overrides: Partial<ChartExportModel> = {}): ChartExportModel {
 }
 
 describe("export format", () => {
+  it("conserva exactamente el SVG cuando las tolerancias están desactivadas", () => {
+    expect(buildChartExportSvg(model())).toBe(buildChartExportSvg(model({tolerances: null})));
+  });
+
+  it("exporta bandas, excursiones y severidades sin perder una excursión entre muestras del visor", () => {
+    const tolerances: ToleranceResult = {status: "NOK", channel: "actual", reference: "setpoint", scope: "full_acquisition",
+      out_of_tolerance_segments: 1, ta_c: -40, tb_c: 85, t1_minutes: 30, cycles: 2,
+      plateaus: [{start: TIMESTAMPS[2], end: TIMESTAMPS[20], setpoint_c: 20}],
+      excursions: [[[new Date(Date.parse(TIMESTAMPS[5]) + 30000).toISOString(), 23]]], warnings: []};
+    const svg = buildChartExportSvg(model({tolerances}));
+    expect(svg).toContain("Tolerancias: NOK (1 tramo fuera)");
+    expect(svg).toContain("TA medida: -40 °C");
+    expect(svg).toContain("Estabilización (ΔTs ≤ 5 K): —");
+    expect(svg).toContain('fill="#58a881"');
+    expect(svg).toContain('fill="#d72631"');
+    expect(svg).not.toContain("NaN");
+    expect(layoutChartExport(model({tolerances})).plot.top).toBeGreaterThan(layoutChartExport(model()).plot.top);
+  });
   it("uses 1800 × 1125 px with a 1.6:1 ratio", () => {
     expect(EXPORT_WIDTH_PX).toBe(1800);
     expect(EXPORT_HEIGHT_PX).toBe(1125);
