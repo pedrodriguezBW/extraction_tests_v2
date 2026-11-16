@@ -51,11 +51,18 @@ class IecReportTests(unittest.TestCase):
         presentation = Presentation(result)
         text = all_text(presentation)
         self.assertIn("STC", text)
-        self.assertIn("Standard\n—", text)
+        self.assertIn("STANDARD\n—", text)
         self.assertIn("MEASUREMENT POINTS", text)
         self.assertIn("MIN TEMPERATURE (TA)", text)
         self.assertIn("MAX TEMPERATURE (TB)", text)
         self.assertEqual(metadata_path.read_bytes(), original)
+        description = next(slide for slide in presentation.slides if slide.shapes.title and slide.shapes.title.text == "1. Test Description")
+        self.assertFalse(any(shape.has_table for shape in description.shapes))
+        labels = {shape.text: shape for shape in description.shapes if shape.has_text_frame}
+        for label in ("LABORATORY", "TEST TYPE", "STANDARD"):
+            self.assertTrue(labels[label].text_frame.paragraphs[0].font.bold)
+        self.assertEqual(labels["STC"].left, labels["LABORATORY"].left)
+        self.assertGreater(labels["STC"].top, labels["LABORATORY"].top)
 
     def test_many_points_and_long_procedure_continue_without_losing_content(self):
         procedure = "Detailed engineering procedure with mounting and measurement instructions. " * 10
@@ -78,3 +85,45 @@ class IecReportTests(unittest.TestCase):
             for shape in slide.shapes:
                 if shape.has_table:
                     self.assertLess(shape.top + shape.height, Cm(17.0))
+
+    def test_procedure_expands_on_first_slide_and_moves_contacts_after_it(self):
+        procedure = "Detailed engineering procedure with mounting and measurement instructions. " * 10
+        metadata = minimal_metadata(test={"test_name": "IEC", "procedure": procedure},
+                                    people={"requester": {"name": "Requester example"}})
+        root = build_test_folder(self.workspace / "TEST - 003", metadata=metadata)
+        presentation = Presentation(generate_climatic_report(root, self.template))
+        first_index = next(i for i, slide in enumerate(presentation.slides)
+                           if slide.shapes.title and slide.shapes.title.text == "1. Test Description")
+        first = presentation.slides[first_index]
+        first_text = all_text(type("Deck", (), {"slides": [first]})())
+        self.assertIn(procedure, first_text)
+        self.assertNotIn("TEST CONTACTS", first_text)
+        following = presentation.slides[first_index + 1]
+        following_text = all_text(type("Deck", (), {"slides": [following]})())
+        self.assertIn("TEST CONTACTS", following_text)
+        self.assertIn("Requester example", following_text)
+        self.assertNotIn("TEST PROCEDURE", following_text)
+
+    def test_very_long_procedure_starts_on_first_slide_and_contacts_follow_last_fragment(self):
+        procedure = "Procedure step with a detailed measurement and mounting instruction.\n" * 90
+        root = build_test_folder(self.workspace / "TEST - 004",
+                                 metadata=minimal_metadata(test={"test_name": "IEC", "procedure": procedure}))
+        presentation = Presentation(generate_climatic_report(root, self.template))
+        slides = [slide for slide in presentation.slides
+                  if any(shape.has_text_frame and shape.text.startswith("1. Test Description") for shape in slide.shapes)]
+        fragments = []
+        contact_seen = False
+        for slide in slides:
+            for shape in slide.shapes:
+                if not shape.has_text_frame:
+                    continue
+                if shape.text == "TEST CONTACTS":
+                    contact_seen = True
+                if "Procedure step" in shape.text:
+                    self.assertFalse(contact_seen)
+                    fragments.append(shape.text)
+                    self.assertLessEqual(shape.top + shape.height, Cm(16.80))
+        self.assertGreater(len(fragments), 1)
+        self.assertIn("Procedure step", all_text(type("Deck", (), {"slides": [slides[0]]})()))
+        self.assertEqual("".join(fragments).replace("\v", "\n"), procedure)
+        self.assertTrue(contact_seen)

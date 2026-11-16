@@ -4,6 +4,15 @@ All notable project changes are documented in this file.
 
 ## [Unreleased]
 
+### Ajuste de Test Description
+
+- Laboratory, Test type y Standard usan etiquetas grises y valores debajo,
+  con el mismo formato de los parámetros del informe, sin tabla ni fondos.
+- Test Procedure empieza siempre en la primera diapositiva y ocupa el espacio
+  disponible hacia abajo. Test contacts se desplaza después del procedimiento;
+  si no cabe, pasa a una continuación. Los procedimientos de varias páginas
+  se dividen sin perder texto, y los contactos aparecen tras el último fragmento.
+
 ### Adaptación IEC · Fase 1
 
 - Panel Configuración del ensayo: catálogo extensible Na/Nb/Nc/Ab/Bb,

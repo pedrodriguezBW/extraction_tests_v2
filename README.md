@@ -34,12 +34,18 @@ Si falta `_Working` o el archivo, se empieza vacío. Un JSON corrupto o con
 versión desconocida se ignora con aviso y permanece en disco; un guardado
 explícito posterior lo sustituye por la configuración actual.
 
-El informe añade Laboratory (`STC`), Test type y Standard, el tipo de cámara
+El informe añade Laboratory (`STC`), Test type y Standard como etiquetas con
+su valor debajo (sin tabla), el tipo de cámara
 HU/OVEN/TS y la tabla de puntos de medida con continuaciones. Los campos
 nuevos sin datos aparecen como `—`. La clave opcional `test.standard` del
 metadata prevalece sobre la edición del catálogo; su nombre se centraliza
 en `standards.STANDARD_METADATA_KEY`. Los nombres de temperatura de los
 inputs pasan a **Min temperature (TA)** y **Max temperature (TB)**.
+
+Test Procedure empieza en la primera diapositiva y se amplía hacia abajo.
+Test contacts se coloca después; si no queda espacio, pasa a la continuación.
+Si el procedimiento supera una página, se reparte entre continuaciones y los
+contactos aparecen después de su último fragmento.
 
 En cada gráfica SIMPATI, **Mostrar tolerancias** está desactivado inicialmente
 y requiere un tipo de ensayo. Seleccione el canal evaluado (se propone el de

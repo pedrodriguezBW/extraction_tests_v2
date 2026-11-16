@@ -39,11 +39,15 @@ integral con las normas ni demuestra estabilización del espécimen.
   corrupto o versión desconocida: aviso, panel vacío, original conservado
   durante la lectura. Un Guardar explícito o el guardado automático posterior
   lo sustituye; la advertencia permite revisar el original antes de ello.
-- Se añade tabla de tres filas a Test Description. El repositorio tenía
-  bloques de texto, no la tabla literal del plan. Para conservar fotografías
+- Laboratory, Test type y Standard se presentan en Test Description con las
+  etiquetas grises y los valores debajo del resto de parámetros, sin tabla.
+  Para conservar fotografías
   y equipamiento, cámara y puntos se presentan en una continuación de
   Assembly. Se estiman alturas por contenido y se pagina sin reducir fuente.
-  Procedimientos que no caben en Description usan una continuación.
+  Test Procedure empieza en la primera diapositiva y ocupa el espacio hacia
+  abajo antes de desplazar Test contacts. Si los contactos no caben tras el
+  procedimiento, pasan a una continuación; si el procedimiento ocupa varias
+  páginas, se divide y los contactos siguen al último fragmento.
 
 ## Verificación del catálogo
 
@@ -142,8 +146,8 @@ Las pruebas usan también los dos logs reales versionados en
 
 ## Validación realizada
 
-- Batería Python: `python -m unittest discover -s tests -q` (364 pruebas,
-  incluidas las dos pruebas nuevas de integración; dos omitidas por plataforma).
+- Batería Python: `python -m unittest discover -s tests -q` (366 pruebas,
+  incluidas las pruebas de formato y paginación; dos omitidas por plataforma).
 - Frontend: `npm test` (186 pruebas) y `npm run build`.
 - Guardado/recarga, metadata intacto, archivos inválidos, `_Working` borrada,
   cambios de log, cámaras y prioridad de norma.

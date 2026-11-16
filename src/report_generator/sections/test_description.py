@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import textwrap
 from typing import Any
 
 from pptx import Presentation
@@ -8,7 +9,6 @@ from pptx.enum.text import MSO_AUTO_SIZE, MSO_ANCHOR, PP_ALIGN
 from pptx.util import Cm, Pt
 from config import LABORATORY_NAME
 from ..standards import description_values
-from ..powerpoint.tables import add_profile_table
 
 from ..powerpoint.layout import (
     add_label_and_value,
@@ -29,15 +29,104 @@ from ..powerpoint.styles import (
     FONT_FAMILY,
     FONT_SIZE_PROCEDURE_MAX_PT,
     FONT_SIZE_PROCEDURE_MIN_PT,
-    TEST_DESCRIPTION_CONTACTS_ROW_TOP_CM,
+    FONT_SIZE_VALUE_PT,
+    FOOTER_TOP_CM,
     TEST_DESCRIPTION_CONTACTS_SECTION_TOP_CM,
     TEST_DESCRIPTION_FIRST_ROW_TOP_CM,
     TEST_DESCRIPTION_IDENTIFICATION_TOP_CM,
-    TEST_DESCRIPTION_PROCEDURE_HEIGHT_CM,
-    TEST_DESCRIPTION_PROCEDURE_SECTION_TOP_CM,
-    TEST_DESCRIPTION_PROCEDURE_TOP_CM,
     TEST_DESCRIPTION_SECOND_ROW_TOP_CM,
 )
+
+
+def text_height_cm(text: str, width_cm: float, font_size: float) -> float:
+    """Reserva altura para el ajuste de palabras, saltos explícitos y márgenes."""
+    characters = max(1, int((width_cm - 0.2) * 48 / font_size))
+    wrapper = textwrap.TextWrapper(width=characters, replace_whitespace=False,
+                                   drop_whitespace=False, expand_tabs=False)
+    lines = sum(max(1, len(wrapper.wrap(line))) for line in text.split("\n"))
+    return lines * font_size * 0.047 + 0.16
+
+
+def procedure_page(text: str, height_cm: float, font_size: float) -> tuple[str, str]:
+    """Divide solo cuando se llena la página, conservando exactamente el texto."""
+    if text_height_cm(text, CONTENT_WIDTH_CM, font_size) <= height_cm:
+        return text, ""
+    lower, upper = 0, len(text)
+    while lower < upper:
+        middle = (lower + upper + 1) // 2
+        if text_height_cm(text[:middle], CONTENT_WIDTH_CM, font_size) <= height_cm:
+            lower = middle
+        else:
+            upper = middle - 1
+    if lower == 0:
+        raise ValueError("No queda espacio para una línea del procedimiento")
+    # Preferimos un párrafo completo y, después, un límite de palabra.
+    paragraph_end = text.rfind("\n", 0, lower)
+    word_end = max(text.rfind(" ", 0, lower), paragraph_end)
+    boundary = paragraph_end + 1 if paragraph_end >= lower // 2 else word_end + 1
+    if boundary > 0:
+        lower = boundary
+    return text[:lower], text[lower:]
+
+
+def add_procedure_text(slide, text: str, top_cm: float, font_size: float) -> float:
+    """Dibuja un fragmento del procedimiento con altura ajustada a su contenido."""
+    height = text_height_cm(text, CONTENT_WIDTH_CM, font_size)
+    box = slide.shapes.add_textbox(Cm(CONTENT_LEFT_CM), Cm(top_cm),
+                                   Cm(CONTENT_WIDTH_CM), Cm(height))
+    frame = box.text_frame
+    frame.word_wrap = True
+    frame.auto_size = MSO_AUTO_SIZE.NONE
+    frame.vertical_anchor = MSO_ANCHOR.TOP
+    frame.margin_left = frame.margin_right = Cm(0.10)
+    frame.margin_top = frame.margin_bottom = Cm(0.08)
+    paragraph = frame.paragraphs[0]
+    paragraph.text = text
+    paragraph.alignment = PP_ALIGN.LEFT
+    paragraph.space_before = paragraph.space_after = Pt(0)
+    paragraph.line_spacing = 1.0
+    paragraph.font.name = FONT_FAMILY
+    paragraph.font.size = Pt(font_size)
+    paragraph.font.color.rgb = COLOR_NAVY
+    return top_cm + height
+
+
+def populate_procedure_and_contacts(presentation, slide, procedure, requester, technician, header_top):
+    """Mantiene el orden: identificación, procedimiento completo y contactos."""
+    bottom = min(presentation.slide_height / Cm(1), FOOTER_TOP_CM) - 0.45
+    text_top = header_top + 0.80
+    available = bottom - text_top
+    # Se utiliza primero todo el espacio disponible, sin encoger para los contactos.
+    font_size = float(FONT_SIZE_PROCEDURE_MIN_PT)
+    for size in range(int(FONT_SIZE_PROCEDURE_MAX_PT), int(FONT_SIZE_PROCEDURE_MIN_PT) - 1, -1):
+        if text_height_cm(procedure, CONTENT_WIDTH_CM, size) <= available:
+            font_size = float(size)
+            break
+    current_slide = slide
+    remaining = procedure
+    first_page = True
+    while True:
+        add_section_header(current_slide, "Test procedure" if first_page else "Test procedure (continued)",
+                           CONTENT_LEFT_CM, header_top, CONTENT_WIDTH_CM)
+        fragment, remaining = procedure_page(remaining, bottom - text_top, font_size)
+        procedure_end = add_procedure_text(current_slide, fragment, text_top, font_size)
+        if not remaining:
+            break
+        current_slide = create_continuation_slide(presentation, current_slide, "1. Test Description (cont.)")
+        first_page = False
+        header_top, text_top = 4.25, 5.05
+
+    contacts_top = procedure_end + 0.50
+    if first_page:
+        contacts_top = max(contacts_top, TEST_DESCRIPTION_CONTACTS_SECTION_TOP_CM)
+    contacts_height = 2.10
+    if contacts_top + contacts_height > bottom:
+        current_slide = create_continuation_slide(presentation, current_slide, "1. Test Description (cont.)")
+        contacts_top = 4.25
+    add_section_header(current_slide, "Test contacts", CONTENT_LEFT_CM, contacts_top, CONTENT_WIDTH_CM)
+    for label, value, left, width in (("Requester", requester, CONTENT_LEFT_CM, 13.50),
+                                      ("Test technician", technician, 17.50, 14.25)):
+        add_label_and_value(current_slide, label, value, left, contacts_top + 0.90, width, 1.20)
 
 
 def calculate_procedure_font_size(
@@ -284,119 +373,19 @@ def populate_test_description(
     )
 
     test_type, standard = description_values(metadata, report_inputs or {})
-    add_profile_table(slide, ["Laboratory", LABORATORY_NAME],
-                      [["Test type", test_type], ["Standard", standard]],
-                      [5.0, 24.63], 7.65, data_row_height_cm=0.65)
-
-    # ==========================================================
-    # 2. TEST PROCEDURE
-    # ==========================================================
-
-    needs_continuation = calculate_procedure_font_size(
-        procedure, CONTENT_WIDTH_CM, TEST_DESCRIPTION_PROCEDURE_HEIGHT_CM - 2.1,
-        minimum_size_pt=1,
-    ) < FONT_SIZE_PROCEDURE_MIN_PT
-    add_section_header(
-        slide=slide,
-        title="Test procedure (see continuation)" if needs_continuation else "Test procedure",
-        left_cm=CONTENT_LEFT_CM,
-        top_cm=(
-            TEST_DESCRIPTION_PROCEDURE_SECTION_TOP_CM + 2.1
-        ),
-        width_cm=CONTENT_WIDTH_CM,
+    fields_top = TEST_DESCRIPTION_SECOND_ROW_TOP_CM + 1.55
+    fields = (
+        ("Laboratory", LABORATORY_NAME, CONTENT_LEFT_CM, 4.0),
+        ("Test type", test_type, 7.0, 14.0),
+        ("Standard", standard, 22.0, 9.75),
     )
+    fields_height = max(1.5, *(0.48 + text_height_cm(str(value), width, FONT_SIZE_VALUE_PT)
+                               for _, value, _, width in fields))
+    for label, value, left, width in fields:
+        add_label_and_value(slide, label, str(value), left, fields_top, width, fields_height)
 
-    # Los procedimientos largos conservan su texto y una fuente legible.
-    procedure_slide = slide
-    procedure_top = TEST_DESCRIPTION_PROCEDURE_TOP_CM + 2.1
-    procedure_height = TEST_DESCRIPTION_PROCEDURE_HEIGHT_CM - 2.1
-    if needs_continuation:
-        procedure_slide = create_continuation_slide(presentation, slide, "1. Test Description (cont.)")
-        add_section_header(procedure_slide, "Test procedure (continued)", CONTENT_LEFT_CM, 4.25, CONTENT_WIDTH_CM)
-        procedure_top = 5.10
-        procedure_height = 11.20
-    procedure_box = procedure_slide.shapes.add_textbox(
-        Cm(CONTENT_LEFT_CM),
-        Cm(procedure_top),
-        Cm(CONTENT_WIDTH_CM),
-        Cm(procedure_height),
+    populate_procedure_and_contacts(
+        presentation, slide, procedure, requester, technician,
+        header_top=fields_top + fields_height + 0.50,
     )
-
-    procedure_frame = procedure_box.text_frame
-    procedure_frame.clear()
-    procedure_frame.word_wrap = True
-    procedure_frame.auto_size = (
-        MSO_AUTO_SIZE.NONE
-    )
-    procedure_frame.vertical_anchor = (
-        MSO_ANCHOR.TOP
-    )
-
-    procedure_frame.margin_left = Cm(0.10)
-    procedure_frame.margin_right = Cm(0.10)
-    procedure_frame.margin_top = Cm(0.08)
-    procedure_frame.margin_bottom = Cm(0.08)
-
-    procedure_font_size = (
-        calculate_procedure_font_size(
-            text=procedure,
-            box_width_cm=CONTENT_WIDTH_CM,
-            box_height_cm=(
-                procedure_height
-            ),
-        )
-    )
-
-    procedure_paragraph = (
-        procedure_frame.paragraphs[0]
-    )
-
-    procedure_paragraph.text = procedure
-    procedure_paragraph.alignment = PP_ALIGN.LEFT
-    procedure_paragraph.space_before = Pt(0)
-    procedure_paragraph.space_after = Pt(0)
-    procedure_paragraph.line_spacing = 1.0
-
-    procedure_paragraph.font.name = FONT_FAMILY
-    procedure_paragraph.font.size = Pt(
-        procedure_font_size
-    )
-    procedure_paragraph.font.color.rgb = COLOR_NAVY
-
-    # ==========================================================
-    # 3. TEST CONTACTS
-    # ==========================================================
-
-    add_section_header(
-        slide=slide,
-        title="Test contacts",
-        left_cm=CONTENT_LEFT_CM,
-        top_cm=(
-            TEST_DESCRIPTION_CONTACTS_SECTION_TOP_CM
-        ),
-        width_cm=CONTENT_WIDTH_CM,
-    )
-
-    add_label_and_value(
-        slide=slide,
-        label="Requester",
-        value=requester,
-        left_cm=CONTENT_LEFT_CM,
-        top_cm=TEST_DESCRIPTION_CONTACTS_ROW_TOP_CM,
-        width_cm=13.50,
-        height_cm=1.20,
-    )
-
-    add_label_and_value(
-        slide=slide,
-        label="Test technician",
-        value=technician,
-        left_cm=17.50,
-        top_cm=TEST_DESCRIPTION_CONTACTS_ROW_TOP_CM,
-        width_cm=14.25,
-        height_cm=1.20,
-    )
-
-    presentation.save(
-        presentation_path
-    )
+    presentation.save(presentation_path)
