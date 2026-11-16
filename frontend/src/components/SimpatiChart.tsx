@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { evaluateTolerances } from "../services/api";
+import {mergeToleranceTrace, timedPathSegments} from "../services/simpatiToleranceTrace";
 import { toleranceSummary, timestampPosition, type ToleranceSettings, type ToleranceResult } from "../types/tolerances";
 
 import {
@@ -290,6 +291,17 @@ export function SimpatiChart({
     [data],
   );
 
+  const evaluatedTrace = useMemo(() => {
+    const channel = allChannels.find(channel => channel.id === toleranceResult?.channel);
+    return channel && toleranceResult
+      ? mergeToleranceTrace(data.preview_timestamps, channel.values, toleranceResult, channel.unit) : null;
+  }, [allChannels, data.preview_timestamps, toleranceResult]);
+
+  useEffect(() => {
+    if (toleranceResult) setSelectedChannelIds(current => current.includes(toleranceResult.channel)
+      ? current : [...current, toleranceResult.channel]);
+  }, [toleranceResult]);
+
   const selectedChannels = useMemo(
     () =>
       allChannels.filter((channel) =>
@@ -305,8 +317,9 @@ export function SimpatiChart({
   // del intervalo temporal visible, de modo que ampliar el eje X nunca
   // reajusta el eje Y; este solo cambia cuando el usuario lo amplía.
   const defaultYBounds = useMemo(
-    () => defaultValueRange(selectedChannels),
-    [selectedChannels],
+    () => defaultValueRange(selectedChannels.map(channel => channel.id === toleranceResult?.channel && evaluatedTrace
+      ? {...channel, values: evaluatedTrace.map(([, value]) => value)} : channel)),
+    [selectedChannels, evaluatedTrace, toleranceResult],
   );
 
   // Rango Y mostrado: el fijado por el usuario o el rango por defecto.
@@ -429,6 +442,7 @@ export function SimpatiChart({
   };
 
   const toggleChannel = (channelId: string) => {
+    if (channelId === toleranceResult?.channel) return;
     setSelectedChannelIds((current) =>
       current.includes(channelId)
         ? current.filter((id) => id !== channelId)
@@ -569,6 +583,8 @@ export function SimpatiChart({
                 <input
                   type="checkbox"
                   checked={selectedChannelIds.includes(channel.id)}
+                  disabled={channel.id === toleranceResult?.channel}
+                  title={channel.id === toleranceResult?.channel ? "El canal evaluado debe permanecer visible" : undefined}
                   onChange={() => toggleChannel(channel.id)}
                 />
                 <span
@@ -745,10 +761,6 @@ export function SimpatiChart({
               return <rect key={index} x={left} width={Math.max(0, right - left)} y={yScale(display(plateau.setpoint_c + 2))}
                 height={yScale(display(plateau.setpoint_c - 2)) - yScale(display(plateau.setpoint_c + 2))} fill="#58a881" opacity="0.25"/>;
             })}
-            {toleranceResult.excursions.flatMap((segment, index) => segment.map(([time, value], i) => {
-              const displayValue = actualChannels.find(channel => channel.id === evaluatedChannel)?.unit.toLowerCase().includes("f") ? value * 9 / 5 + 32 : value;
-              return <circle key={`${index}-${i}`} cx={xScale(timestampPosition(data.preview_timestamps, time))} cy={yScale(displayValue)} r="4" fill="#d72631"/>;
-            }))}
           </g>}
           {yTicks.map((tick, tickIndex) => {
             const y = yScale(tick);
@@ -827,13 +839,10 @@ export function SimpatiChart({
               channel,
               Math.max(0, advancedIndex),
             );
-            return pathSegments(
-              channel,
-              rangeStart,
-              rangeEnd,
-              xScale,
-              yScale,
-            ).map((points, segmentIndex) => (
+            const segments = channel.id === toleranceResult?.channel && evaluatedTrace
+              ? timedPathSegments(evaluatedTrace, data.preview_timestamps, rangeStart, rangeEnd, xScale, yScale)
+              : pathSegments(channel, rangeStart, rangeEnd, xScale, yScale);
+            return segments.map((points, segmentIndex) => (
               <polyline
                 key={`${channel.id}-${segmentIndex}`}
                 points={points}
@@ -847,6 +856,15 @@ export function SimpatiChart({
             ));
           })}
           </g>
+
+          {toleranceResult && <g clipPath={`url(#${clipPathId})`} pointerEvents="none">
+            {toleranceResult.excursions.flatMap((segment, index) => segment.map(([time, value], i) => {
+              const displayValue = actualChannels.find(channel => channel.id === evaluatedChannel)?.unit.toLowerCase().includes("f") ? value * 9 / 5 + 32 : value;
+              return <circle key={`${index}-${i}`} cx={xScale(timestampPosition(data.preview_timestamps, time))} cy={yScale(displayValue)} r="4" fill="#d72631" pointerEvents="auto">
+                <title>{`${actualChannels.find(channel => channel.id === evaluatedChannel)?.label ?? evaluatedChannel}: ${Number(displayValue.toFixed(3))} ${actualChannels.find(channel => channel.id === evaluatedChannel)?.unit ?? ""} · ${formatTimestamp(time)} · Fuera de tolerancia`}</title>
+              </circle>;
+            }))}
+          </g>}
 
           {selectedChannels.length === 0 && (
             <text

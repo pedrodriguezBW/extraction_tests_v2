@@ -25,11 +25,19 @@ try {
   await page.getByRole("button", {name: "Inspect project", exact: true}).click();
   await page.getByRole("heading", {name: "Configuración del ensayo"}).waitFor();
   await page.getByLabel("Data source", {exact: true}).selectOption("simpati");
-  await page.getByLabel("File", {exact: true}).selectOption("03_Data/01_SIMPATI/synthetic_NOK.x02");
+  await page.getByLabel("File", {exact: true}).selectOption(process.env.SIMPATI_UI_TEST_FILE || "03_Data/01_SIMPATI/synthetic_NOK.x02");
   await page.getByRole("button", {name: "Analyze SIMPATI", exact: true}).click();
   await page.getByText("Mostrar tolerancias", {exact: true}).waitFor();
   await page.getByLabel("Mostrar tolerancias", {exact: true}).check();
   await page.getByText("Tolerancias: NOK (1 tramo fuera)", {exact: true}).waitFor();
+  const markersBelongToCurve = await page.locator(".simpati-chart svg").evaluate(svg => {
+    const points = [...svg.querySelectorAll('polyline[stroke="#005a9c"]')]
+      .flatMap(line => (line.getAttribute("points") || "").split(" "));
+    const markers = [...svg.querySelectorAll('circle[fill="#d72631"]')];
+    return markers.length > 0 && markers.every(marker =>
+      points.includes(`${marker.getAttribute("cx")},${marker.getAttribute("cy")}`) && marker.querySelector("title"));
+  });
+  if (!markersBelongToCurve) throw new Error("Hay marcadores que no pertenecen a la curva medida");
   await page.locator(".simpati-chart").screenshot({path: path.join(output, "ui_tolerances.png")});
   await page.getByRole("button", {name: "Save current chart", exact: true}).click();
   await page.getByText(/Chart saved:/).waitFor();

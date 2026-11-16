@@ -64,7 +64,8 @@ describe("export format", () => {
       out_of_tolerance_segments: 1, ta_c: -40, tb_c: 85, t1_minutes: 30, cycles: 2,
       plateaus: [{start: TIMESTAMPS[2], end: TIMESTAMPS[20], setpoint_c: 20}],
       excursions: [[[new Date(Date.parse(TIMESTAMPS[5]) + 30000).toISOString(), 23]]], warnings: []};
-    const svg = buildChartExportSvg(model({tolerances}));
+    const svg = buildChartExportSvg(model({tolerances,
+      series: [series("Chamber temperature", 20, {id: "actual"})]}));
     expect(svg).toContain("Tolerancias: NOK (1 tramo fuera)");
     expect(svg).toContain("TA medida: -40 °C");
     expect(svg).not.toContain("Estabilización");
@@ -72,6 +73,10 @@ describe("export format", () => {
     expect(svg).toContain("Adquisición completa");
     expect(svg).toContain('fill="#58a881"');
     expect(svg).toContain('fill="#d72631"');
+    const marker = /<circle cx="([^"]+)" cy="([^"]+)"/.exec(svg);
+    const measuredCurve = /<polyline points="([^"]+)"[^>]*stroke="#005a9c"/.exec(svg);
+    expect(marker).not.toBeNull();
+    expect(measuredCurve?.[1].split(" ")).toContain(`${marker?.[1]},${marker?.[2]}`);
     expect(svg).not.toContain("NaN");
     expect(layoutChartExport(model({tolerances})).plot.top).toBeGreaterThan(layoutChartExport(model()).plot.top);
   });

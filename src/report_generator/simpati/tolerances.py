@@ -84,6 +84,7 @@ def evaluate_tolerances(acquisition, channels, test_type, channel_column, refere
               "ta_c": None, "tb_c": None, "t1_minutes": None, "cycles": None,
               "t1_low_minutes": None, "t1_high_minutes": None, "cycles_partial": False,
               "complete_plateaus_count": 0,
+              "excursion_context": [],
               "stabilization_delta_ts_k": None, "plateaus": [], "excursions": [], "warnings": []}
     if low is None or (test_type in {"Na", "Nb", "Nc"} and high - low < 4):
         result["warnings"].append("No hay mesetas extremas suficientes para una evaluación fiable")
@@ -94,6 +95,7 @@ def evaluate_tolerances(acquisition, channels, test_type, channel_column, refere
     reference_incomplete = any(blocks) or acquisition.rejected_count > 0 or any(not math.isfinite(v) for v in setpoints)
     measurement_incomplete = False
     partial_plateaus = False
+    excursion_indexes = set()
     for start, end, duration, target in groups:
         level = "low" if abs(target - low) <= 0.05 else "high" if abs(target - high) <= 0.05 else None
         if level is None or (test_type == "Ab" and level != "low") or (test_type == "Bb" and abs(target - high) > 0.05):
@@ -125,6 +127,7 @@ def evaluate_tolerances(acquisition, channels, test_type, channel_column, refere
                 temperatures[level].append(value)
             outside = math.isfinite(value) and abs(value - target) > 2
             if outside:
+                excursion_indexes.add(i)
                 excursion.append([frame["Timestamp"].iloc[i].isoformat(), value])
             elif excursion:
                 result["excursions"].append(excursion)
@@ -132,6 +135,14 @@ def evaluate_tolerances(acquisition, channels, test_type, channel_column, refere
         if excursion:
             result["excursions"].append(excursion)
     result["out_of_tolerance_segments"] = len(result["excursions"])
+    # El visor reducido debe dibujar también los picos que motivan el NOK,
+    # junto con sus muestras vecinas; no basta con superponer un marcador.
+    context_indexes = sorted({neighbor for i in excursion_indexes
+                              for neighbor in (i - 1, i, i + 1) if 0 <= neighbor < len(times)})
+    result["excursion_context"] = [
+        [frame["Timestamp"].iloc[i].isoformat(), values[i] if math.isfinite(values[i]) else None]
+        for i in context_indexes
+    ]
     if result["plateaus"]:
         incomplete = reference_incomplete or measurement_incomplete
         result["status"] = "NOK" if result["excursions"] else None if incomplete else "OK"

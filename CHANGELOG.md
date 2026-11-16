@@ -4,6 +4,17 @@ All notable project changes are documented in this file.
 
 ## [Unreleased]
 
+### Puntos de tolerancia unidos a la curva
+
+- Corregido: el visor reducía la línea a 1200 muestras pero dibujaba los
+  puntos rojos con datos completos; los picos omitidos parecían flotantes.
+- Al activar tolerancias, el canal evaluado conserva las medidas originales
+  fuera de banda y sus muestras vecinas en la línea y el PNG. Se incluyen en
+  el rango Y automático, y el canal evaluado permanece visible.
+- Los marcadores se dibujan encima de la curva y muestran canal, hora y valor
+  al pasar el ratón. El JSON añade `excursion_context` sin alterar el cálculo
+  de tolerancias ni el trazado con el selector desactivado.
+
 ### Duraciones y ciclos SIMPATI con registros incompletos
 
 - Corregido: una medida ausente o un hueco anulaba t1 y todos los ciclos,

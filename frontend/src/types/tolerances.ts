@@ -8,6 +8,7 @@ export interface ToleranceResult {
   t1_low_minutes?: number | null; t1_high_minutes?: number | null; cycles_partial?: boolean;
   plateaus: {start: string; end: string; setpoint_c: number}[];
   excursions: [string, number][][];
+  excursion_context?: [string, number | null][];
   warnings: string[];
 }
 export function toleranceSummary(result: ToleranceResult): string[] {

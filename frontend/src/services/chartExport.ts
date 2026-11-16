@@ -18,6 +18,7 @@
 
 import { valueTickDecimals, type ChartViewport, type ValueRange } from "./chartZoom";
 import { toleranceSummary, timestampPosition, type ToleranceResult } from "../types/tolerances";
+import {mergeToleranceTrace, timedPathSegments} from "./simpatiToleranceTrace";
 
 /** Proporción ancho:alto de las imágenes exportadas. */
 export const EXPORT_ASPECT_RATIO = 1.6;
@@ -568,7 +569,11 @@ export function buildChartExportSvg(model: ChartExportModel): string {
   parts.push(model.viewport.yRange !== null ? `<g clip-path="url(#export-plot)">` : "<g>");
   for (const item of model.series) {
     const width = pt(item.primary ? EXPORT_LINE_PT.primary : EXPORT_LINE_PT.secondary);
-    for (const points of pathSegments(item.values, xStart, xEnd, xScale, yScale)) {
+    const segments = model.tolerances && item.id === model.tolerances.channel
+      ? timedPathSegments(mergeToleranceTrace(model.timestamps, item.values, model.tolerances, model.toleranceUnit ?? "°C"),
+          model.timestamps, xStart, xEnd, xScale, yScale)
+      : pathSegments(item.values, xStart, xEnd, xScale, yScale);
+    for (const points of segments) {
       parts.push(
         `<polyline points="${points}" fill="none" stroke="${item.color}" stroke-width="${round(width)}"` +
           `${item.dash ? ` stroke-dasharray="${scaleDash(item.dash)}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`,

@@ -50,6 +50,10 @@ class ToleranceTests(unittest.TestCase):
         self.assertEqual(result["status"], "NOK")
         self.assertEqual(result["out_of_tolerance_segments"], 2)
         self.assertEqual(len(result["excursions"][0]), 2)
+        context = dict(result["excursion_context"])
+        for i in (9, 10, 11, 12, 14, 15, 16):
+            self.assertEqual(context[acquisition.dataframe["Timestamp"].iloc[i].isoformat()],
+                             acquisition.dataframe["A:Temperature [°C]"].iloc[i])
 
     def test_boundary_is_inclusive_and_missing_measurements_prevent_ok(self):
         acquisition = synthetic_acquisition()

@@ -125,6 +125,14 @@ recuadro y excursiones forman parte del PNG. El recuadro se diseña con texto
 de 10 pt al tamaño de una columna del informe. Apagado conserva exactamente
 el SVG anterior, verificado por prueba de igualdad.
 
+La reducción de la vista previa no elimina del trazado del canal evaluado
+las medidas fuera de banda: el backend devuelve `excursion_context` con
+cada excursión y sus muestras vecinas. Visor y exportador fusionan esos
+valores originales con la línea reducida por marca temporal. El rango Y
+automático incluye estos valores, el canal evaluado permanece visible y
+los marcadores muestran canal, hora y valor al pasar el ratón. Así se evita
+que un pico eliminado por el muestreo aparezca como un punto rojo flotante.
+
 `POST /projects/simpati/tolerances` recibe `test_root`, `relative_path`,
 `test_type`, `channel` y `reference` opcional. El guardado SIMPATI admite
 `tolerances: {test_type, channel, reference}` y recalcula el resultado antes
@@ -162,7 +170,7 @@ Las pruebas usan también los dos logs reales versionados en
 
 - Batería Python: `python -m unittest discover -s tests -q` (373 pruebas,
   incluidas las pruebas de formato y paginación; dos omitidas por plataforma).
-- Frontend: `npm test` (188 pruebas) y `npm run build`.
+- Frontend: `npm test` (191 pruebas) y `npm run build`.
 - Guardado/recarga, metadata intacto, archivos inválidos, `_Working` borrada,
   cambios de log, cámaras y prioridad de norma.
 - OK/NOK sintético, límites inclusivos, asentamiento mínimo/máximo, huecos,

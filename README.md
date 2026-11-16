@@ -57,6 +57,11 @@ TA/TB medidas, t1 y ciclos; el resultado numérico se
 guarda en el JSON acompañante. Rampas y estabilización del espécimen no se
 evalúan. Sin datos suficientes se muestra `—`, nunca un OK supuesto.
 
+Con tolerancias activadas, la línea del canal evaluado conserva los puntos
+fuera de tolerancia y sus medidas vecinas, aunque el visor reduzca el resto
+del archivo. Los puntos rojos pertenecen así al trazado visible; al pasar
+el ratón muestran canal, hora y valor. El canal evaluado permanece visible.
+
 La duración de meseta y los ciclos se calculan desde la consigna, incluso
 si faltan medidas de temperatura. Solo se usan mesetas completas y no se
 unen ciclos a través de huecos. Un recuento limitado a los tramos observados
