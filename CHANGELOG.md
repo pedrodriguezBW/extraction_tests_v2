@@ -4,6 +4,14 @@ All notable project changes are documented in this file.
 
 ## [Unreleased]
 
+### Cámara en Test Assembly
+
+- El nombre de cámara aparece una sola vez, seguido de su tipo en la misma
+  tipografía, justo encima de Additional equipment. Se elimina la tabla de
+  cámara de la continuación, que conserva solo los puntos de medida.
+- Additional equipment se desplaza hacia abajo; caben tres equipos en la
+  primera diapositiva y los restantes usan las continuaciones existentes.
+
 ### Ajuste de Test Description
 
 - Laboratory, Test type y Standard usan etiquetas grises y valores debajo,

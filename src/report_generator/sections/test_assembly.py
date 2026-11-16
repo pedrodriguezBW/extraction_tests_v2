@@ -263,31 +263,25 @@ def populate_test_assembly_images(
         width_cm=CONTENT_WIDTH_CM,
     )
 
-    facility_box = slide.shapes.add_textbox(
-        Cm(CONTENT_LEFT_CM),
-        Cm(12.70),
-        Cm(CONTENT_WIDTH_CM),
-        Cm(0.55),
-    )
-
-    facility_frame = facility_box.text_frame
-    facility_frame.clear()
-    facility_frame.word_wrap = True
-    facility_frame.margin_left = 0
-    facility_frame.margin_right = 0
-    facility_frame.margin_top = 0
-    facility_frame.margin_bottom = 0
-    facility_frame.vertical_anchor = MSO_ANCHOR.TOP
-
-    facility_paragraph = facility_frame.paragraphs[0]
-    facility_paragraph.text = climatic_chamber
-    facility_paragraph.font.name = FONT_FAMILY
-    facility_paragraph.font.size = Pt(
-        FONT_SIZE_LABEL_PT
-    )
-    facility_paragraph.font.color.rgb = COLOR_NAVY
-    facility_paragraph.space_before = Pt(0)
-    facility_paragraph.space_after = Pt(0)
+    # Nombre y tipo de cámara aparecen juntos, con idéntico estilo.
+    for facility_text, top_cm in (
+        (climatic_chamber or "—", 12.70),
+        (chamber_description(climatic_chamber), 13.25),
+    ):
+        facility_box = slide.shapes.add_textbox(
+            Cm(CONTENT_LEFT_CM), Cm(top_cm), Cm(CONTENT_WIDTH_CM), Cm(0.55),
+        )
+        facility_frame = facility_box.text_frame
+        facility_frame.word_wrap = True
+        facility_frame.margin_left = facility_frame.margin_right = 0
+        facility_frame.margin_top = facility_frame.margin_bottom = 0
+        facility_frame.vertical_anchor = MSO_ANCHOR.TOP
+        facility_paragraph = facility_frame.paragraphs[0]
+        facility_paragraph.text = facility_text
+        facility_paragraph.font.name = FONT_FAMILY
+        facility_paragraph.font.size = Pt(FONT_SIZE_LABEL_PT)
+        facility_paragraph.font.color.rgb = COLOR_NAVY
+        facility_paragraph.space_before = facility_paragraph.space_after = Pt(0)
 
     # ==========================================================
     # 3. EQUIPAMIENTO ADICIONAL
@@ -295,8 +289,9 @@ def populate_test_assembly_images(
 
     equipment_items = metadata.get("equipment") or []
 
-    first_slide_equipment = equipment_items[:4]
-    remaining_equipment = equipment_items[4:]
+    # La nueva línea deja espacio para tres equipos antes del pie.
+    first_slide_equipment = equipment_items[:3]
+    remaining_equipment = equipment_items[3:]
 
     continuation_equipment_groups = chunk_items(
         items=remaining_equipment,
@@ -308,16 +303,16 @@ def populate_test_assembly_images(
             slide=slide,
             title="Additional equipment",
             left_cm=CONTENT_LEFT_CM,
-            top_cm=13.40,
+            top_cm=14.05,
             width_cm=CONTENT_WIDTH_CM,
         )
 
         add_equipment_column_headers(
             slide=slide,
-            top_cm=14.07,
+            top_cm=14.72,
         )
 
-        first_equipment_top_cm = 14.50
+        first_equipment_top_cm = 15.15
         equipment_row_spacing_cm = 0.52
 
         for equipment_index, equipment_data in enumerate(
@@ -387,7 +382,7 @@ def populate_test_assembly_images(
         lines = max(sum(max(1, ceil(len(line) / width)) for line in str(point.get(key) or "—").splitlines())
                     for key, width in (("channel", 30), ("location", 30), ("sensor_type", 19)))
         height = max(0.85, 0.56 * lines + 0.2)
-        capacity = 7.0 if len(groups) == 1 else 10.8
+        capacity = 10.8
         if groups[-1] and sum(heights[-1]) + height > capacity:
             groups.append([])
             heights.append([])
@@ -399,10 +394,6 @@ def populate_test_assembly_images(
             title="2. Test Assembly (cont.)",
         )
         top = 4.25
-        if index == 0:
-            top = add_profile_table(details, ["Chamber", "Chamber type"],
-                                    [[climatic_chamber or "—", chamber_description(climatic_chamber)]],
-                                    [12.0, 17.63], top, data_row_height_cm=1.1) + 0.6
         add_section_header(details, "Measurement points", CONTENT_LEFT_CM, top, CONTENT_WIDTH_CM)
         rows = [[point.get(key) or "—" for key in ("channel", "location", "sensor_type")]
                 + [functions.get(point.get("function"), "—")] for point in group]

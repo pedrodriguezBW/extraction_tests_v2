@@ -127,3 +127,30 @@ class IecReportTests(unittest.TestCase):
         self.assertIn("Procedure step", all_text(type("Deck", (), {"slides": [slides[0]]})()))
         self.assertEqual("".join(fragments).replace("\v", "\n"), procedure)
         self.assertTrue(contact_seen)
+
+    def test_chamber_appears_once_above_equipment_with_matching_style(self):
+        chamber = "TECLI00023 - CC TS (OS)"
+        description = "Rapid change chamber – 2 compartments, basket"
+        equipment = [{"equipment_used": f"Equipment-{i}", "equipment_code": f"EQ-{i}"} for i in range(5)]
+        root = build_test_folder(self.workspace / "TEST - 005", metadata=minimal_metadata(
+            test_facility={"climatic_chamber": chamber}, equipment=equipment))
+        presentation = Presentation(generate_climatic_report(root, self.template))
+        text = all_text(presentation)
+        self.assertEqual(text.count(chamber), 1)
+        self.assertEqual(text.count(description), 1)
+        first = next(slide for slide in presentation.slides if slide.shapes.title and slide.shapes.title.text == "2. Test Assembly")
+        shapes = {shape.text: shape for shape in first.shapes if shape.has_text_frame}
+        name_shape, type_shape = shapes[chamber], shapes[description]
+        self.assertEqual(name_shape.left, type_shape.left)
+        self.assertLess(name_shape.top, type_shape.top)
+        self.assertLess(type_shape.top + type_shape.height, shapes["ADDITIONAL EQUIPMENT"].top)
+        name_font = name_shape.text_frame.paragraphs[0].font
+        type_font = type_shape.text_frame.paragraphs[0].font
+        self.assertEqual((name_font.name, name_font.size, name_font.color.rgb),
+                         (type_font.name, type_font.size, type_font.color.rgb))
+        self.assertFalse(any(shape.has_table for shape in first.shapes))
+        for item in equipment:
+            self.assertEqual(text.count(item["equipment_used"]), 1)
+        for shape in first.shapes:
+            if shape.has_text_frame and shape.text.startswith("Equipment-"):
+                self.assertLess(shape.top + shape.height, Cm(16.80))

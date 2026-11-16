@@ -41,9 +41,11 @@ integral con las normas ni demuestra estabilización del espécimen.
   lo sustituye; la advertencia permite revisar el original antes de ello.
 - Laboratory, Test type y Standard se presentan en Test Description con las
   etiquetas grises y los valores debajo del resto de parámetros, sin tabla.
-  Para conservar fotografías
-  y equipamiento, cámara y puntos se presentan en una continuación de
-  Assembly. Se estiman alturas por contenido y se pagina sin reducir fuente.
+  La cámara aparece una sola vez en la primera diapositiva de Assembly:
+  nombre y tipo con la misma tipografía, justo antes de Additional equipment.
+  Caben tres equipos en esa diapositiva; el resto usa continuaciones. Los
+  puntos de medida se presentan en continuaciones propias, estimando alturas
+  por contenido y paginando sin reducir fuente.
   Test Procedure empieza en la primera diapositiva y ocupa el espacio hacia
   abajo antes de desplazar Test contacts. Si los contactos no caben tras el
   procedimiento, pasan a una continuación; si el procedimiento ocupa varias
@@ -146,7 +148,7 @@ Las pruebas usan también los dos logs reales versionados en
 
 ## Validación realizada
 
-- Batería Python: `python -m unittest discover -s tests -q` (366 pruebas,
+- Batería Python: `python -m unittest discover -s tests -q` (367 pruebas,
   incluidas las pruebas de formato y paginación; dos omitidas por plataforma).
 - Frontend: `npm test` (186 pruebas) y `npm run build`.
 - Guardado/recarga, metadata intacto, archivos inválidos, `_Working` borrada,
